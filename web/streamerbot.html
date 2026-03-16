@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Chaos Crew – Streamerbot Actions</title>
+<link rel="stylesheet" href="streamerbot.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-cc">STREAMERBOT</span>
+    <span class="logo-sep">//</span>
+    <span class="logo-crew">ACTIONS</span>
+  </div>
+  <div class="logo-sub">C# CODE // KOPIEREN &amp; EINF&Uuml;GEN</div>
+  <a href="index.html" class="back-link">&#x2190; CONTROL CENTER</a>
+</header>
+
+<main>
+
+  <div class="setup-box">
+    <div class="setup-title">SETUP ANLEITUNG</div>
+    <div class="setup-steps">
+      <div class="step"><span class="step-nr">1</span><span>Streamerbot &rarr; Actions &rarr; Add</span></div>
+      <div class="step"><span class="step-nr">2</span><span>Name eingeben (siehe Karte)</span></div>
+      <div class="step"><span class="step-nr">3</span><span>Sub-Actions &rarr; Add &rarr; Core &rarr; C# Code</span></div>
+      <div class="step"><span class="step-nr">4</span><span>Code kopieren &rarr; einfügen &rarr; Save &amp; Compile</span></div>
+      <div class="step"><span class="step-nr">5</span><span>Trigger hinzufügen (siehe Karte unten)</span></div>
+    </div>
+  </div>
+
+  <div id="actions-container"></div>
+
+</main>
+
+<script src="streamerbot-data.js"></script>
+<script>
+(function() {
+  var container = document.getElementById('actions-container');
+  if (!container) return;
+  if (!window.SB_ACTIONS || !SB_ACTIONS.length) {
+    container.innerHTML = '<div style="color:#ff4444;font-family:monospace;padding:20px;">Fehler: streamerbot-data.js nicht geladen</div>';
+    return;
+  }
+
+  SB_ACTIONS.forEach(function(action, idx) {
+    var id = 'action-' + idx;
+
+    var card = document.createElement('div');
+    card.className = 'action-card';
+
+    // Header
+    var header = document.createElement('div');
+    header.className = 'action-header';
+    header.innerHTML =
+      '<div class="action-meta">' +
+        '<div class="action-name">' + esc(action.name) + '</div>' +
+        '<div class="action-desc">' + esc(action.desc) + '</div>' +
+        '<div class="action-trigger"><span class="trigger-label">TRIGGER &rarr;</span>' + esc(action.trigger) + '</div>' +
+      '</div>';
+
+    var btn = document.createElement('button');
+    btn.className = 'copy-btn';
+    btn.id = 'btn-' + id;
+    btn.innerHTML = '<span>&#x2398;</span> KOPIEREN';
+    btn.onclick = (function(a, btnId) {
+      return function() { copyCode(a.code, btnId); };
+    })(action, 'btn-' + id);
+
+    header.appendChild(btn);
+    card.appendChild(header);
+
+    // Code block
+    var wrap = document.createElement('div');
+    wrap.className = 'code-wrap';
+    var pre = document.createElement('pre');
+    pre.className = 'code-block';
+    pre.innerHTML = highlight(action.code);
+    wrap.appendChild(pre);
+    card.appendChild(wrap);
+
+    container.appendChild(card);
+  });
+
+  function copyCode(code, btnId) {
+    var btn = document.getElementById(btnId);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).then(function() {
+        flashBtn(btn);
+      }).catch(function() { fallbackCopy(code, btn); });
+    } else {
+      fallbackCopy(code, btn);
+    }
+  }
+
+  function fallbackCopy(code, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = code;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); flashBtn(btn); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+
+  function flashBtn(btn) {
+    if (!btn) return;
+    btn.innerHTML = '<span>&#x2713;</span> KOPIERT!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.innerHTML = '<span>&#x2398;</span> KOPIEREN';
+      btn.classList.remove('copied');
+    }, 2000);
+  }
+
+  function highlight(code) {
+    var s = esc(code);
+    // Kommentare (einzeilig)
+    s = s.replace(/(\/\/[^\n]*)/g, '<span class="cm">$1</span>');
+    // Strings
+    s = s.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g, '<span class="st">$1</span>');
+    // Keywords
+    ['using','public','private','static','readonly','class','void',
+     'bool','string','int','long','var','new','return','true','false',
+     'null','if','else','foreach','switch','case','break','const',
+     'try','catch','out','in','throw'].forEach(function(kw) {
+      s = s.replace(new RegExp('\\b(' + kw + ')\\b', 'g'), '<span class="kw">$1</span>');
+    });
+    // Zahlen
+    s = s.replace(/\b(\d+)\b/g, '<span class="nm">$1</span>');
+    return s;
+  }
+
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+})();
+</script>
+</body>
+</html>

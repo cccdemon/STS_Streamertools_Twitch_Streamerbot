@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Chaos Crew – Giveaway Test Suite</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+  :root { --cyan:#00d4ff; --gold:#f0a500; --bg:#04060a; --bg2:#080e14; --bg3:#0c1520; --red:#ff4444; --green:#00ff88; --text:#c8dce8; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Rajdhani',sans-serif; font-size:14px; padding:24px; }
+
+  header { border-bottom:1px solid rgba(0,212,255,0.2); padding-bottom:16px; margin-bottom:24px; }
+  h1 { font-size:20px; letter-spacing:3px; color:var(--cyan); font-weight:700; }
+  h1 span { color:var(--gold); }
+  .subtitle { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(200,220,232,0.4); margin-top:4px; letter-spacing:1px; }
+
+  .controls { display:flex; gap:12px; align-items:center; margin-bottom:20px; flex-wrap:wrap; }
+  .controls label { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(200,220,232,0.5); }
+  input { background:var(--bg3); border:1px solid rgba(0,212,255,0.25); color:var(--text); font-family:'Share Tech Mono',monospace; font-size:12px; padding:5px 10px; outline:none; width:180px; }
+  input:focus { border-color:var(--cyan); }
+
+  .btn { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:1px; padding:8px 18px; border:1px solid; cursor:pointer; background:transparent; text-transform:uppercase; transition:all 0.15s; }
+  .btn-run  { color:var(--green); border-color:rgba(0,255,136,0.5); }
+  .btn-run:hover { background:rgba(0,255,136,0.1); }
+  .btn-run:disabled { opacity:0.4; cursor:not-allowed; }
+
+  table { width:100%; border-collapse:collapse; margin-bottom:20px; }
+  thead tr { background:var(--bg3); border-bottom:1px solid rgba(0,212,255,0.2); }
+  th { font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1.5px; color:rgba(0,212,255,0.7); padding:8px 12px; text-align:left; }
+  tbody tr { border-bottom:1px solid rgba(0,212,255,0.06); }
+  tbody tr:hover { background:rgba(0,212,255,0.03); }
+  td { padding:8px 12px; }
+
+  .test-name { font-weight:600; font-size:14px; white-space:nowrap; }
+  .test-desc { color:rgba(200,220,232,0.5); font-size:12px; }
+  .test-detail { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(200,220,232,0.5); max-width:300px; }
+
+  .test-state { font-family:'Share Tech Mono',monospace; font-size:10px; padding:2px 8px; border:1px solid; letter-spacing:1px; white-space:nowrap; }
+  .state-idle    { color:rgba(200,220,232,0.3); border-color:rgba(200,220,232,0.15); }
+  .state-running { color:var(--gold);  border-color:rgba(240,165,0,0.5);  animation:pulse 0.6s infinite; }
+  .state-pass    { color:var(--green); border-color:rgba(0,255,136,0.5); }
+  .state-fail    { color:var(--red);   border-color:rgba(255,68,68,0.5); }
+
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+  .summary { font-family:'Share Tech Mono',monospace; font-size:14px; padding:12px 18px; border:1px solid; letter-spacing:1px; }
+  .summary.pass { color:var(--green); border-color:rgba(0,255,136,0.4); background:rgba(0,255,136,0.05); }
+  .summary.fail { color:var(--red);   border-color:rgba(255,68,68,0.4);  background:rgba(255,68,68,0.05); }
+
+  .warning { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--gold); border:1px solid rgba(240,165,0,0.3); padding:10px 14px; margin-bottom:20px; background:rgba(240,165,0,0.04); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CHAOS CREW // <span>Giveaway</span> Test Suite</h1>
+  <div class="subtitle">AUTOMATISIERTE FUNKTIONS-TESTS // STREAMERBOT INTEGRATION</div>
+</header>
+
+<div class="warning">
+  HINWEIS: Tests aendern Daten in Streamerbot (Tickets, Ban, Keyword, Reset).
+  Nur ausfuehren wenn kein aktives Giveaway laeuft.
+  Ein Reset am Ende loescht alle Testdaten automatisch.
+</div>
+
+<div class="controls">
+  <label>WS HOST</label>
+  <input id="host" value="192.168.178.39">
+  <label>PORT</label>
+  <input id="port" value="9090" style="width:80px;">
+  <button class="btn btn-run" id="btn-run" onclick="runAll()">ALLE TESTS STARTEN</button>
+  <span id="summary" class="summary" style="display:none;"></span>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>TEST</th>
+      <th>BESCHREIBUNG</th>
+      <th>STATUS</th>
+      <th>DETAIL</th>
+    </tr>
+  </thead>
+  <tbody id="test-tbody"></tbody>
+</table>
+
+<script>
+// Read host/port from inputs before tests run
+var _origRunAll;
+document.getElementById('btn-run').addEventListener('click', function() {
+  TEST_HOST = document.getElementById('host').value;
+  TEST_PORT = document.getElementById('port').value;
+  document.getElementById('summary').style.display = 'none';
+}, true);
+
+// Override showSummary to show element
+var _origShow;
+</script>
+<script src="tests.js"></script>
+<script>
+// Patch showSummary to also show the element
+var _baseSummary = showSummary;
+showSummary = function() {
+  _baseSummary();
+  document.getElementById('summary').style.display = 'inline-block';
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VERSE // Shoutout Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #FFD700;
+    --gold-dim: #B89A00;
+    --cyan: #00E5FF;
+    --cyan-dim: #007A8A;
+    --bg: #0a0c0f;
+    --bg2: #0f1318;
+    --bg3: #151b22;
+    --border: rgba(255,215,0,0.18);
+    --border-cyan: rgba(0,229,255,0.18);
+    --text: #c8d8e0;
+    --text-dim: #556070;
+    --danger: #ff4444;
+    --success: #00ff88;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Corner decorations */
+  .corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: fixed;
+    width: 40px; height: 40px;
+    pointer-events: none;
+    z-index: 999;
+  }
+  .corner-tl { top: 12px; left: 12px; border-top: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+  .corner-tr { top: 12px; right: 12px; border-top: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+  .corner-bl { bottom: 12px; left: 12px; border-bottom: 2px solid var(--gold); border-left: 2px solid var(--gold); }
+  .corner-br { bottom: 12px; right: 12px; border-bottom: 2px solid var(--gold); border-right: 2px solid var(--gold); }
+
+  header {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    background: linear-gradient(180deg, rgba(255,215,0,0.04) 0%, transparent 100%);
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 0 0 30px rgba(255,215,0,0.4);
+    line-height: 1;
+  }
+
+  .logo span {
+    color: var(--cyan);
+    text-shadow: 0 0 30px rgba(0,229,255,0.5);
+  }
+
+  .subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan-dim);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .ws-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .ws-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    box-shadow: none;
+    transition: all 0.3s;
+  }
+  .ws-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+  .ws-dot.error { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .ws-config {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  input[type="text"], input[type="number"] {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="text"]:focus, input[type="number"]:focus {
+    border-color: var(--cyan);
+  }
+
+  .btn {
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 2px;
+    font-size: 14px;
+    padding: 6px 16px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .btn:active::after { opacity: 0.1; }
+
+  .btn-gold {
+    background: var(--gold);
+    color: #000;
+  }
+  .btn-gold:hover { background: #ffe840; box-shadow: 0 0 16px rgba(255,215,0,0.4); }
+
+  .btn-cyan {
+    background: transparent;
+    color: var(--cyan);
+    border: 1px solid var(--cyan-dim);
+  }
+  .btn-cyan:hover { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,0.2); color: #fff; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid rgba(255,68,68,0.3);
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  .btn-danger:hover { border-color: var(--danger); box-shadow: 0 0 8px rgba(255,68,68,0.2); }
+
+  .btn-so {
+    background: var(--cyan);
+    color: #000;
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+  .btn-so:hover { background: #40efff; box-shadow: 0 0 12px rgba(0,229,255,0.4); }
+  .btn-so:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* Layout */
+  .main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    height: calc(100vh - 94px);
+  }
+
+  .panel-left {
+    overflow-y: auto;
+    padding: 24px 32px;
+    border-right: 1px solid var(--border);
+  }
+
+  .panel-right {
+    overflow-y: auto;
+    padding: 24px 24px;
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .section-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: var(--gold);
+    flex: 1;
+  }
+
+  .count-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid var(--border-cyan);
+    padding: 3px 10px;
+    letter-spacing: 2px;
+  }
+
+  /* Search */
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    max-width: 220px;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding-left: 28px;
+  }
+  .search-icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  /* Streamer table */
+  .streamer-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .streamer-row {
+    display: grid;
+    grid-template-columns: 30px 1fr auto auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg2);
+    border: 1px solid transparent;
+    border-left: 2px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .streamer-row:hover {
+    border-color: var(--border);
+    border-left-color: var(--gold-dim);
+    background: var(--bg3);
+  }
+
+  .streamer-row.enabled {
+    border-left-color: var(--cyan);
+  }
+
+  .streamer-row.expanded {
+    border-color: var(--border-cyan);
+    border-left-color: var(--cyan);
+    background: var(--bg3);
+  }
+
+  .row-num {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: right;
+  }
+
+  .row-name {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  .row-name:hover { color: var(--gold); }
+
+  .row-toggle {
+    position: relative;
+    width: 32px; height: 16px;
+    cursor: pointer;
+  }
+  .row-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .row-toggle-track {
+    position: absolute;
+    inset: 0;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  .row-toggle-thumb {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: all 0.2s;
+  }
+  .row-toggle input:checked ~ .row-toggle-track {
+    background: rgba(0,229,255,0.15);
+    border-color: var(--cyan-dim);
+  }
+  .row-toggle input:checked ~ .row-toggle-thumb {
+    left: 18px;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+  }
+
+  .expand-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    letter-spacing: 1px;
+    font-family: 'Share Tech Mono', monospace;
+    transition: color 0.15s;
+  }
+  .expand-btn:hover { color: var(--gold); }
+
+  .streamer-detail {
+    display: none;
+    padding: 12px 14px 14px;
+    background: rgba(0,229,255,0.03);
+    border: 1px solid var(--border-cyan);
+    border-top: none;
+    margin-top: -2px;
+  }
+  .streamer-detail.open { display: block; }
+
+  .detail-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .char-counter {
+    color: var(--text-dim);
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.5;
+  }
+  textarea:focus { border-color: var(--cyan); }
+
+  .vars-hint {
+    margin-top: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .var-tag {
+    color: var(--gold-dim);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .var-tag:hover { color: var(--gold); }
+
+  /* Right panel sections */
+  .rpanel-section {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 16px;
+  }
+
+  .rpanel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .rpanel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .field-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 6px 0;
+  }
+
+  .checkbox-row input[type="checkbox"] {
+    appearance: none;
+    width: 14px; height: 14px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .checkbox-row input[type="checkbox"]:checked {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    box-shadow: 0 0 6px rgba(0,229,255,0.4);
+  }
+  .checkbox-row input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    color: #000;
+    font-size: 9px;
+    font-weight: bold;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .checkbox-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .default-template-wrap {
+    margin-top: 10px;
+  }
+
+  /* Export section */
+  .export-area {
+    position: relative;
+  }
+
+  .code-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    max-height: 180px;
+    overflow-y: auto;
+    white-space: pre;
+    line-height: 1.6;
+    margin-bottom: 8px;
+  }
+
+  /* Log */
+  .log-area {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .log-entries {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    max-height: 160px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .log-entry {
+    display: flex;
+    gap: 10px;
+    line-height: 1.4;
+  }
+  .log-time { color: var(--text-dim); flex-shrink: 0; }
+  .log-msg { color: var(--text); }
+  .log-entry.ok .log-msg { color: var(--success); }
+  .log-entry.err .log-msg { color: var(--danger); }
+  .log-entry.info .log-msg { color: var(--cyan-dim); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg3);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 10px 24px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Add streamer */
+  .add-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .add-row input { flex: 1; }
+
+  /* Separator */
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 8px 0;
+  }
+
+  select {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    width: 100%;
+  }
+
+  .cooldown-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cooldown-row input { width: 70px; }
+  .cooldown-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="corner-tl"></div>
+<div class="corner-tr"></div>
+<div class="corner-bl"></div>
+<div class="corner-br"></div>
+<div class="toast" id="toast"></div>
+
+<header>
+  <div>
+    <div class="logo">VERSE <span>//</span> SO</div>
+    <div class="subtitle">AUTOSHOUTOUT ADMIN · CHAOS CREW</div>
+  </div>
+  <div class="header-right">
+    <div class="ws-status">
+      <div class="ws-dot" id="wsDot"></div>
+      <span id="wsLabel" style="font-size:10px;letter-spacing:1px;color:var(--text-dim)">DISCONNECTED</span>
+    </div>
+    <div class="ws-config">
+      <input type="text" id="wsHost" value="192.168.178.39" style="width:130px" placeholder="Host">
+      <input type="text" id="wsPort" value="9090" style="width:60px" placeholder="Port">
+      <button class="btn btn-cyan" onclick="connectWS()">CONNECT</button>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- LEFT: Streamer list -->
+  <div class="panel-left">
+    <div class="toolbar">
+      <div class="section-label">VERSE MEMBERS</div>
+      <div class="count-badge" id="countBadge">0 / 0</div>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="FILTER..." style="width:100%;font-size:11px" oninput="renderList()">
+      </div>
+      <button class="btn btn-ghost" onclick="enableAll()">ALL ON</button>
+      <button class="btn btn-ghost" onclick="disableAll()">ALL OFF</button>
+    </div>
+
+    <div class="add-row">
+      <input type="text" id="addName" placeholder="NEUEN STREAMER HINZUFÜGEN..." onkeydown="if(event.key==='Enter')addStreamer()">
+      <button class="btn btn-gold" onclick="addStreamer()">+ ADD</button>
+    </div>
+
+    <div class="streamer-list" id="streamerList"></div>
+  </div>
+
+  <!-- RIGHT: Config & Export -->
+  <div class="panel-right">
+
+    <!-- Trigger config -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">TRIGGER</div>
+      <div class="field-group">
+        <label class="checkbox-row">
+          <input type="checkbox" id="trigRaid" checked>
+          <span class="checkbox-label">Raid auf deinen Kanal</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="trigChat" checked>
+          <span class="checkbox-label">Erstes Chat-Event</span>
+        </label>
+      </div>
+      <div>
+        <div class="field-label">COOLDOWN PRO STREAMER</div>
+        <div class="cooldown-row">
+          <input type="number" id="cooldownMin" value="60" min="0" max="9999">
+          <span class="cooldown-label">MIN (0 = kein Cooldown)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Output config -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">OUTPUT</div>
+      <div class="field-group">
+        <label class="checkbox-row">
+          <input type="checkbox" id="outChat" checked>
+          <span class="checkbox-label">Chat-Nachricht</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="outWS" checked>
+          <span class="checkbox-label">shoutout-info.html (WebSocket)</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="outTwitchSO">
+          <span class="checkbox-label">Twitch /shoutout</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Default template -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">DEFAULT TEXT</div>
+      <div class="detail-label" style="margin-bottom:6px">
+        <span>CHAT-TEMPLATE</span>
+      </div>
+      <textarea id="defaultTemplate" rows="3">Zeigt etwas Liebe für %user%! Schaut mal auf twitch.tv/%user% vorbei — toller Kanal! ❤️</textarea>
+      <div class="vars-hint">
+        <span style="color:var(--text-dim)">VARS:</span>
+        <span class="var-tag" onclick="insertVar('defaultTemplate','%user%')">%user%</span>
+        <span class="var-tag" onclick="insertVar('defaultTemplate','%game%')">%game%</span>
+        <span class="var-tag" onclick="insertVar('defaultTemplate','%title%')">%title%</span>
+        <span class="var-tag" onclick="insertVar('defaultTemplate','%followers%')">%followers%</span>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="rpanel-section">
+      <div class="rpanel-title">EXPORT</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button class="btn btn-gold" onclick="exportJSON()" style="flex:1">JSON EXPORT</button>
+        <button class="btn btn-cyan" onclick="showCSCode()" style="flex:1">C# ACTION</button>
+      </div>
+      <div class="code-block" id="exportCode">// Klicke auf JSON EXPORT oder C# ACTION</div>
+      <button class="btn btn-ghost" style="width:100%" onclick="copyCode()">KOPIEREN</button>
+    </div>
+
+    <!-- Log -->
+    <div class="rpanel-section log-area">
+      <div class="rpanel-title" style="margin-bottom:10px">
+        LOG
+        <button class="btn btn-ghost" onclick="clearLog()" style="margin-left:auto;font-size:10px;padding:2px 8px">CLEAR</button>
+      </div>
+      <div class="log-entries" id="logEntries"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── DATA ───────────────────────────────────────────────────────────────────
+
+const VERSE_MEMBERS_DEFAULT = [
+  "Arasil__","11flothepro11","SunaDevi","xnlyLu","Nightwolf_ger","Konfina",
+  "X_one_SGE","dschulsii","nullskillgaming","EinfachFlow","DemoriaanTV",
+  "vampiiding","M4rc4Life","MaruyamaSaki","A_Warlord","blakharaz_tristis",
+  "eXp_LP","FlatMoki","Sunshine4882_TTV","foxy84","S1TT1NGBULL",
+  "smoka_tv","LunaTimetraveler","Eerie_Legend","olddog_tv","kaltal_",
+  "MERC_Live","Vi5E","DerOrgaSC","Nachtmeister666","RicksWorld",
+  "Spacefamilie","Tex_Mayhem","jenniferhof_aka_toxona","TurboTuerke",
+  "Ravefromhell","JustCallMeDeimos","OmOzzO","L4ndry","PitbullPitTv",
+  "LostSpezi","Dr_h0nK","Mondscheinritter"
+];
+
+// State
+let streamers = [];
+let expandedId = null;
+let ws = null;
+
+// Load or init
+function initData() {
+  const saved = localStorage.getItem('verse_so_config');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      streamers = parsed.streamers || [];
+      // Merge new default members not yet in list
+      VERSE_MEMBERS_DEFAULT.forEach(name => {
+        if (!streamers.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+          streamers.push(makeStreamer(name));
+        }
+      });
+    } catch(e) {
+      streamers = VERSE_MEMBERS_DEFAULT.map(makeStreamer);
+    }
+  } else {
+    streamers = VERSE_MEMBERS_DEFAULT.map(makeStreamer);
+  }
+
+  // Load config
+  const cfg = JSON.parse(localStorage.getItem('verse_so_global') || '{}');
+  if (cfg.defaultTemplate) document.getElementById('defaultTemplate').value = cfg.defaultTemplate;
+  if (cfg.trigRaid !== undefined) document.getElementById('trigRaid').checked = cfg.trigRaid;
+  if (cfg.trigChat !== undefined) document.getElementById('trigChat').checked = cfg.trigChat;
+  if (cfg.outChat !== undefined) document.getElementById('outChat').checked = cfg.outChat;
+  if (cfg.outWS !== undefined) document.getElementById('outWS').checked = cfg.outWS;
+  if (cfg.outTwitchSO !== undefined) document.getElementById('outTwitchSO').checked = cfg.outTwitchSO;
+  if (cfg.cooldownMin !== undefined) document.getElementById('cooldownMin').value = cfg.cooldownMin;
+  if (cfg.wsHost) document.getElementById('wsHost').value = cfg.wsHost;
+  if (cfg.wsPort) document.getElementById('wsPort').value = cfg.wsPort;
+}
+
+function makeStreamer(name) {
+  return { id: Date.now() + Math.random(), name, enabled: true, customText: '' };
+}
+
+function save() {
+  localStorage.setItem('verse_so_config', JSON.stringify({ streamers }));
+  localStorage.setItem('verse_so_global', JSON.stringify({
+    defaultTemplate: document.getElementById('defaultTemplate').value,
+    trigRaid: document.getElementById('trigRaid').checked,
+    trigChat: document.getElementById('trigChat').checked,
+    outChat: document.getElementById('outChat').checked,
+    outWS: document.getElementById('outWS').checked,
+    outTwitchSO: document.getElementById('outTwitchSO').checked,
+    cooldownMin: document.getElementById('cooldownMin').value,
+    wsHost: document.getElementById('wsHost').value,
+    wsPort: document.getElementById('wsPort').value,
+  }));
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────────────────
+
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const container = document.getElementById('streamerList');
+  const enabledCount = streamers.filter(s => s.enabled).length;
+  document.getElementById('countBadge').textContent = `${enabledCount} / ${streamers.length} ACTIVE`;
+
+  const filtered = q ? streamers.filter(s => s.name.toLowerCase().includes(q)) : streamers;
+
+  container.innerHTML = filtered.map((s, visIdx) => {
+    const realIdx = streamers.indexOf(s);
+    const isExp = expandedId === s.id;
+    return `
+    <div class="streamer-row ${s.enabled ? 'enabled' : ''} ${isExp ? 'expanded' : ''}" id="row_${s.id}">
+      <div class="row-num">${(realIdx+1).toString().padStart(2,'0')}</div>
+      <div class="row-name" onclick="toggleExpand(${s.id})">${s.name}</div>
+      <button class="btn btn-so" onclick="manualSO('${s.name}')" ${!ws || ws.readyState!==1 ? 'disabled' : ''} title="Manueller Shoutout">▶ SO</button>
+      <label class="row-toggle" title="Autoshoutout aktiviert">
+        <input type="checkbox" ${s.enabled ? 'checked' : ''} onchange="toggleEnabled(${s.id}, this.checked)">
+        <div class="row-toggle-track"></div>
+        <div class="row-toggle-thumb"></div>
+      </label>
+      <button class="expand-btn" onclick="toggleExpand(${s.id})">${isExp ? '▲' : '▼'}</button>
+    </div>
+    <div class="streamer-detail ${isExp ? 'open' : ''}" id="detail_${s.id}">
+      <div class="detail-label">
+        <span>CUSTOM TEXT (leer = Default)</span>
+        <span class="char-counter" id="cc_${s.id}">${s.customText.length}/500</span>
+      </div>
+      <textarea id="ta_${s.id}" placeholder="Leer lassen für Default-Template..." oninput="updateText(${s.id}, this.value)">${s.customText}</textarea>
+      <div class="vars-hint">
+        <span style="color:var(--text-dim)">VARS:</span>
+        <span class="var-tag" onclick="insertVar('ta_${s.id}','%user%')">%user%</span>
+        <span class="var-tag" onclick="insertVar('ta_${s.id}','%game%')">%game%</span>
+        <span class="var-tag" onclick="insertVar('ta_${s.id}','%title%')">%title%</span>
+        <span class="var-tag" onclick="insertVar('ta_${s.id}','%followers%')">%followers%</span>
+        <button class="btn btn-danger" style="margin-left:auto" onclick="removeStreamer(${s.id})">✕ REMOVE</button>
+      </div>
+    </div>
+    `;
+  }).join('');
+}
+
+function toggleEnabled(id, val) {
+  const s = streamers.find(s => s.id === id);
+  if (s) s.enabled = val;
+  save();
+  renderList();
+}
+
+function toggleExpand(id) {
+  expandedId = expandedId === id ? null : id;
+  renderList();
+}
+
+function updateText(id, val) {
+  const s = streamers.find(s => s.id === id);
+  if (s) s.customText = val.slice(0, 500);
+  const cc = document.getElementById('cc_' + id);
+  if (cc) cc.textContent = val.length + '/500';
+  save();
+}
+
+function enableAll() { streamers.forEach(s => s.enabled = true); save(); renderList(); }
+function disableAll() { streamers.forEach(s => s.enabled = false); save(); renderList(); }
+
+function addStreamer() {
+  const input = document.getElementById('addName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (streamers.find(s => s.name.toLowerCase() === name.toLowerCase())) {
+    showToast('BEREITS VORHANDEN');
+    return;
+  }
+  streamers.unshift(makeStreamer(name));
+  input.value = '';
+  save();
+  renderList();
+  log('info', `Added: ${name}`);
+}
+
+function removeStreamer(id) {
+  const s = streamers.find(s => s.id === id);
+  if (!s) return;
+  if (!confirm(`${s.name} wirklich entfernen?`)) return;
+  streamers = streamers.filter(s => s.id !== id);
+  if (expandedId === id) expandedId = null;
+  save();
+  renderList();
+  log('info', `Removed: ${s.name}`);
+}
+
+// ─── WEBSOCKET ───────────────────────────────────────────────────────────────
+
+function connectWS() {
+  const host = document.getElementById('wsHost').value;
+  const port = document.getElementById('wsPort').value;
+  save();
+  if (ws) { try { ws.close(); } catch(e) {} }
+  try {
+    ws = new WebSocket(`ws://${host}:${port}/`);
+    ws.onopen = () => {
+      setWsState('connected');
+      log('ok', `Verbunden mit ws://${host}:${port}`);
+      renderList();
+    };
+    ws.onclose = () => {
+      setWsState('disconnected');
+      log('err', 'WebSocket getrennt');
+      renderList();
+    };
+    ws.onerror = () => {
+      setWsState('error');
+      log('err', 'WebSocket Fehler');
+    };
+    ws.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        log('info', `← ${d.event || JSON.stringify(d).slice(0,60)}`);
+      } catch(e) {}
+    };
+  } catch(e) {
+    setWsState('error');
+    log('err', `Verbindungsfehler: ${e.message}`);
+  }
+}
+
+function setWsState(state) {
+  const dot = document.getElementById('wsDot');
+  const label = document.getElementById('wsLabel');
+  dot.className = 'ws-dot';
+  if (state === 'connected') { dot.classList.add('connected'); label.textContent = 'CONNECTED'; label.style.color = 'var(--success)'; }
+  else if (state === 'error') { dot.classList.add('error'); label.textContent = 'ERROR'; label.style.color = 'var(--danger)'; }
+  else { label.textContent = 'DISCONNECTED'; label.style.color = 'var(--text-dim)'; }
+}
+
+function manualSO(username) {
+  if (!ws || ws.readyState !== 1) { showToast('NICHT VERBUNDEN'); return; }
+  const msg = JSON.stringify({
+    request: 'DoAction',
+    action: { name: 'VERSE_Shoutout_Handler' },
+    args: { username, trigger: 'manual' }
+  });
+  ws.send(msg);
+  log('ok', `Manual SO → ${username}`);
+  showToast(`SO: ${username}`);
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+
+function exportJSON() {
+  const cfg = {
+    enabled_streamers: streamers.filter(s => s.enabled).map(s => s.name),
+    custom_texts: Object.fromEntries(
+      streamers.filter(s => s.customText).map(s => [s.name, s.customText])
+    ),
+    default_template: document.getElementById('defaultTemplate').value,
+    triggers: {
+      raid: document.getElementById('trigRaid').checked,
+      first_chat: document.getElementById('trigChat').checked,
+    },
+    output: {
+      chat: document.getElementById('outChat').checked,
+      websocket: document.getElementById('outWS').checked,
+      twitch_shoutout: document.getElementById('outTwitchSO').checked,
+    },
+    cooldown_minutes: parseInt(document.getElementById('cooldownMin').value) || 0,
+  };
+  document.getElementById('exportCode').textContent = JSON.stringify(cfg, null, 2);
+  showToast('JSON GENERIERT');
+}
+
+function showCSCode() {
+  const enabledList = streamers.filter(s => s.enabled).map(s => `"${s.name}"`).join(', ');
+  const customTexts = streamers.filter(s => s.customText).map(s =>
+    `            { "${s.name}", @"${s.customText.replace(/"/g, '""')}" }`
+  ).join(',\n');
+  const defaultTmpl = document.getElementById('defaultTemplate').value.replace(/"/g, '""');
+  const cooldown = parseInt(document.getElementById('cooldownMin').value) || 0;
+  const outChat = document.getElementById('outChat').checked;
+  const outWS = document.getElementById('outWS').checked;
+  const outTwitchSO = document.getElementById('outTwitchSO').checked;
+
+  const code = `// ═══════════════════════════════════════════════════════
+// VERSE Autoshoutout Handler — generiert von verse-admin
+// Action Name: VERSE_Shoutout_Handler
+// ═══════════════════════════════════════════════════════
+using System;
+using System.Collections.Generic;
+
+// VERSE Mitglieder (aktiviert)
+var verseMembers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+    ${enabledList}
+};
+
+// Custom Texte pro Streamer
+var customTexts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
+${customTexts || '            // keine custom texts konfiguriert'}
+};
+
+string username = args.ContainsKey("username") ? (string)args["username"] : "";
+if (string.IsNullOrEmpty(username)) {
+    // Fallback: aus Twitch-Raid-Event
+    username = CPH.GetGlobalVar<string>("raider", true) ?? "";
+}
+if (string.IsNullOrEmpty(username)) return false;
+
+// Nur VERSE-Mitglieder
+if (!verseMembers.Contains(username)) return false;
+
+// Cooldown-Check
+int cooldownMin = ${cooldown};
+if (cooldownMin > 0) {
+    string cooldownKey = $"verse_so_cooldown_{username.ToLower()}";
+    var lastSO = CPH.GetGlobalVar<string>(cooldownKey, true);
+    if (!string.IsNullOrEmpty(lastSO)) {
+        if (DateTime.TryParse(lastSO, out DateTime lastTime)) {
+            if ((DateTime.UtcNow - lastTime).TotalMinutes < cooldownMin) {
+                CPH.LogInfo($"[VERSE SO] Cooldown aktiv für {username}");
+                return false;
+            }
+        }
+    }
+    CPH.SetGlobalVar(cooldownKey, DateTime.UtcNow.ToString("o"), true);
+}
+
+// Kanal-Info holen
+var userInfo = CPH.TwitchGetExtendedUserInfoByLogin(username);
+string game    = userInfo?.Game ?? "Star Citizen";
+string title   = userInfo?.Title ?? "";
+string viewers = userInfo?.ViewerCount.ToString() ?? "0";
+
+// Text auswählen
+string defaultTemplate = @"${defaultTmpl}";
+string text = customTexts.ContainsKey(username)
+    ? customTexts[username]
+    : defaultTemplate;
+
+// Variablen ersetzen
+text = text
+    .Replace("%user%",      username)
+    .Replace("%game%",      game)
+    .Replace("%title%",     title)
+    .Replace("%followers%", userInfo?.FollowerCount.ToString() ?? "");
+
+${outChat ? `// Chat-Ausgabe
+CPH.SendMessage(text, true);` : '// Chat-Ausgabe deaktiviert'}
+
+${outTwitchSO ? `// Twitch nativer /shoutout
+CPH.TwitchSendShoutout(username);` : '// Twitch /shoutout deaktiviert'}
+
+${outWS ? `// WebSocket → shoutout-info.html
+var wsPayload = new {
+    @event = "shoutout",
+    username = username,
+    game     = game,
+    title    = title,
+    text     = text
+};
+string json = System.Text.Json.JsonSerializer.Serialize(wsPayload);
+CPH.WebsocketBroadcastString(json);` : '// WebSocket-Output deaktiviert'}
+
+CPH.LogInfo($"[VERSE SO] Shoutout für {username} ausgeführt");
+return true;`;
+
+  document.getElementById('exportCode').textContent = code;
+  showToast('C# CODE GENERIERT');
+}
+
+function copyCode() {
+  const text = document.getElementById('exportCode').textContent;
+  if (text.startsWith('//') || text.startsWith('{')) {
+    navigator.clipboard.writeText(text).then(() => showToast('KOPIERT ✓'));
+  } else {
+    showToast('ERST EXPORT KLICKEN');
+  }
+}
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+
+function insertVar(taId, variable) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const val = ta.value;
+  ta.value = val.slice(0, start) + variable + val.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + variable.length;
+  ta.focus();
+  ta.dispatchEvent(new Event('input'));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function log(type, msg) {
+  const entries = document.getElementById('logEntries');
+  const now = new Date();
+  const time = now.toTimeString().slice(0,8);
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.innerHTML = `<span class="log-time">${time}</span><span class="log-msg">${msg}</span>`;
+  entries.prepend(div);
+  if (entries.children.length > 50) entries.lastChild.remove();
+}
+
+function clearLog() {
+  document.getElementById('logEntries').innerHTML = '';
+}
+
+// Auto-save on any config change
+document.addEventListener('change', save);
+document.addEventListener('input', e => {
+  if (e.target.id === 'defaultTemplate') save();
+});
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+initData();
+renderList();
+log('info', `${streamers.length} VERSE-Mitglieder geladen`);
+</script>
+</body>
+</html>
