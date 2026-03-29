@@ -21,7 +21,7 @@ body {
   max-height: calc(100vh - 16px);
   overflow: hidden;
   padding-bottom: 2px;
-  /* Neue Nachrichten unten, älteste oben werden abgeschnitten */
+  /* Neue Nachrichten unten, Ã¤lteste oben werden abgeschnitten */
   justify-content: flex-end;
 }
 

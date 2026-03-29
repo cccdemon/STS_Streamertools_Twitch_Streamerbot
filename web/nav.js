@@ -74,8 +74,12 @@
   nav.appendChild(items);
 
   // Nav als erstes Element nach <body> einfügen
-  var body = document.body;
-  body.insertBefore(nav, body.firstChild);
+  // nav.js wird als erstes Script im <body> geladen – body existiert bereits
+  var body = document.body || document.getElementsByTagName('body')[0];
+  if (body) body.insertBefore(nav, body.firstChild);
+  else document.addEventListener('DOMContentLoaded', function() {
+    document.body.insertBefore(nav, document.body.firstChild);
+  });
 })();
 
 // ════════════════════════════════════════════════════════

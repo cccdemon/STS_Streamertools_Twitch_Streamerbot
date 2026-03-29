@@ -1,6 +1,6 @@
-// --------------------------------------------------------
-// CHAOS CREW � HUD Chat JS
-// --------------------------------------------------------
+// ════════════════════════════════════════════════════════
+// CHAOS CREW – HUD Chat JS
+// ════════════════════════════════════════════════════════
 
 var CONFIG = {
   channel:   getParam('channel') || 'DEIN_KANAL',
@@ -93,7 +93,7 @@ function addMessage(opts) {
 
   container.appendChild(el);
 
-  // Letzte Nachricht immer vollst�ndig sichtbar
+  // Letzte Nachricht immer vollständig sichtbar
   el.scrollIntoView({ block: 'end', behavior: 'instant' });
 
   var msgs = container.querySelectorAll('.msg');

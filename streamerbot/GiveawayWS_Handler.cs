@@ -14,15 +14,56 @@ public class CPHInline
     {
         CPH.LogInfo("=== GW WS Handler fired ===");
 
-        string raw       = args.ContainsKey("data") ? args["data"].ToString() : null;
+        // ── Fight Command Trigger (Core → Commands → fight) ──
+        // Wenn kein WS-Data vorhanden, prüfen ob es ein !fight Command ist
+        if (!args.ContainsKey("data") || string.IsNullOrEmpty(args["data"]?.ToString()))
+        {
+            string attacker = args.ContainsKey("user") ? args["user"]?.ToString() ?? "" : "";
+            string defender = args.ContainsKey("commandTarget") ? args["commandTarget"]?.ToString()?.TrimStart('@') ?? "" : "";
+
+            if (!string.IsNullOrEmpty(attacker) && !string.IsNullOrEmpty(defender))
+            {
+                // Sanitieren
+                var sba = new System.Text.StringBuilder();
+                foreach (char ch in attacker)
+                    if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_')
+                        sba.Append(ch);
+                attacker = sba.ToString();
+
+                var sbd = new System.Text.StringBuilder();
+                foreach (char ch in defender)
+                    if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_')
+                        sbd.Append(ch);
+                defender = sbd.ToString();
+
+                if (attacker.Length > 0 && defender.Length > 0 && attacker.ToLower() != defender.ToLower())
+                {
+                    string sfSession = CPH.GetGlobalVar<string>("gw_spacefight_session", false);
+                    if (!string.IsNullOrEmpty(sfSession))
+                    {
+                        var payload = new JObject
+                        {
+                            ["event"]    = "fight_cmd",
+                            ["attacker"] = attacker,
+                            ["defender"] = defender,
+                            ["ts"]       = DateTime.UtcNow.ToString("o")
+                        };
+                        CPH.WebsocketCustomServerBroadcast(payload.ToString(), sfSession, 0);
+                        CPH.LogInfo($"[GW] fight_cmd: {attacker} vs {defender} → {sfSession}");
+                    }
+                }
+            }
+            return true;
+        }
+
+        string raw       = args["data"].ToString();
         string sessionId = args.ContainsKey("sessionId") ? args["sessionId"].ToString() : null;
 
-        if (string.IsNullOrEmpty(raw))    { CPH.LogInfo("GW: kein data arg"); return true; }
         if (string.IsNullOrEmpty(sessionId)) { CPH.LogInfo("GW: keine sessionId"); return true; }
 
         CPH.LogInfo("GW raw: " + raw + " | sessionId: " + sessionId);
 
-        if (!raw.Contains("gw_get_all") && !raw.Contains("gw_cmd") && !raw.Contains("gw_overlay") && !raw.Contains("gw_join_register") && !raw.Contains("gw_api_register") && !raw.Contains("spacefight_result") && !raw.Contains("chat_msg") && !raw.Contains("gw_spacefight_register") && !raw.Contains("sf_status_request"))
+        if (!raw.Contains("gw_get_all") && !raw.Contains("gw_cmd") && !raw.Contains("gw_overlay") && !raw.Contains("gw_join_register") && !raw.Contains("gw_api_register") && !raw.Contains("spacefight_result") && !raw.Contains("chat_msg") && !raw.Contains("gw_spacefight_register") && !raw.Contains("sf_status_request") && !raw.Contains("spacefight_rejected") && !raw.Contains("spacefight_challenge"))
             return true;
 
         JObject msg;
@@ -86,7 +127,9 @@ public class CPHInline
         if (evnt == "gw_get_all")       return HandleGetAll(sessionId);
         if (evnt == "gw_cmd")           return HandleCommand(msg, sessionId);
         if (evnt == "gw_overlay")       return HandleOverlay(raw);
-        if (evnt == "spacefight_result") return HandleSpacefight(msg);
+        if (evnt == "spacefight_result")   return HandleSpacefight(msg);
+        if (evnt == "spacefight_rejected")  return HandleSpacefightRejected(msg);
+        if (evnt == "spacefight_challenge") return HandleSpacefightChallenge(msg);
         if (evnt == "chat_msg")         return HandleChatRelay(msg, sessionId);
 
         return true;
@@ -323,8 +366,46 @@ public class CPHInline
         string shipW  = msg["ship_w"]?.ToString()  ?? "";
         string shipL  = msg["ship_l"]?.ToString()  ?? "";
         if (string.IsNullOrEmpty(winner)) return true;
-        string chatMsg = $"&#x2694; RAUMKAMPF: {winner.ToUpper()} ({shipW}) besiegt {loser.ToUpper()} ({shipL})! GG o7";
+        string chatMsg = $"[SF] {winner.ToUpper()} ({shipW}) besiegt {loser.ToUpper()} ({shipL})! GG o7";
         CPH.SendMessage(chatMsg, true);
+        return true;
+    }
+
+    private bool HandleSpacefightRejected(JObject msg)
+    {
+        string reason   = msg["reason"]?.ToString()   ?? "";
+        string attacker = msg["attacker"]?.ToString() ?? "";
+        string defender = msg["defender"]?.ToString() ?? "";
+        if (string.IsNullOrEmpty(attacker)) return true;
+
+        var rng = new Random();
+        if (reason == "stream_offline")
+        {
+            string[] lines = {
+                $"@{attacker} Kein Treibstoff, keine Munition - der Hangar ist offline. Kaempfe nur wenn wir live sind!",
+                $"@{attacker} Schiffe bleiben geerdet. Kaempfe gibt es nur wenn der Stream laeuft!",
+                $"@{attacker} Munitionslager gesperrt - komm wieder wenn wir live sind. o7",
+                $"@{attacker} Keine aktive Streammission. Kaempfe erst wenn wir fliegen!",
+            };
+            CPH.SendMessage(lines[rng.Next(lines.Length)], true);
+        }
+        else if (reason == "not_in_chat")
+        {
+            string[] lines = {
+                $"@{attacker} {defender} ist nicht im Chat aktiv - kein Ziel, kein Kampf!",
+                $"@{attacker} {defender} reagiert nicht auf Funk. Ziel muss im Chat sein!",
+                $"@{attacker} Kein Kontakt zu {defender}. Ziel ist nicht in Reichweite!",
+            };
+            CPH.SendMessage(lines[rng.Next(lines.Length)], true);
+        }
+        CPH.LogInfo($"[SF Rejected] reason={reason}, attacker={attacker}, defender={defender}");
+        return true;
+    }
+
+    private bool HandleSpacefightChallenge(JObject msg)
+    {
+        // Wird direkt vom Spacefight_Handler verarbeitet
+        // GW WS Handler leitet es nur weiter
         return true;
     }
 

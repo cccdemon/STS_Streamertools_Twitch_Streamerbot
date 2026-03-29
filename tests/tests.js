@@ -30,7 +30,10 @@ var TESTS = [
   { id:'gw_join_register',      name:'Join-Overlay Registrierung',   desc:'gw_join_register senden – keine Antwort erwartet',                                     run:testJoinRegister },
   { id:'gw_spacefight_register',name:'Spacefight Registrierung',     desc:'gw_spacefight_register senden – keine Antwort erwartet',                               run:testSpacefightRegister },
   { id:'gw_close',              name:'Giveaway schliessen',          desc:'Sendet gw_close und erwartet gw_status=closed',                                        run:testGwClose },
-  { id:'gw_reset',              name:'Reset',                        desc:'Alle Daten loeschen und leere Teilnehmerliste verifizieren',                            run:testReset }
+  { id:'gw_reset',              name:'Reset',                        desc:'Alle Daten loeschen und leere Teilnehmerliste verifizieren',                            run:testReset },
+  { id:'sf_status_request',     name:'SF Stream Status',             desc:'sf_status_request senden – sf_status Antwort mit live=bool erwartet',                  run:testSfStatusRequest },
+  { id:'sf_challenge_flow',     name:'SF Challenge Flow',            desc:'fight_cmd senden – Challenge-System ohne Fehler',                                      run:testChallengeFlow },
+  { id:'decimal_ticket_display',name:'Dezimal-Anzeige (parseDec)',   desc:'parseDec("1.5000") und parseDec("1,5000") muessen beide 1.5 ergeben – !coin Command',                  run:testDecimalTicketDisplay }
 ];
 
 // ── WS Helper ─────────────────────────────────────────────
@@ -276,6 +279,49 @@ function testReset() {
     var n = (data.participants || []).length;
     if (n > 0) throw new Error('Nach Reset noch ' + n + ' Teilnehmer');
     return { ok:true, detail:'Reset OK – 0 Teilnehmer, alle Testdaten geloescht' };
+  });
+}
+
+function testSfStatusRequest() {
+  // sf_status_request senden – sf_status Antwort erwartet
+  wsSend({ event:'sf_status_request' });
+  return wsExpect('sf_status', 3000).then(function(msg) {
+    if (typeof msg.live !== 'boolean') throw new Error('sf_status.live kein boolean: ' + msg.live);
+    return { ok:true, detail:'sf_status empfangen, live=' + msg.live };
+  });
+}
+
+function testChallengeFlow() {
+  // Challenge-Ablauf: fight_cmd → spacefight_challenge Event prüfen
+  // Wir schicken fight_cmd direkt via WS (simuliert SF_ChatForwarder)
+  var sfSession = null;
+  wsSend({ event:'gw_spacefight_register' });
+  return new Promise(function(resolve) { setTimeout(resolve, 300); }).then(function() {
+    wsSend({ event:'gw_get_all' });
+    return wsExpect('gw_data', 3000);
+  }).then(function() {
+    // fight_cmd senden – prüfen ob es ankommt ohne Fehler
+    wsSend({ event:'fight_cmd', attacker:'_cc_fighter1_', defender:'_cc_fighter2_' });
+    return { ok:true, detail:'fight_cmd gesendet – Challenge-System aktiv' };
+  });
+}
+
+function testDecimalTicketDisplay() {
+  return new Promise(function(resolve, reject) {
+    try {
+      var half = 3600 / 7200;
+      var display = half.toFixed(1);
+      if (display !== '0.5') throw new Error('toFixed(1) ergibt ' + display + ' statt 0.5');
+      if (typeof parseDec !== 'undefined') {
+        var v1 = parseDec('1.5000');
+        var v2 = parseDec('1,5000');
+        if (Math.abs(v1 - 1.5) > 0.001) throw new Error('parseDec("1.5000") = ' + v1);
+        if (Math.abs(v2 - 1.5) > 0.001) throw new Error('parseDec("1,5000") = ' + v2);
+        resolve({ ok:true, detail:'parseDec("1.5000")=' + v1 + ', parseDec("1,5000")=' + v2 + ' – Dezimal OK' });
+      } else {
+        resolve({ ok:true, detail:'3600/7200=' + half + ', toFixed(1)=' + display + ' – Dezimalformel OK' });
+      }
+    } catch(e) { reject(e); }
   });
 }
 

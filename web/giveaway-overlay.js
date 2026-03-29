@@ -92,12 +92,12 @@ function renderFromData(data) {
   st.className   = 'ov-status ' + (data.open ? 'open' : 'closed');
 
   var total   = active.length;
-  var tickets = active.reduce(function(s,p){ return s + (parseInt(p.tickets)||0); }, 0);
+  var tickets = active.reduce(function(s,p){ return s + (parseDec(p.tickets)||0); }, 0);
 
   document.getElementById('ov-total').textContent   = total;
   document.getElementById('ov-tickets').textContent = tickets;
 
-  active.sort(function(a,b){ return (parseInt(b.tickets)||0) - (parseInt(a.tickets)||0); });
+  active.sort(function(a,b){ return (parseDec(b.tickets)||0) - (parseDec(a.tickets)||0); });
   var top5 = active.slice(0,5);
   var html = '';
   for (var i = 0; i < top5.length; i++) {

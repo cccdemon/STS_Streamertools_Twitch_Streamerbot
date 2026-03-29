@@ -51,6 +51,32 @@ public class CPHInline
                 };
                 CPH.SendMessage(nothere[rng.Next(nothere.Length)], true);
             }
+            else if (reason == "challenge_declined")
+            {
+                string defender = msg["defender"]?.ToString() ?? "";
+                string[] declined = {
+                    $"@{attacker} {defender} lehnt das Duell ab. Feige! o7",
+                    $"@{attacker} {defender} hat den Kampf verweigert. Kein Duell heute.",
+                    $"@{attacker} {defender} weicht aus – kein Interesse am Kampf!",
+                };
+                CPH.SendMessage(declined[rng.Next(declined.Length)], true);
+            }
+            else if (reason == "challenge_timeout")
+            {
+                string defender = msg["defender"]?.ToString() ?? "";
+                CPH.SendMessage($"@{attacker} {defender} hat nicht reagiert – Duell abgebrochen. o7", true);
+            }
+            return true;
+        }
+
+        if (evtType == "spacefight_challenge")
+        {
+            string attacker = msg["attacker"]?.ToString() ?? "";
+            string defender = msg["defender"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(attacker) || string.IsNullOrEmpty(defender)) return true;
+            CPH.SendMessage($"@{defender} Du wurdest von @{attacker} zum Raumkampf herausgefordert! " +
+                            $"Antworte mit !accept oder !decline (30 Sekunden). o7", true);
+            CPH.LogInfo($"[Spacefight] Challenge: {attacker} → {defender}");
             return true;
         }
 

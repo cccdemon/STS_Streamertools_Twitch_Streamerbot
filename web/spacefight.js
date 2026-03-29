@@ -1,11 +1,11 @@
-// --------------------------------------------------------
-// CHAOS CREW � Raumkampf v2
+// ════════════════════════════════════════════════════════
+// CHAOS CREW – Raumkampf v2
 // Features:
 //  - !fight @user nur wenn Gegner im Chat aktiv (5 Min)
-//  - Nur wenn Stream l�uft (Streamerbot meldet streaming=true)
+//  - Nur wenn Stream läuft (Streamerbot meldet streaming=true)
 //  - Ergebnisse in Redis via API
 //  - Wall of Fame (Best Space Pilot)
-// --------------------------------------------------------
+// ════════════════════════════════════════════════════════
 'use strict';
 
 var params   = new URLSearchParams(location.search);
@@ -28,14 +28,16 @@ var wsRetry     = 2000;
 var irc         = null;
 var queue       = [];
 var isPlaying   = false;
-var recentFights = {};   // attacker.lower ? timestamp
-var chatActive   = {};   // username.lower ? last message timestamp
+var recentFights   = {};   // attacker.lower → timestamp
+var pendingChallenges = {}; // defender.lower → {attacker, defender, ts, timeout}
+var CHALLENGE_TIMEOUT = 30000; // 30s zum Annehmen
+var chatActive   = {};   // username.lower → last message timestamp
 var streamLive   = TEST_MODE || FORCE_LIVE; // im Test/Force-Modus immer live
 var wofVisible   = false;
 var wofTimer     = null;
-var wofRank      = null; // Rang des zuletzt gesehenen K�mpfers
+var wofRank      = null; // Rang des zuletzt gesehenen Kämpfers
 
-// -- Schiffsklassen ----------------------------------------
+// ── Schiffsklassen ────────────────────────────────────────
 var SHIPS = [
   { name: 'PERSEUS',       power: 3 },
   { name: 'HAMMERHEAD',    power: 3 },
@@ -58,7 +60,7 @@ var EVENTS_HIT = [
 ];
 var EVENTS_MISS = [
   '{D} weicht aus! Verfehlt.',
-  '{D} aktiviert ECM! Gest�rt.',
+  '{D} aktiviert ECM! Gestört.',
   'Schuss geht ins Leere.',
   '{D} dreht hinter Mond!',
 ];
@@ -69,7 +71,7 @@ var EVENTS_WIN = [
   '{W} secured the kill! {L} down.',
 ];
 
-// -- Streamerbot WS ----------------------------------------
+// ── Streamerbot WS ────────────────────────────────────────
 function connect() {
   if (TEST_MODE && !params.get('host')) return; // TEST_MODE ohne expliziten host: kein WS
   try { ws = new WebSocket('ws://' + WS_HOST + ':' + WS_PORT); }
@@ -99,6 +101,15 @@ function safeParseLocal(s) {
 }
 
 function handleSB(msg) {
+  // Accept/Decline Commands
+  if (msg.event === 'fight_accept') {
+    acceptChallenge(msg.defender || msg.user || '');
+    return;
+  }
+  if (msg.event === 'fight_decline') {
+    declineChallenge(msg.defender || msg.user || '');
+    return;
+  }
   // Direkter Fight-Command vom SF_ChatForwarder
   if (msg.event === 'fight_cmd') {
     var attacker = msg.attacker || '';
@@ -110,7 +121,7 @@ function handleSB(msg) {
     }
     return;
   }
-  // Chat-Message ? aktive User tracken + Command pr�fen
+  // Chat-Message → aktive User tracken + Command prüfen
   if (msg.event === 'chat_msg' || msg.event === 'twitch_chat') {
     var u = (msg.user || msg.username || '').toLowerCase();
     if (u) chatActive[u] = Date.now();
@@ -126,7 +137,7 @@ function handleSB(msg) {
   }
 }
 
-// -- Twitch IRC --------------------------------------------
+// ── Twitch IRC ────────────────────────────────────────────
 function connectIRC() {
   if (!CHANNEL && !TEST_MODE) return;
   var ch = CHANNEL || 'justcallmedeimos';
@@ -145,21 +156,27 @@ function connectIRC() {
         var user = m[1];
         var msg  = m[2].trim();
         chatActive[user.toLowerCase()] = Date.now();
-        parseCommand(user, msg);
+        if (/^!ja$/i.test(msg)) {
+          acceptChallenge(user);
+        } else if (/^!nein$/i.test(msg)) {
+          declineChallenge(user);
+        } else {
+          parseCommand(user, msg);
+        }
       }
     });
   };
   irc.onclose = function() { setTimeout(connectIRC, 5000); };
 }
 
-// -- Chat-Pr�senz-Check ------------------------------------
+// ── Chat-Präsenz-Check ────────────────────────────────────
 function isInChat(username) {
   if (TEST_MODE || FORCE_LIVE) return true;
   var last = chatActive[username.toLowerCase()];
   return last && (Date.now() - last < CHAT_ACTIVE_MS);
 }
 
-// -- Command Parser ----------------------------------------
+// ── Command Parser ────────────────────────────────────────
 function parseCommand(user, message) {
   var m = message.match(/^!fight\s+@?(\S+)/i);
   if (!m) return;
@@ -201,11 +218,81 @@ function parseCommand(user, message) {
   if ((now - (recentFights[attacker.toLowerCase()] || 0)) < COOLDOWN_MS) return;
   recentFights[attacker.toLowerCase()] = now;
 
-  queue.push({ attacker: attacker, defender: defender });
+  // Challenge senden – Defender muss annehmen
+  var defLower = defender.toLowerCase();
+  if (pendingChallenges[defLower]) {
+    // Bereits eine offene Challenge gegen diesen Defender
+    return;
+  }
+
+  // Challenge speichern
+  var challengeTimeout = setTimeout(function() {
+    if (pendingChallenges[defLower]) {
+      delete pendingChallenges[defLower];
+      // Timeout-Meldung an Streamerbot
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          event: 'spacefight_rejected',
+          reason: 'challenge_timeout',
+          attacker: attacker,
+          defender: defender
+        }));
+      }
+    }
+  }, CHALLENGE_TIMEOUT);
+
+  pendingChallenges[defLower] = {
+    attacker: attacker,
+    defender: defender,
+    timeout:  challengeTimeout
+  };
+
+  // Challenge-Event an Streamerbot (postet im Chat)
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({
+      event:    'spacefight_challenge',
+      attacker: attacker,
+      defender: defender
+    }));
+  }
+}
+
+// ── Challenge annehmen/ablehnen ───────────────────────────
+function acceptChallenge(defender) {
+  var defLower = defender.toLowerCase();
+  var challenge = pendingChallenges[defLower];
+  if (!challenge) return;
+
+  clearTimeout(challenge.timeout);
+  delete pendingChallenges[defLower];
+
+  // Cooldown für Angreifer setzen
+  recentFights[challenge.attacker.toLowerCase()] = Date.now();
+
+  queue.push({ attacker: challenge.attacker, defender: challenge.defender });
   if (!isPlaying) nextFight();
 }
 
-// -- Queue -------------------------------------------------
+function declineChallenge(defender) {
+  var defLower = defender.toLowerCase();
+  var challenge = pendingChallenges[defLower];
+  if (!challenge) return;
+
+  clearTimeout(challenge.timeout);
+  var attacker = challenge.attacker;
+  delete pendingChallenges[defLower];
+
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({
+      event:    'spacefight_rejected',
+      reason:   'challenge_declined',
+      attacker: attacker,
+      defender: defender
+    }));
+  }
+}
+
+// ── Queue ─────────────────────────────────────────────────
 function nextFight() {
   if (!queue.length) { isPlaying = false; return; }
   isPlaying = true;
@@ -213,7 +300,7 @@ function nextFight() {
   runFight(f.attacker, f.defender);
 }
 
-// -- Kampf Engine ------------------------------------------
+// ── Kampf Engine ──────────────────────────────────────────
 function runFight(aName, dName) {
   var shipA = SHIPS[Math.floor(Math.random() * SHIPS.length)];
   var shipD = SHIPS[Math.floor(Math.random() * SHIPS.length)];
@@ -245,7 +332,7 @@ function runFight(aName, dName) {
   var shipW  = aWins ? shipA.name : shipD.name;
   var shipL  = aWins ? shipD.name : shipA.name;
 
-  // Ergebnis � wird erst nach Animationsende gesendet
+  // Ergebnis – wird erst nach Animationsende gesendet
   var result = {
     event:    'spacefight_result',
     winner:   winner,
@@ -264,7 +351,7 @@ function runFight(aName, dName) {
   });
 }
 
-// -- API � Ergebnis speichern ------------------------------
+// ── API – Ergebnis speichern ──────────────────────────────
 function saveResult(result) {
   var url = 'http://' + API_HOST + ':' + API_PORT + '/api/spacefight';
   fetch(url, {
@@ -278,7 +365,7 @@ function saveResult(result) {
   });
 }
 
-// -- API � Wall of Fame laden ------------------------------
+// ── API – Wall of Fame laden ──────────────────────────────
 function loadWoF(cb) {
   var url = 'http://' + API_HOST + ':' + API_PORT + '/api/spacefight/leaderboard?limit=10';
   fetch(url).then(function(r){ return r.json(); }).then(cb).catch(function(){ cb([]); });
@@ -289,12 +376,12 @@ function loadPlayerRank(username, cb) {
   fetch(url).then(function(r){ return r.json(); }).then(cb).catch(function(){ cb(null); });
 }
 
-// -- Wall of Fame anzeigen ---------------------------------
+// ── Wall of Fame anzeigen ─────────────────────────────────
 function showWoF(highlightUser) {
   var wof = document.getElementById('wof');
   if (!wof) return;
 
-  // Timer SOFORT starten � unabh�ngig vom API-Fetch
+  // Timer SOFORT starten – unabhängig vom API-Fetch
   if (wofTimer) clearTimeout(wofTimer);
   wofTimer = setTimeout(hideWoF, WOF_SHOW_SECS * 1000);
 
@@ -306,9 +393,9 @@ function showWoF(highlightUser) {
   wof.classList.remove('wof-out');
   wof.classList.add('wof-in');
 
-  // Daten nachladen und einf�gen
+  // Daten nachladen und einfügen
   loadWoF(function(data) {
-    // Pr�fen ob WoF noch sichtbar (k�nnte inzwischen geschlossen worden sein)
+    // Prüfen ob WoF noch sichtbar (könnte inzwischen geschlossen worden sein)
     if (!wofVisible) return;
 
     var rows = '';
@@ -316,14 +403,14 @@ function showWoF(highlightUser) {
       var isHL = highlightUser && p.username.toLowerCase() === highlightUser.toLowerCase();
       rows +=
         '<div class="wof-row' + (isHL ? ' wof-highlight' : '') + '">' +
-          '<span class="wof-rank">' + (i===0?'??':(i===1?'?':'#'+(i+1))) + '</span>' +
+          '<span class="wof-rank">' + (i===0?'👑':(i===1?'⭐':'#'+(i+1))) + '</span>' +
           '<span class="wof-name">' + esc(p.display || p.username) + '</span>' +
           '<span class="wof-wins">' + (p.wins||0) + 'W</span>' +
           '<span class="wof-losses">' + (p.losses||0) + 'L</span>' +
           '<span class="wof-ratio">' + (p.ratio||'0%') + '</span>' +
         '</div>';
     });
-    if (!rows) rows = '<div class="wof-empty">Noch keine K�mpfe</div>';
+    if (!rows) rows = '<div class="wof-empty">Noch keine Kämpfe</div>';
     document.getElementById('wof-list').innerHTML = rows;
 
     if (highlightUser) {
@@ -331,7 +418,7 @@ function showWoF(highlightUser) {
         if (!wofVisible) return;
         var rankEl = document.getElementById('wof-player-rank');
         if (rankEl && player) {
-          rankEl.textContent = '#' + player.rank + ' � ' + (player.display || highlightUser) +
+          rankEl.textContent = '#' + player.rank + ' – ' + (player.display || highlightUser) +
             ' | ' + (player.wins||0) + 'W / ' + (player.losses||0) + 'L';
           rankEl.style.display = 'block';
         }
@@ -347,7 +434,7 @@ function hideWoF() {
   wof.classList.remove('wof-in');
   wof.classList.add('wof-out');
   if (wofTimer) { clearTimeout(wofTimer); wofTimer = null; }
-  // Rank verstecken f�r n�chsten Aufruf
+  // Rank verstecken für nächsten Aufruf
   var rankEl = document.getElementById('wof-player-rank');
   if (rankEl) rankEl.style.display = 'none';
 }
@@ -357,7 +444,7 @@ function toggleWoF() {
   else showWoF(null);
 }
 
-// -- Render ------------------------------------------------
+// ── Render ────────────────────────────────────────────────
 function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
   var arena = document.getElementById('arena');
   var card  = document.createElement('div');
@@ -451,7 +538,7 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// -- Test Mode ---------------------------------------------
+// ── Test Mode ─────────────────────────────────────────────
 if (TEST_MODE) {
   streamLive = true;
   window._sfSimMode = true;
@@ -474,6 +561,6 @@ if (TEST_MODE) {
   setTimeout(testNext, 1000);
 }
 
-// -- Init --------------------------------------------------
+// ── Init ──────────────────────────────────────────────────
 connect();
 if (CHANNEL) connectIRC();
