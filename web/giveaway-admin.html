@@ -3,18 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <title>Chaos Crew – Giveaway Admin</title>
-<link rel="stylesheet" href="giveaway-admin.css">
-<script src="validate.js"></script>
-<link rel="stylesheet" href="nav.css">
+<link rel="stylesheet" href="chaos-crew-admin.css">
 </head>
 <body>
-<script src="nav.js"></script>
-
+<script src="chaos-crew-shared.js"></script>
 <header>
   <h1>CHAOS CREW // <span>Giveaway</span> Admin</h1>
   <div class="header-stats">
     <div class="hstat"><span class="hstat-val" id="s-total">0</span><span class="hstat-lbl">CREW</span></div>
-    <div class="hstat"><span class="hstat-val" id="s-tickets">0</span><span class="hstat-lbl">TICKETS</span></div>
+    <div class="hstat"><span class="hstat-val" id="s-tickets">0</span><span class="hstat-lbl">COINS</span></div>
     <div class="hstat"><span class="hstat-val" id="s-msgs">0</span><span class="hstat-lbl">MSGS</span></div>
   </div>
   <div id="ws-badge" class="ws-badge off" onclick="reconnect()">WS: OFFLINE</div>
@@ -28,7 +25,7 @@
       <thead><tr>
         <th onclick="sortBy('rank')">#</th>
         <th onclick="sortBy('name')">NAME</th>
-        <th onclick="sortBy('tickets')" class="sorted">TICKETS</th>
+        <th onclick="sortBy('tickets')" class="sorted">COINS</th>
         <th onclick="sortBy('watchSec')">WATCHTIME</th>
         <th onclick="sortBy('msgs')">MSGS</th>
         <th>AKTIONEN</th>

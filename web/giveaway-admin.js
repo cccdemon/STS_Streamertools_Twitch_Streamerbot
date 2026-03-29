@@ -158,7 +158,7 @@ function drawWinner(excludeKey=null) {
       lastWinner = pool[Math.floor(Math.random()*pool.length)];
       const wp = participants[lastWinner];
       document.getElementById('w-name').textContent = (wp?.display||lastWinner).toUpperCase();
-      document.getElementById('w-info').textContent = `${wp?.tickets||0} Tickets // ${fmtTime(wp?.watchSec||0)}`;
+      document.getElementById('w-info').textContent = `${parseDec(wp?.tickets||0).toFixed(2)} Coins // ${fmtTime(wp?.watchSec||0)}`;
       renderTable(lastWinner);
       broadcastOverlay(wp?.display||lastWinner);
       log(`GEWINNER: ${wp?.display||lastWinner} (${wp?.tickets||0} Tickets)`, 'gold');
@@ -239,7 +239,7 @@ function renderTable(hlKey=null) {
     <tr class="${p.banned?'banned':''} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
       <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}</td>
-      <td class="tickets">${typeof p.tickets === 'number' ? p.tickets.toFixed(4).replace(/\.?0+$/, '') : p.tickets}</td>
+      <td class="tickets">${parseDec(p.tickets).toFixed(2)}</td>
       <td class="watchtime">${fmtTime(p.watchSec)}</td>
       <td class="msgs">${p.msgs}</td>
       <td style="display:flex;gap:4px;">
@@ -281,10 +281,10 @@ function exportCSV() {
   const active = Object.values(participants).filter(p => !p.banned);
   if (!active.length) { log('Keine Daten zum Exportieren', 'red'); return; }
   const total = active.reduce((s,p) => s + (p.tickets||0), 0);
-  const rows = [['Username','Tickets','Watchtime','Nachrichten','Gewinnchance %']];
+  const rows = [['Username','Coins','Watchtime (s)','Watchtime','Nachrichten','Gewinnchance %']];
   active.sort((a,b) => b.tickets - a.tickets).forEach(p => {
     const chance = total > 0 ? ((p.tickets / total) * 100).toFixed(2) : '0.00';
-    rows.push([p.display, p.tickets, fmtTime(p.watchSec), p.msgs, chance]);
+    rows.push([p.display, parseDec(p.tickets).toFixed(2), p.watchSec, fmtTime(p.watchSec), p.msgs, chance]);
   });
   const csv = rows.map(r => r.join(';')).join('\n');
   dlFile('giveaway_export.csv', csv, 'text/csv;charset=utf-8');
