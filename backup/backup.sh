@@ -1,82 +1,83 @@
 #!/bin/sh
 # ════════════════════════════════════════════════════════
-# CHAOS CREW – Giveaway Backup Script
-# Läuft als Cronjob, sichert Redis RDB + AOF + API-Export
+# CHAOS CREW v5 – Backup Script
+# Sichert PostgreSQL (pg_dump) + Redis (RDB copy)
+# Läuft täglich per Cron oder manuell
 # ════════════════════════════════════════════════════════
 
-BACKUP_DIR="/backups"
+set -e
+
+BACKUP_DIR="${BACKUP_DIR:-/backups}"
+PG_HOST="${PG_HOST:-postgres}"
+PG_PORT="${PG_PORT:-5432}"
+PG_DB="${PG_DB:-chaoscrew}"
+PG_USER="${PG_USER:-chaoscrew}"
+PGPASSWORD="${PG_PASSWORD:-changeme}"
 REDIS_HOST="${REDIS_HOST:-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
-API_HOST="${API_HOST:-api}"
-API_PORT="${API_PORT:-3000}"
 KEEP_DAYS="${KEEP_DAYS:-30}"
+TS=$(date +%Y%m%d_%H%M%S)
 
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-BACKUP_PATH="${BACKUP_DIR}/${TIMESTAMP}"
+export PGPASSWORD
 
-mkdir -p "${BACKUP_PATH}"
+mkdir -p "${BACKUP_DIR}/postgres" "${BACKUP_DIR}/redis"
 
-echo "[$(date)] Starting backup to ${BACKUP_PATH}"
+echo "[Backup] Starting at $(date)"
 
-# ── 1. Redis BGSAVE triggern und warten ──────────────────
-echo "[$(date)] Triggering Redis BGSAVE..."
+# ── PostgreSQL Backup ─────────────────────────────────────
+PG_FILE="${BACKUP_DIR}/postgres/chaoscrew_${TS}.sql.gz"
+echo "[Backup] PostgreSQL → ${PG_FILE}"
+
+pg_dump \
+  -h "${PG_HOST}" \
+  -p "${PG_PORT}" \
+  -U "${PG_USER}" \
+  -d "${PG_DB}" \
+  --format=plain \
+  --no-password \
+  | gzip > "${PG_FILE}"
+
+echo "[Backup] PostgreSQL done: $(du -sh ${PG_FILE} | cut -f1)"
+
+# ── Redis Backup ──────────────────────────────────────────
+echo "[Backup] Redis BGSAVE..."
 redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" BGSAVE
 
-# Warten bis BGSAVE abgeschlossen
+# Warten bis BGSAVE fertig
 for i in $(seq 1 30); do
   STATUS=$(redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" LASTSAVE)
-  sleep 2
+  sleep 1
   NEW_STATUS=$(redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" LASTSAVE)
-  if [ "$STATUS" != "$NEW_STATUS" ]; then
-    echo "[$(date)] BGSAVE complete"
-    break
-  fi
+  if [ "$NEW_STATUS" != "$STATUS" ]; then break; fi
 done
 
-# ── 2. Redis RDB Dump kopieren ───────────────────────────
-echo "[$(date)] Copying RDB dump..."
-redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" --rdb "${BACKUP_PATH}/dump.rdb" \
-  && echo "[$(date)] RDB backup OK" \
-  || echo "[$(date)] WARNING: RDB backup failed"
+# RDB-Datei kopieren
+REDIS_FILE="${BACKUP_DIR}/redis/dump_${TS}.rdb"
+# Versuche via redis-cli DEBUG RELOAD oder kopiere /data/dump.rdb
+if [ -f "/redis-data/dump.rdb" ]; then
+  cp "/redis-data/dump.rdb" "${REDIS_FILE}"
+  echo "[Backup] Redis RDB → ${REDIS_FILE}: $(du -sh ${REDIS_FILE} | cut -f1)"
+else
+  echo "[Backup] Redis RDB nicht gefunden, überspringe"
+fi
 
-# ── 3. API-Daten als JSON exportieren ───────────────────
-echo "[$(date)] Exporting API data..."
+# ── Cleanup alte Backups ──────────────────────────────────
+echo "[Backup] Cleaning backups older than ${KEEP_DAYS} days..."
+find "${BACKUP_DIR}/postgres" -name "*.sql.gz" -mtime "+${KEEP_DAYS}" -delete
+find "${BACKUP_DIR}/redis"    -name "*.rdb"    -mtime "+${KEEP_DAYS}" -delete
 
-wget -qO "${BACKUP_PATH}/participants.json"  "http://${API_HOST}:${API_PORT}/api/participants" \
-  && echo "[$(date)] participants.json OK" \
-  || echo "[$(date)] WARNING: participants export failed"
+# ── Manifest ─────────────────────────────────────────────
+MANIFEST="${BACKUP_DIR}/manifest.json"
+PG_SIZE=$(du -sh "${PG_FILE}" 2>/dev/null | cut -f1 || echo "0")
+cat > "${MANIFEST}" <<EOF
+{
+  "last_backup": "${TS}",
+  "pg_file": "${PG_FILE}",
+  "pg_size": "${PG_SIZE}",
+  "keep_days": ${KEEP_DAYS},
+  "status": "ok"
+}
+EOF
 
-wget -qO "${BACKUP_PATH}/winners.json"       "http://${API_HOST}:${API_PORT}/api/winners?limit=500" \
-  && echo "[$(date)] winners.json OK" \
-  || echo "[$(date)] WARNING: winners export failed"
-
-wget -qO "${BACKUP_PATH}/leaderboard.json"   "http://${API_HOST}:${API_PORT}/api/leaderboard?limit=500" \
-  && echo "[$(date)] leaderboard.json OK" \
-  || echo "[$(date)] WARNING: leaderboard export failed"
-
-wget -qO "${BACKUP_PATH}/sessions.json"      "http://${API_HOST}:${API_PORT}/api/sessions?limit=100" \
-  && echo "[$(date)] sessions.json OK" \
-  || echo "[$(date)] WARNING: sessions export failed"
-
-# ── 4. Alle Keys als JSON dump ───────────────────────────
-echo "[$(date)] Dumping all Redis keys..."
-redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" --no-auth-warning \
-  KEYS "gw_*" | while read key; do
-  val=$(redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" GET "$key" 2>/dev/null)
-  echo "{\"key\":\"$key\",\"value\":$val}"
-done > "${BACKUP_PATH}/redis_keys.jsonl" \
-  && echo "[$(date)] redis_keys.jsonl OK" \
-  || echo "[$(date)] WARNING: Redis keys dump failed"
-
-# ── 5. Komprimieren ──────────────────────────────────────
-echo "[$(date)] Compressing..."
-tar -czf "${BACKUP_DIR}/backup_${TIMESTAMP}.tar.gz" -C "${BACKUP_DIR}" "${TIMESTAMP}" \
-  && rm -rf "${BACKUP_PATH}" \
-  && echo "[$(date)] Compressed: backup_${TIMESTAMP}.tar.gz" \
-  || echo "[$(date)] WARNING: Compression failed"
-
-# ── 6. Alte Backups aufräumen ────────────────────────────
-echo "[$(date)] Cleaning up backups older than ${KEEP_DAYS} days..."
-find "${BACKUP_DIR}" -name "backup_*.tar.gz" -mtime "+${KEEP_DAYS}" -delete
-REMAINING=$(find "${BACKUP_DIR}" -name "backup_*.tar.gz" | wc -l)
-echo "[$(date)] Backup complete. ${REMAINING} backup(s) retained."
+echo "[Backup] Done at $(date)"
+echo "[Backup] Manifest: ${MANIFEST}"

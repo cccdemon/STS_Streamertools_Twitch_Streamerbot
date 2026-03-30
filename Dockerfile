@@ -1,7 +1,3 @@
-FROM caddy:2
-
-COPY web/ /srv/web/
-COPY tests/ /srv/web/tests/
+FROM caddy:2-alpine
 COPY caddy/Caddyfile /etc/caddy/Caddyfile
-
-EXPOSE 80 443
+COPY web/ /srv/web/

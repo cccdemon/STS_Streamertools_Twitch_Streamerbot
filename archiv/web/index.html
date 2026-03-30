@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Chaos Crew – Control Center</title>
+<link rel="stylesheet" href="chaos-crew-admin.css">
+</head>
+<body>
+<script src="chaos-crew-shared.js"></script>
+<div class="scanlines"></div>
+
+<header>
+  <div class="logo">
+    <span class="logo-cc">CHAOS</span>
+    <span class="logo-sep">//</span>
+    <span class="logo-crew">CREW</span>
+  </div>
+  <div class="logo-sub">CONTROL CENTER // v4.0</div>
+  <div class="header-time" id="clock"></div>
+</header>
+
+<main>
+
+  <section class="module-group">
+    <div class="group-title">GIVEAWAY SYSTEM</div>
+    <div class="module-grid">
+
+      <a href="giveaway-admin.html" class="module-card cyan">
+        <div class="module-icon">&#x25A3;</div>
+        <div class="module-info">
+          <div class="module-name">ADMIN PANEL</div>
+          <div class="module-desc">Giveaway steuern, Gewinner ziehen, Teilnehmer verwalten</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+      <a href="stats.html" class="module-card gold">
+        <div class="module-icon">&#x25B3;</div>
+        <div class="module-info">
+          <div class="module-name">STATISTIKEN</div>
+          <div class="module-desc">Teilnehmer, Gewinner-Historie, Leaderboard, Sessions</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+      <a href="giveaway-test.html" class="module-card dim">
+        <div class="module-icon">&#x25C6;</div>
+        <div class="module-info">
+          <div class="module-name">TEST CONSOLE</div>
+          <div class="module-desc">WebSocket Events manuell senden und debuggen</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+      <a href="tests/test-runner.html" class="module-card dim">
+        <div class="module-icon">&#x25A1;</div>
+        <div class="module-info">
+          <div class="module-name">TEST SUITE</div>
+          <div class="module-desc">Automatisierte Funktionstests für alle WS-Events</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="module-group">
+    <div class="group-title">OBS OVERLAYS</div>
+    <div class="module-grid">
+
+      <a href="giveaway-overlay.html" class="module-card cyan" target="_blank">
+        <div class="module-icon">&#x25A0;</div>
+        <div class="module-info">
+          <div class="module-name">GIVEAWAY OVERLAY</div>
+          <div class="module-desc">320&times;400px &mdash; Teilnehmer &amp; Tickets live</div>
+          <div class="module-tag">OBS Browser Source</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a href="giveaway-join.html?test=1" class="module-card cyan" target="_blank">
+        <div class="module-icon">&#x25B6;</div>
+        <div class="module-info">
+          <div class="module-name">JOIN ANIMATION</div>
+          <div class="module-desc">620&times;110px &mdash; Teilnahme-Animation mit Warteschlange</div>
+          <div class="module-tag">OBS Browser Source &mdash; ?test=1 aktiv</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a href="chat.html" class="module-card cyan" target="_blank">
+        <div class="module-icon">&#x25CB;</div>
+        <div class="module-info">
+          <div class="module-name">HUD CHAT</div>
+          <div class="module-desc">Twitch Chat im HUD-Stil &mdash; ?channel= setzen</div>
+          <div class="module-tag">OBS Browser Source</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a href="spacefight.html?test=1" class="module-card gold" target="_blank">
+        <div class="module-icon">&#x2605;</div>
+        <div class="module-info">
+          <div class="module-name">RAUMKAMPF</div>
+          <div class="module-desc">Chat-Game &mdash; !fight @user startet einen Kampf</div>
+          <div class="module-tag">OBS Browser Source &mdash; ?test=1 aktiv</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a href="spacefight-admin.html" class="module-card gold">
+        <div class="module-icon">&#x2694;</div>
+        <div class="module-info">
+          <div class="module-name">RAUMKAMPF ADMIN</div>
+          <div class="module-desc">Wall of Fame, Kampf-Historie, Spieler-Stats</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="module-group">
+    <div class="group-title">STREAMERBOT</div>
+    <div class="module-grid">
+
+      <a href="streamerbot.html" class="module-card gold">
+        <div class="module-icon">&#x25B7;</div>
+        <div class="module-info">
+          <div class="module-name">C# ACTIONS</div>
+          <div class="module-desc">Alle Streamerbot Actions mit Syntax-Highlighting und Copy-Button</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="module-group">
+    <div class="group-title">INFRASTRUKTUR</div>
+    <div class="module-grid">
+
+      <a id="link-redis-ui" href="#" class="module-card dim" target="_blank">
+        <div class="module-icon">&#x25CF;</div>
+        <div class="module-info">
+          <div class="module-name">REDIS COMMANDER</div>
+          <div class="module-desc">Redis Datenbank inspizieren und verwalten</div>
+          <div class="module-tag">Port 8081</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a id="link-api-health" href="#" class="module-card dim" target="_blank">
+        <div class="module-icon">&#x25CE;</div>
+        <div class="module-info">
+          <div class="module-name">API HEALTH</div>
+          <div class="module-desc">Node.js API Status und aktive Session</div>
+          <div class="module-tag">Port 3000</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span class="footer-text">CHAOS IS A PLAN &nbsp;//&nbsp; o7</span>
+  <span class="footer-ver">SYS v4.0 // STREAMERBOT BRIDGE // REDIS PERSISTENCE</span>
+</footer>
+
+<script src="index.js"></script>
+</body>
+</html>

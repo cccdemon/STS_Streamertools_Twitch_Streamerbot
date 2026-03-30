@@ -74,8 +74,7 @@ public class CPHInline
             string attacker = msg["attacker"]?.ToString() ?? "";
             string defender = msg["defender"]?.ToString() ?? "";
             if (string.IsNullOrEmpty(attacker) || string.IsNullOrEmpty(defender)) return true;
-            CPH.SendMessage($"@{defender} Du wurdest von @{attacker} zum Raumkampf herausgefordert! " +
-                            $"Antworte mit !accept oder !decline (30 Sekunden). o7", true);
+            CPH.SendMessage($"@{defender}, du wirst von @{attacker} zu einem Duell herausgefordert! Willst du den Kampf annehmen (!ja) oder fliehen (!nein)? Du hast 30 Sekunden. o7", true);
             CPH.LogInfo($"[Spacefight] Challenge: {attacker} → {defender}");
             return true;
         }

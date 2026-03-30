@@ -18,7 +18,7 @@ let sortDir      = -1;
 let ws           = null;
 let wsRetry      = 1000;
 let lastWinner   = null;
-let CFG = { min:120, sec:5, host:'192.168.178.39', port:9090 };
+let CFG = { min:120, sec:5, host:'192.168.178.39', port:9091 };
 
 // ── Config ────────────────────────────────────────────────
 function loadCfg() {

@@ -1,0 +1,41 @@
+{
+    admin off
+    email admin@{$DOMAIN}
+}
+
+{$DOMAIN} {
+
+    root * /srv/web
+
+    @root path /
+    rewrite @root /index.html
+
+    file_server
+
+    handle /api/* {
+        reverse_proxy api:3000
+    }
+
+    handle /health {
+        reverse_proxy api:3000
+    }
+
+    handle /redis-ui/* {
+        uri strip_prefix /redis-ui
+        reverse_proxy redis-ui:8081
+    }
+
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        X-Frame-Options SAMEORIGIN
+        Strict-Transport-Security "max-age=31536000"
+        -Server
+    }
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

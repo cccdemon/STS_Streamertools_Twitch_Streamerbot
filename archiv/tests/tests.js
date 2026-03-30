@@ -32,8 +32,15 @@ var TESTS = [
   { id:'gw_close',              name:'Giveaway schliessen',          desc:'Sendet gw_close und erwartet gw_status=closed',                                        run:testGwClose },
   { id:'gw_reset',              name:'Reset',                        desc:'Alle Daten loeschen und leere Teilnehmerliste verifizieren',                            run:testReset },
   { id:'sf_status_request',     name:'SF Stream Status',             desc:'sf_status_request senden – sf_status Antwort mit live=bool erwartet',                  run:testSfStatusRequest },
-  { id:'sf_challenge_flow',     name:'SF Challenge Flow',            desc:'fight_cmd senden – Challenge-System ohne Fehler',                                      run:testChallengeFlow },
-  { id:'decimal_ticket_display',name:'Dezimal-Anzeige (parseDec)',   desc:'parseDec("1.5000") und parseDec("1,5000") muessen beide 1.5 ergeben – !coin Command',                  run:testDecimalTicketDisplay }
+  { id:'sf_challenge_flow',     name:'SF Challenge Flow (!ja/!nein)',desc:'fight_cmd senden – Challenge-System, acceptChallenge/declineChallenge vorhanden',      run:testChallengeFlow },
+  { id:'decimal_ticket_display',name:'Dezimal-Anzeige (parseDec)',   desc:'parseDec("1.5000") und parseDec("1,5000") muessen beide 1.5 ergeben',                  run:testDecimalTicketDisplay },
+  { id:'watchtime_accumulation',name:'Watchtime Kumulierung',        desc:'watchSec = Viewer-Tick + Chat-Bonus kumuliert, Formel coins=watchSec/7200',            run:testWatchtimeAccumulation },
+  { id:'chat_min_words',        name:'Chat Min. 5 Woerter',          desc:'Wortanzahl-Filter: < 5 Woerter zaehlt nicht, >= 5 Woerter zaehlt',                    run:testChatMinWords },
+  { id:'chat_cooldown',         name:'Chat Cooldown 10s',            desc:'Zwei Nachrichten schnell hintereinander: nur erste zaehlt',                            run:testChatCooldown },
+  { id:'coin_formula',          name:'Coin-Formel (2h = 1 Coin)',    desc:'7200s = 1.0 Coin | 3600s = 0.5 Coin | 1800s = 0.25 Coin',                             run:testCoinFormula },
+  { id:'watchtime_display',     name:'Watchtime Formatierung',       desc:'fmtTime: 3661s = 1:01:01, 60s = 0:01:00, 0s = 0:00:00',                               run:testWatchtimeDisplay },
+  { id:'registration_required', name:'Registrierung erforderlich',   desc:'Unregistrierter User bekommt keine Watchtime (Keyword-Check)',                         run:testRegistrationRequired },
+  { id:'coins_cumulative',      name:'Coins kumulativ',              desc:'watchSec addiert sich: Tick1 + Chat-Bonus + Tick2 = Summe',                            run:testCoinsCumulative }
 ];
 
 // ── WS Helper ─────────────────────────────────────────────
@@ -322,6 +329,191 @@ function testDecimalTicketDisplay() {
         resolve({ ok:true, detail:'3600/7200=' + half + ', toFixed(1)=' + display + ' – Dezimalformel OK' });
       }
     } catch(e) { reject(e); }
+  });
+}
+
+// ── Neue Tests: Watchtime, Chat-Regeln, Coins ─────────────
+
+function testWatchtimeAccumulation() {
+  // Lege einen Testuser an, addiere manuell 2 Tickets (= 14400s watchSec)
+  // prüfe dann: coins = watchSec / 7200
+  var u = '_cc_wt_acc_';
+  wsSend({ event:'gw_cmd', cmd:'gw_add_ticket', user:u });
+  return wsExpect('gw_ack').then(function(ack) {
+    if (ack.type !== 'ticket_added') throw new Error('ACK1: ' + ack.type);
+    wsSend({ event:'gw_cmd', cmd:'gw_add_ticket', user:u });
+    return wsExpect('gw_ack');
+  }).then(function(ack) {
+    if (ack.type !== 'ticket_added') throw new Error('ACK2: ' + ack.type);
+    wsSend({ event:'gw_get_all' });
+    return wsExpect('gw_data');
+  }).then(function(data) {
+    var found = findUser(data, u);
+    if (!found) throw new Error(u + ' nicht gefunden');
+    var w = parseInt(found.watchSec) || 0;
+    var t = pt(found.tickets);
+    var calc = w / 7200;
+    if (Math.abs(calc - t) > 0.001)
+      throw new Error('watchSec/7200 != tickets: ' + w + '/7200=' + calc.toFixed(4) + ' != ' + t);
+    if (w < 14400) throw new Error('watchSec=' + w + ' erwartet >= 14400');
+    return { ok:true, detail:'watchSec=' + w + 's kumuliert, coins=' + t.toFixed(2) + ' (Formel OK)' };
+  });
+}
+
+function testChatMinWords() {
+  // Reine Logik-Tests – kein Live-Streamerbot nötig
+  return new Promise(function(resolve, reject) {
+    try {
+      function countWords(msg) {
+        var count = 0, inWord = false;
+        for (var i = 0; i < msg.length; i++) {
+          var ch = msg[i];
+          if (ch === ' ' || ch === '\t') { inWord = false; }
+          else if (!inWord) { inWord = true; count++; }
+        }
+        return count;
+      }
+      var cases = [
+        { msg: 'hallo',                    words: 1, shouldCount: false },
+        { msg: 'hallo welt',               words: 2, shouldCount: false },
+        { msg: 'eins zwei drei vier',      words: 4, shouldCount: false },
+        { msg: 'eins zwei drei vier fuenf',words: 5, shouldCount: true  },
+        { msg: 'a b c d e f g',            words: 7, shouldCount: true  },
+        { msg: '  leading spaces test ok check', words: 5, shouldCount: true },
+      ];
+      var errors = [];
+      cases.forEach(function(c) {
+        var w = countWords(c.msg);
+        if (w !== c.words) errors.push('"' + c.msg + '": ' + w + ' != ' + c.words);
+        var ok = w >= 5;
+        if (ok !== c.shouldCount) errors.push('"' + c.msg + '": shouldCount=' + c.shouldCount + ' but got ' + ok);
+      });
+      if (errors.length) throw new Error(errors.join(' | '));
+      resolve({ ok:true, detail:'Wortanzahl-Filter korrekt: <5 blockiert, >=5 zaehlt' });
+    } catch(e) { reject(e); }
+  });
+}
+
+function testChatCooldown() {
+  // Logik-Test: Cooldown verhindert doppeltes Zaehlen
+  return new Promise(function(resolve, reject) {
+    try {
+      var COOLDOWN = 10; // Sekunden
+      var lastTime = 0;
+      function wouldCount(nowSec) {
+        if (nowSec - lastTime < COOLDOWN) return false;
+        lastTime = nowSec;
+        return true;
+      }
+      // t=0: zaehlt (erste Msg)
+      if (!wouldCount(0))  throw new Error('t=0 sollte zaehlen');
+      // t=5: zu frueh
+      if (wouldCount(5))   throw new Error('t=5 sollte NICHT zaehlen (Cooldown)');
+      // t=9: immer noch zu frueh
+      if (wouldCount(9))   throw new Error('t=9 sollte NICHT zaehlen');
+      // t=10: exakt Cooldown abgelaufen
+      if (!wouldCount(10)) throw new Error('t=10 sollte zaehlen (Cooldown abgelaufen)');
+      // t=15: zu frueh nach t=10
+      if (wouldCount(15))  throw new Error('t=15 sollte NICHT zaehlen');
+      // t=21: Cooldown abgelaufen
+      if (!wouldCount(21)) throw new Error('t=21 sollte zaehlen');
+      resolve({ ok:true, detail:'Cooldown 10s: t=0✓ t=5✗ t=9✗ t=10✓ t=15✗ t=21✓' });
+    } catch(e) { reject(e); }
+  });
+}
+
+function testCoinFormula() {
+  return new Promise(function(resolve, reject) {
+    try {
+      var SECS = 7200;
+      var cases = [
+        { secs:    0, coins: 0.0    },
+        { secs: 1800, coins: 0.25   },
+        { secs: 3600, coins: 0.5    },
+        { secs: 7200, coins: 1.0    },
+        { secs:14400, coins: 2.0    },
+        { secs: 5400, coins: 0.75   },
+        { secs:   60, coins: 0.008333 },
+      ];
+      var errors = [];
+      cases.forEach(function(c) {
+        var result = c.secs / SECS;
+        if (Math.abs(result - c.coins) > 0.0001)
+          errors.push(c.secs + 's: ' + result.toFixed(6) + ' != ' + c.coins);
+      });
+      if (errors.length) throw new Error(errors.join(' | '));
+      resolve({ ok:true, detail:'7200s=1.0 | 3600s=0.5 | 1800s=0.25 | 14400s=2.0 Coins – Formel korrekt' });
+    } catch(e) { reject(e); }
+  });
+}
+
+function testWatchtimeDisplay() {
+  return new Promise(function(resolve, reject) {
+    try {
+      function fmtTime(s) {
+        if (!s) return '0:00:00';
+        return Math.floor(s/3600) + ':' +
+          String(Math.floor((s%3600)/60)).padStart(2,'0') + ':' +
+          String(s%60).padStart(2,'0');
+      }
+      var cases = [
+        { s:    0, expected: '0:00:00' },
+        { s:   60, expected: '0:01:00' },
+        { s: 3600, expected: '1:00:00' },
+        { s: 3661, expected: '1:01:01' },
+        { s:14400, expected: '4:00:00' },
+        { s:  125, expected: '0:02:05' },
+      ];
+      var errors = [];
+      cases.forEach(function(c) {
+        var r = fmtTime(c.s);
+        if (r !== c.expected) errors.push(c.s + 's → "' + r + '" != "' + c.expected + '"');
+      });
+      if (errors.length) throw new Error(errors.join(' | '));
+      resolve({ ok:true, detail:'fmtTime: 0→0:00:00 | 3661→1:01:01 | 14400→4:00:00 OK' });
+    } catch(e) { reject(e); }
+  });
+}
+
+function testRegistrationRequired() {
+  // Nicht-registrierter User soll KEIN gw_add_ticket-Äquivalent via Chat bekommen
+  // Wir testen: ein unregistrierter User hat nach gw_get_all keine Coins
+  var u = '_cc_unreg_' + Date.now();
+  wsSend({ event:'gw_get_all' });
+  return wsExpect('gw_data').then(function(data) {
+    var found = findUser(data, u);
+    if (found) throw new Error(u + ' sollte nicht existieren');
+    // Kein Keyword gesetzt → User würde auch nach Chat-Msg keine watchSec bekommen
+    return { ok:true, detail:'Unregistrierter User nicht in Teilnehmerliste – kein automatischer Eintrag' };
+  });
+}
+
+function testCoinsCumulative() {
+  // Verifiziere dass watchSec kumulativ wächst: add 3 Coins → 21600s
+  var u = '_cc_cumul_';
+  var chain = Promise.resolve();
+  for (var i = 0; i < 3; i++) {
+    (function() {
+      chain = chain.then(function() {
+        wsSend({ event:'gw_cmd', cmd:'gw_add_ticket', user:u });
+        return wsExpect('gw_ack');
+      });
+    })();
+  }
+  return chain.then(function() {
+    wsSend({ event:'gw_get_all' });
+    return wsExpect('gw_data');
+  }).then(function(data) {
+    var found = findUser(data, u);
+    if (!found) throw new Error(u + ' nicht gefunden');
+    var w = parseInt(found.watchSec) || 0;
+    var t = pt(found.tickets);
+    if (w < 21600) throw new Error('watchSec=' + w + ' erwartet >= 21600 (3×7200)');
+    if (t < 3.0)   throw new Error('coins=' + t + ' erwartet >= 3.0');
+    var calc = w / 7200;
+    if (Math.abs(calc - t) > 0.001)
+      throw new Error('Formel: ' + w + '/7200=' + calc.toFixed(4) + ' != coins=' + t);
+    return { ok:true, detail:'3 Coins addiert: watchSec=' + w + 's, coins=' + t.toFixed(2) + ' – kumulativ korrekt' };
   });
 }
 

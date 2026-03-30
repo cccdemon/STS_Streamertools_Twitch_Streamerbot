@@ -1,72 +1,92 @@
 services:
 
-  # ── Redis ─────────────────────────────────────────────────
-  redis:
-    image: redis:7-alpine
-    container_name: chaos-crew-redis
+  # ── PostgreSQL ────────────────────────────────────────────
+  # Persistente Langzeit-Daten: Sessions, Watchtime, Gewinner
+  postgres:
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    container_name: cc-postgres
+    privileged: true
     restart: unless-stopped
-    command: redis-server /etc/redis/redis.conf
+    # unix_socket_directories='/tmp' wird via lxc-entrypoint.sh gesetzt.
+    # Nötig für unprivilegierte LXC-Container (AppArmor blockiert AF_UNIX
+    # in /var/run/postgresql). Die API nutzt ausschließlich TCP.
+    environment:
+      POSTGRES_DB:       ${PG_DB:-chaoscrew}
+      POSTGRES_USER:     ${PG_USER:-chaoscrew}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-changeme}
+      TZ: Europe/Berlin
     volumes:
-      - redis_data:/data
-      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - chaos-crew
     healthcheck:
-      test: ["CMD", "redis-cli", "-h", "127.0.0.1", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-chaoscrew} -d ${PG_DB:-chaoscrew} -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ── Redis ─────────────────────────────────────────────────
+  # Live-State: gw_open, aktive Watchtime, Spacefight sorted set
+  # DB 0 = Produktion, DB 1 = Tests (niemals überschreiben!)
+  redis:
+    image: redis:7-alpine
+    container_name: cc-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+    volumes:
+      - redis_data:/data
+    networks:
+      - chaos-crew
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
     logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
-  # ── Backup ────────────────────────────────────────────────
-  backup:
-    build:
-      context: ./backup
-      dockerfile: Dockerfile
-    container_name: chaos-crew-backup
-    restart: unless-stopped
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      API_HOST:   api
-      API_PORT:   "3000"
-      KEEP_DAYS:  "30"
-      TZ:         Europe/Berlin
-    volumes:
-      - backup_data:/backups
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - chaos-crew
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # ── Node.js API (WS Bridge + REST) ───────────────────────
+  # ── API ───────────────────────────────────────────────────
+  # Watchtime Engine + WS Bridge + REST
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: chaos-crew-api
+    container_name: cc-api
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:3000"   # REST
+      - "9091:9091"   # Browser WebSocket
     environment:
-      SB_HOST:    ${SB_HOST:-192.168.178.39}
-      SB_PORT:    ${SB_PORT:-9090}
-      API_PORT:   "3000"
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      TZ:         Europe/Berlin
+      SB_HOST:       ${SB_HOST:-192.168.178.39}
+      SB_PORT:       ${SB_PORT:-9090}
+      API_PORT:      "3000"
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      REDIS_DB:      "0"
+      PG_HOST:       postgres
+      PG_PORT:       "5432"
+      PG_DB:         ${PG_DB:-chaoscrew}
+      PG_USER:       ${PG_USER:-chaoscrew}
+      PG_PASSWORD:   ${PG_PASSWORD:-changeme}
+      TZ: Europe/Berlin
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -76,44 +96,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      - "com.chaos-crew.service=api"
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
 
-  # ── Redis Commander (Admin UI) ────────────────────────────
-  redis-ui:
-    image: rediscommander/redis-commander:latest
-    container_name: chaos-crew-redis-ui
-    restart: unless-stopped
-    environment:
-      REDIS_HOSTS:   "local:redis:6379"
-      HTTP_USER:     ${REDIS_UI_USER:-chaos}
-      HTTP_PASSWORD: ${REDIS_UI_PASSWORD:-crewpassword}
-      TZ:            Europe/Berlin
-    ports:
-      - "8081:8081"
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - chaos-crew
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  # ── Caddy (Web + SSL) ─────────────────────────────────────
+  # ── Web (Caddy) ───────────────────────────────────────────
   web:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: chaos-crew-web
+    container_name: cc-web
     restart: unless-stopped
     ports:
       - "80:80"
@@ -129,22 +122,71 @@ services:
       - api
     networks:
       - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
     logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      - "com.chaos-crew.service=web"
-      - "com.chaos-crew.version=4.0"
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ── Backup ────────────────────────────────────────────────
+  # Täglich um 03:00 Uhr, 30 Tage Aufbewahrung
+  backup:
+    image: postgres:16-alpine
+    container_name: cc-backup
+    restart: unless-stopped
+    environment:
+      PG_HOST:       postgres
+      PG_PORT:       "5432"
+      PG_DB:         ${PG_DB:-chaoscrew}
+      PG_USER:       ${PG_USER:-chaoscrew}
+      PG_PASSWORD:   ${PG_PASSWORD:-changeme}
+      REDIS_HOST:    redis
+      REDIS_PORT:    "6379"
+      KEEP_DAYS:     "30"
+      TZ: Europe/Berlin
+    volumes:
+      - backup_data:/backups
+      - redis_data:/redis-data:ro
+      - ./backup/backup.sh:/backup.sh:ro
+    command: >
+      sh -c "
+        apk add --no-cache redis &&
+        echo '0 3 * * * sh /backup.sh >> /backups/backup.log 2>&1' | crontab - &&
+        crond -f
+      "
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chaos-crew
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
+
+  # ── Redis Commander ───────────────────────────────────────
+  redis-ui:
+    image: rediscommander/redis-commander:latest
+    container_name: cc-redis-ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS:   "local:redis:6379"
+      HTTP_USER:     ${REDIS_UI_USER:-chaos}
+      HTTP_PASSWORD: ${REDIS_UI_PASSWORD:-crewpassword}
+      TZ: Europe/Berlin
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - chaos-crew
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
 
 volumes:
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
   backup_data:

@@ -1,9 +1,9 @@
 // Action: "GW – Chat Message"
-// Trigger: Twitch → Chat Message
-
-using System;
-using System.Collections.Generic;
-using Newtonsoft.Json;
+// Trigger: Twitch → Chat Message (alle)
+//
+// v5: Kein State mehr in Streamerbot.
+// Schickt rohe Chat-Events an die API.
+// Keyword-Check, Cooldown, Wortanzahl – alles in der API.
 
 public class CPHInline
 {
@@ -12,128 +12,48 @@ public class CPHInline
         "wizebot","botrixoficial","commanderroot"
     };
 
-    const int    COOLDOWN_SECS   = 10;   // max 1 Msg pro 10s zählt
-    const int    MIN_LENGTH      = 3;    // Mindestlänge
-    const int    SECS_PER_MSG    = 5;    // +5s Watchtime pro Nachricht
-    const int    SECS_PER_TICKET = 7200; // 2h = 1 Ticket
-
     public bool Execute()
     {
         if (!CPH.ObsIsStreaming(0)) return true;
-
-        string gwOpen = CPH.GetGlobalVar<string>("gw_open", true);
-        if (gwOpen != "true") return true;
 
         string user = GetUser();
         if (string.IsNullOrEmpty(user)) return true;
         if (IsBot(user)) return true;
 
-        string userKey = user.ToLower();
-
         string message = "";
         if (args.ContainsKey("message") && args["message"] != null)
         {
             message = args["message"].ToString().Trim();
-            // Strip control characters, limit length
-            var _msgSb = new System.Text.StringBuilder();
-            foreach (char _ch in message)
-                if (_ch >= ' ' && _ch != '') _msgSb.Append(_ch);
-            message = _msgSb.ToString();
             if (message.Length > 500) message = message.Substring(0, 500);
         }
 
-        // ── Keyword-Check: Teilnahme registrieren ─────────────
-        string keyword = CPH.GetGlobalVar<string>("gw_keyword", true);
-        if (!string.IsNullOrEmpty(keyword))
+        // Einfach Event an API weiterleiten
+        var payload = Newtonsoft.Json.JsonConvert.SerializeObject(new System.Collections.Generic.Dictionary<string, object>
         {
-            if (message.Equals(keyword, StringComparison.OrdinalIgnoreCase))
-            {
-                var pJoin = LoadUser(userKey);
-                if (!(bool)pJoin["banned"])
-                {
-                    pJoin["display"] = user;
-                    bool isNew = !IsRegistered(userKey);
-                    SetBool(pJoin, "registered", true);
-                    SaveUser(userKey, pJoin);
-                    AddToIndex(userKey);
-                    if (isNew)
-                    {
-                        CPH.SendMessage($"@{user} du hast dich erfolgreich freiwillig gemeldet! 🎟️", true);
-                        var joinMsg = new System.Collections.Generic.Dictionary<string, object>();
-                        joinMsg["event"] = "gw_join";
-                        joinMsg["user"]  = user;
-                        string joinSession = CPH.GetGlobalVar<string>("gw_join_session", false);
-                        if (!string.IsNullOrEmpty(joinSession))
-                            CPH.WebsocketCustomServerBroadcast(Newtonsoft.Json.JsonConvert.SerializeObject(joinMsg), joinSession, 0);
-                    }
-                }
-                return true;
-            }
+            ["event"]   = "chat_msg",
+            ["user"]    = user,
+            ["message"] = message,
+            ["ts"]      = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+        });
 
-            // Watchtime/Msgs nur für registrierte Teilnehmer
-            if (!IsRegistered(userKey)) return true;
-        }
+        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
+        if (!string.IsNullOrEmpty(apiSession))
+            CPH.WebsocketCustomServerBroadcast(payload, apiSession, 0);
 
-        // ── Spamschutz 1: Mindestlänge ────────────────────────
-        if (message.Length < MIN_LENGTH) return true;
-
-        // ── Spamschutz 2: Duplikat ────────────────────────────
-        string lastMsgKey = "gw_lastmsg_" + userKey;
-        string lastMsg    = CPH.GetGlobalVar<string>(lastMsgKey, false);
-        if (!string.IsNullOrEmpty(lastMsg) && lastMsg == message) return true;
-        CPH.SetGlobalVar(lastMsgKey, message, false);
-
-        // ── Spamschutz 3: Cooldown 10s ────────────────────────
-        string lastTimeKey = "gw_lasttime_" + userKey;
-        string lastTimeRaw = CPH.GetGlobalVar<string>(lastTimeKey, false);
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        if (!string.IsNullOrEmpty(lastTimeRaw))
-        {
-            long lastTime;
-            if (long.TryParse(lastTimeRaw, out lastTime))
-                if ((now - lastTime) < COOLDOWN_SECS) return true;
-        }
-        CPH.SetGlobalVar(lastTimeKey, now.ToString(), false);
-
-        // ── +5 Sekunden Watchtime pro Nachricht ───────────────
-        var p = LoadUser(userKey);
-        if ((bool)p["banned"]) return true;
-
-        SetInt(p, "msgs",     GetInt(p, "msgs") + 1);
-        SetInt(p, "watchSec", GetInt(p, "watchSec") + SECS_PER_MSG);
-
-        // Tickets als Dezimalwert aus Watchtime berechnen
-        double tickets = GetInt(p, "watchSec") / (double)SECS_PER_TICKET;
-        SetDouble(p, "tickets", tickets);
-
-        SaveUser(userKey, p);
         return true;
-    }
-
-    private bool IsRegistered(string userKey)
-    {
-        string raw = CPH.GetGlobalVar<string>("gw_u_" + userKey, true);
-        if (string.IsNullOrEmpty(raw)) return false;
-        try
-        {
-            var d = JsonConvert.DeserializeObject<Dictionary<string, object>>(raw);
-            if (d.ContainsKey("registered") && d["registered"] != null)
-                return Convert.ToBoolean(d["registered"]);
-        }
-        catch { }
-        return false;
     }
 
     private string GetUser()
     {
         string raw = null;
-        if (args.ContainsKey("userName") && args["userName"] != null)
-            raw = args["userName"].ToString();
-        else if (args.ContainsKey("user") && args["user"] != null)
-            raw = args["user"].ToString();
+        if (args.ContainsKey("userName") && args["userName"] != null) raw = args["userName"].ToString();
+        else if (args.ContainsKey("user") && args["user"] != null) raw = args["user"].ToString();
         if (string.IsNullOrEmpty(raw)) return null;
-        // Nur alphanumerisch + Unterstrich, max 25 Zeichen
-        var clean = new System.Func<string>(() => { var _sb = new System.Text.StringBuilder(); foreach (char _ch in raw.Trim()) if ((_ch >= 'a' && _ch <= 'z') || (_ch >= 'A' && _ch <= 'Z') || (_ch >= '0' && _ch <= '9') || _ch == '_') _sb.Append(_ch); return _sb.ToString(); })();
+        var sb = new System.Text.StringBuilder();
+        foreach (char ch in raw.Trim())
+            if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_')
+                sb.Append(ch);
+        string clean = sb.ToString();
         return clean.Length > 0 && clean.Length <= 25 ? clean : null;
     }
 
@@ -143,65 +63,4 @@ public class CPHInline
         foreach (var b in BOTS) if (u == b) return true;
         return false;
     }
-
-    private Dictionary<string, object> LoadUser(string userKey)
-    {
-        string raw = CPH.GetGlobalVar<string>("gw_u_" + userKey, true);
-        if (!string.IsNullOrEmpty(raw))
-            try { return JsonConvert.DeserializeObject<Dictionary<string, object>>(raw); } catch { }
-        return new Dictionary<string, object>
-        {
-            { "display",    userKey },
-            { "watchSec",   0 },
-            { "msgs",       0 },
-            { "tickets",    0.0 },
-            { "banned",     false },
-            { "registered", false }
-        };
-    }
-
-    private void SaveUser(string userKey, Dictionary<string, object> data)
-    {
-        CPH.SetGlobalVar("gw_u_" + userKey, JsonConvert.SerializeObject(data), true);
-    }
-
-    private void AddToIndex(string userKey)
-    {
-        string raw = CPH.GetGlobalVar<string>("gw_index", true);
-        var index  = new List<string>();
-        if (!string.IsNullOrEmpty(raw))
-            try { index = JsonConvert.DeserializeObject<List<string>>(raw); } catch { }
-        if (!index.Contains(userKey))
-        {
-            index.Add(userKey);
-            CPH.SetGlobalVar("gw_index", JsonConvert.SerializeObject(index), true);
-        }
-    }
-
-    private int GetInt(Dictionary<string, object> d, string key)
-    {
-        if (d.ContainsKey(key) && d[key] != null) return Convert.ToInt32(d[key]);
-        return 0;
-    }
-
-    private void SetInt(Dictionary<string, object> d, string key, int val) { d[key] = val; }
-
-    private double GetDouble(Dictionary<string, object> d, string key)
-    {
-        if (d.ContainsKey(key) && d[key] != null)
-        {
-            var val = d[key];
-            if (val is string s)
-                return double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
-            return Convert.ToDouble(val, System.Globalization.CultureInfo.InvariantCulture);
-        }
-        return 0.0;
-    }
-
-    private void SetDouble(Dictionary<string, object> d, string key, double val)
-    {
-        d[key] = Math.Round(val, 4).ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-    }
-
-    private void SetBool(Dictionary<string, object> d, string key, bool val) { d[key] = val; }
 }

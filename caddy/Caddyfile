@@ -11,12 +11,18 @@
 
     file_server
 
+    # REST API
     handle /api/* {
         reverse_proxy api:3000
     }
 
     handle /health {
         reverse_proxy api:3000
+    }
+
+    # Browser WebSocket (v5: Port 9091, nicht mehr Streamerbot direkt)
+    handle /ws {
+        reverse_proxy api:9091
     }
 
     handle /redis-ui/* {
