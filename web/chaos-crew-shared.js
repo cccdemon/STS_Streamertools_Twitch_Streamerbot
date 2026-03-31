@@ -270,23 +270,23 @@
 
 (function() {
   var PAGES = [
-    { href: 'giveaway-admin.html',  label: 'ADMIN PANEL',   group: 'giveaway' },
-    { href: 'stats.html',           label: 'STATISTIKEN',   group: 'giveaway' },
-    { href: 'giveaway-test.html',   label: 'TEST CONSOLE',  group: 'tools' },
+    { href: 'giveaway/giveaway-admin.html',  label: 'ADMIN PANEL',   group: 'giveaway' },
+    { href: 'giveaway/stats.html',           label: 'STATISTIKEN',   group: 'giveaway' },
+    { href: 'giveaway/giveaway-test.html',   label: 'TEST CONSOLE',  group: 'tools' },
     { href: 'tests/test-runner.html', label: 'TEST SUITE',  group: 'tools' },
     { sep: true },
     { href: 'streamerbot.html',     label: 'C# ACTIONS',    group: 'tools', color: 'gold' },
     { sep: true },
-    { href: 'spacefight-admin.html', label: 'SF ADMIN', group: 'tools', color: 'gold' },
+    { href: 'games/spacefight-admin.html', label: 'SF ADMIN', group: 'tools', color: 'gold' },
     { sep: true },
-    { href: 'giveaway-overlay.html', label: 'GW OVERLAY',   group: 'obs', obs: true },
-    { href: 'giveaway-join.html',   label: 'JOIN ANIM',     group: 'obs', obs: true },
+    { href: 'giveaway/giveaway-overlay.html', label: 'GW OVERLAY',   group: 'obs', obs: true },
+    { href: 'giveaway/giveaway-join.html',   label: 'JOIN ANIM',     group: 'obs', obs: true },
     { href: 'chat.html',            label: 'HUD CHAT',      group: 'obs', obs: true },
-    { href: 'spacefight.html',      label: 'RAUMKAMPF',     group: 'obs', obs: true },
+    { href: 'games/spacefight.html',      label: 'RAUMKAMPF',     group: 'obs', obs: true },
   ];
 
   var base = window._navBase || '';
-  var currentPage = window.location.pathname.split('/').pop() || 'index.html';
+  var currentPage = window.location.pathname.replace(/^\/+/, '');
   if (currentPage === '') currentPage = 'index.html';
 
   var nav = document.createElement('nav');

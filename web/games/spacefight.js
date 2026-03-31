@@ -562,5 +562,7 @@ if (TEST_MODE) {
 }
 
 // ── Init ──────────────────────────────────────────────────
-connect();
-if (CHANNEL) connectIRC();
+if (!window._sfUnitTests) {
+  connect();
+  if (CHANNEL) connectIRC();
+}

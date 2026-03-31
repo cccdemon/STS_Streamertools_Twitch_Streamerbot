@@ -15,8 +15,8 @@ let participants = {};
 let gwIsOpen     = false;
 let sortField    = 'tickets';
 let sortDir      = -1;
-let ws           = null;
-let wsRetry      = 1000;
+let gwWs         = null;
+let gwWsRetry    = 1000;
 let lastWinner   = null;
 let CFG = { min:120, sec:5, host:'192.168.178.39', port:9091 };
 
@@ -45,40 +45,41 @@ function saveCfg() {
 }
 
 // ── WebSocket ─────────────────────────────────────────────
-function reconnect() { saveCfg(); if (ws) { ws.onclose=null; ws.close(); } connectWS(); }
+function reconnect() { saveCfg(); if (gwWs) { gwWs.onclose=null; gwWs.close(); } connectWS(); }
 
 function connectWS() {
-  try { ws = new WebSocket(`ws://${CFG.host}:${CFG.port}`); }
+  try { gwWs = new WebSocket(`ws://${CFG.host}:${CFG.port}`); }
   catch(e) { scheduleReconnect(); return; }
 
-  ws.onopen = () => {
+  gwWs.onopen = () => {
     setBadge(true);
-    wsRetry = 1000;
+    gwWsRetry = 1000;
     log('WebSocket verbunden', 'cyan');
     requestData();
     loadKeyword();
   };
-  ws.onmessage = (e) => { const msg = CC.validate.safeJsonParse(e.data); if (msg) handle(msg); };
-  ws.onclose = ws.onerror = () => { setBadge(false); scheduleReconnect(); };
+  gwWs.onmessage = (e) => { const msg = CC.validate.safeJsonParse(e.data); if (msg) handle(msg); };
+  gwWs.onclose = gwWs.onerror = () => { setBadge(false); scheduleReconnect(); };
 }
 
-function scheduleReconnect() { setTimeout(connectWS, wsRetry); wsRetry = Math.min(wsRetry*2, 15000); }
+function scheduleReconnect() { setTimeout(connectWS, gwWsRetry); gwWsRetry = Math.min(gwWsRetry*2, 15000); }
 
 function setBadge(on) {
   const el = document.getElementById('ws-badge');
+  if (!el) return;
   el.className = 'ws-badge ' + (on ? 'on' : 'off');
   el.textContent = on ? `WS: ${CFG.host}:${CFG.port}` : 'WS: OFFLINE';
 }
 
 function send(obj) {
   if (!CC.validate.validateWsPayload(obj)) { log('Payload blockiert: ' + JSON.stringify(obj).slice(0,60), 'red'); return; }
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+  if (gwWs && gwWs.readyState === 1) gwWs.send(JSON.stringify(obj));
   else log('WS nicht verbunden', 'red');
 }
 
 function requestData() { send({ event: 'gw_get_all' }); }
 
-setInterval(() => { if (ws && ws.readyState === 1) requestData(); }, 10000);
+setInterval(() => { if (gwWs && gwWs.readyState === 1) requestData(); }, 10000);
 
 // ── Message Handler ───────────────────────────────────────
 function handle(msg) {
@@ -335,13 +336,22 @@ function log(msg, type='') {
   const e  = document.createElement('div');
   e.className = `log-e ${type}`;
   e.textContent = `[${ts}] ${msg}`;
-  el.insertBefore(e, el.firstChild);
-  while (el.children.length > 80) el.removeChild(el.lastChild);
+  if (el) {
+    el.insertBefore(e, el.firstChild);
+    while (el.children.length > 80) el.removeChild(el.lastChild);
+  } else {
+    console.log(e.textContent);
+  }
 }
 
-function clearLog() { document.getElementById('log').innerHTML = ''; }
+function clearLog() {
+  const el = document.getElementById('log');
+  if (el) el.innerHTML = '';
+}
 
 // ── Init ──────────────────────────────────────────────────
 loadCfg();
-connectWS();
-log('Admin-Panel gestartet', 'cyan');
+if (!window._sfUnitTests) {
+  connectWS();
+  log('Admin-Panel gestartet', 'cyan');
+}

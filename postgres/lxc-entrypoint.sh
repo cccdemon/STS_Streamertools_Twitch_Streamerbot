@@ -45,4 +45,5 @@ patch_file "$SAMPLE"
 patch_file "$CONF"
 
 echo "[lxc-fix] PostgreSQL startet mit unix_socket_directories='/tmp'"
-exec docker-entrypoint.sh "$@"
+    echo "[lxc-fix] exec /usr/local/bin/docker-entrypoint.sh $*"
+    exec /usr/local/bin/docker-entrypoint.sh "$@"

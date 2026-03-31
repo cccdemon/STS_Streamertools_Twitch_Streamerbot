@@ -3,10 +3,11 @@
 // Reads from the Node.js API (PostgreSQL)
 // ════════════════════════════════════════════════════════
 
-const params   = new URLSearchParams(location.search);
-const API_HOST = params.get('apihost') || location.hostname;
-const API_PORT = params.get('apiport') || '3000';
-const API_BASE = `http://${API_HOST}:${API_PORT}/api`;
+const params    = new URLSearchParams(location.search);
+const API_HOST  = params.get('apihost');
+const API_PORT  = params.get('apiport') || '3000';
+const API_ROOT  = API_HOST ? `http://${API_HOST}:${API_PORT}` : '';
+const API_BASE  = API_HOST ? `${API_ROOT}/api` : '/api';
 
 // ── Tab Navigation ────────────────────────────────────────
 function showTab(name) {
@@ -33,7 +34,9 @@ async function apiFetch(path) {
 
 async function checkApi() {
   try {
-    const data = await apiFetch('/../../health');
+    const res = await fetch(`${API_ROOT}/health`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
     const el = document.getElementById('api-badge');
     el.textContent = `API: OK | Session #${data.session || '-'}`;
     el.className = 'api-badge on';
