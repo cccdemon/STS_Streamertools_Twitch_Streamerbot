@@ -285,7 +285,7 @@
     { href: 'games/spacefight.html',      label: 'RAUMKAMPF',     group: 'obs', obs: true },
   ];
 
-  var base = window._navBase || '';
+  var base = window._navBase || '/';
   var currentPage = window.location.pathname.replace(/^\/+/, '');
   if (currentPage === '') currentPage = 'index.html';
 
@@ -321,7 +321,11 @@
     var isCurrent = (currentPage === hrefBase) ||
                     (currentPage === '' && p.href === 'index.html');
 
-    a.href = base + p.href;
+    if (p.href.charAt(0) === '/') {
+      a.href = p.href;
+    } else {
+      a.href = base + p.href;
+    }
     a.className = 'cc-nav-item' +
       (p.color ? ' ' + p.color : '') +
       (isCurrent ? ' active' : '');

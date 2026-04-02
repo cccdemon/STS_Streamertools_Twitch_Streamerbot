@@ -10,6 +10,17 @@ var ws            = null;
 var wsRetry       = 2000;
 var winnerTimeout = null;
 
+function parseDec(v) {
+  if (v === null || v === undefined) return 0;
+  if (typeof v === 'string') v = v.replace(/,/g, '.');
+  var n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function safeParseLocal(s) {
+  try { return JSON.parse(s); } catch (e) { return null; }
+}
+
 function connect() {
   try { ws = new WebSocket('ws://' + WS_HOST + ':' + WS_PORT); }
   catch(e) { scheduleReconnect(); return; }
@@ -20,7 +31,10 @@ function connect() {
     ws.send(JSON.stringify({ event: 'gw_get_all' }));
   };
   ws.onmessage = function(e) {
-    try { handle(CC.validate.safeJsonParse(e.data) || {}); } catch(x) {}
+    try {
+      var msg = (window.CC && CC.validate) ? CC.validate.safeJsonParse(e.data) : safeParseLocal(e.data);
+      if (msg) handle(msg);
+    } catch(x) {}
   };
   ws.onclose = ws.onerror = function() { scheduleReconnect(); };
 }

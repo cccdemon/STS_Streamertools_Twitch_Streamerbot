@@ -339,10 +339,35 @@ async function handleSbEvent(msg) {
 
     // ── Challenge Events (Spacefight) ─────────────────────
     case 'fight_cmd':
-    case 'spacefight_challenge':
-    case 'spacefight_rejected':
       broadcastAll(msg);
       break;
+
+    case 'spacefight_challenge': {
+      const a = msg.attacker || '';
+      const d = msg.defender || '';
+      if (a && d) {
+        sbSend({ event: 'chat_reply', message: `@${d}, @${a} fordert dich zum Raumkampf heraus! Tippe !ja um anzunehmen oder !nein um abzulehnen. (30s)` });
+      }
+      broadcastAll(msg);
+      break;
+    }
+
+    case 'spacefight_rejected': {
+      const reason = msg.reason || '';
+      const a = msg.attacker || '';
+      const d = msg.defender || '';
+      if (reason === 'not_in_chat') {
+        sbSend({ event: 'chat_reply', message: `@${a} ${d} ist gerade nicht im Chat aktiv.` });
+      } else if (reason === 'challenge_timeout') {
+        sbSend({ event: 'chat_reply', message: `@${a} ${d} hat nicht reagiert. Challenge abgelaufen.` });
+      } else if (reason === 'challenge_declined') {
+        sbSend({ event: 'chat_reply', message: `@${a} ${d} hat den Kampf abgelehnt.` });
+      } else if (reason === 'stream_offline') {
+        sbSend({ event: 'chat_reply', message: `@${a} Kämpfe sind nur während des Streams möglich.` });
+      }
+      broadcastAll(msg);
+      break;
+    }
   }
 }
 

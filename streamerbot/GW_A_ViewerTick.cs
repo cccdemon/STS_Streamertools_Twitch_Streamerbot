@@ -26,7 +26,7 @@ public class CPHInline
         {
             ["event"] = "viewer_tick",
             ["user"]  = user,
-            ["ts"]    = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            ["ts"]    = (long)(System.DateTime.UtcNow - new System.DateTime(1970,1,1)).TotalSeconds
         });
 
         string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);

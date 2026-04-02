@@ -17,8 +17,14 @@ let sortField    = 'tickets';
 let sortDir      = -1;
 let gwWs         = null;
 let gwWsRetry    = 1000;
+let gwWsReconnectTimer = null;
 let lastWinner   = null;
-let CFG = { min:120, sec:5, host:'192.168.178.39', port:9091 };
+let CFG = { min:120, sec:5, host:'192.168.178.34', port:9091 };
+
+function esc(s) {
+  return (window.CC && CC.validate && typeof CC.validate.escHtml === 'function') ? CC.validate.escHtml(s) : String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // ── Config ────────────────────────────────────────────────
 function loadCfg() {
@@ -39,13 +45,18 @@ function saveCfg() {
   CFG.min  = getNum('cfg-min',  120);
   CFG.sec  = getNum('cfg-sec',  5);
   CFG.host = getStr('cfg-host', '192.168.178.39');
-  CFG.port = getNum('cfg-port', 9090);
+  CFG.port = getNum('cfg-port', 9091);
   localStorage.setItem('cc_gw_cfg', JSON.stringify(CFG));
   log('Config gespeichert', 'cyan');
 }
 
 // ── WebSocket ─────────────────────────────────────────────
-function reconnect() { saveCfg(); if (gwWs) { gwWs.onclose=null; gwWs.close(); } connectWS(); }
+function reconnect() {
+  saveCfg();
+  if (gwWsReconnectTimer) { clearTimeout(gwWsReconnectTimer); gwWsReconnectTimer = null; }
+  if (gwWs) { gwWs.onclose = null; gwWs.close(); }
+  connectWS();
+}
 
 function connectWS() {
   try { gwWs = new WebSocket(`ws://${CFG.host}:${CFG.port}`); }
@@ -62,7 +73,14 @@ function connectWS() {
   gwWs.onclose = gwWs.onerror = () => { setBadge(false); scheduleReconnect(); };
 }
 
-function scheduleReconnect() { setTimeout(connectWS, gwWsRetry); gwWsRetry = Math.min(gwWsRetry*2, 15000); }
+function scheduleReconnect() {
+  if (gwWsReconnectTimer) return;
+  gwWsReconnectTimer = setTimeout(function() {
+    gwWsReconnectTimer = null;
+    connectWS();
+  }, gwWsRetry);
+  gwWsRetry = Math.min(gwWsRetry*2, 15000);
+}
 
 function setBadge(on) {
   const el = document.getElementById('ws-badge');
@@ -111,7 +129,7 @@ function handle(msg) {
 
     case 'gw_ack':
       log(`ACK: ${msg.type} -> ${msg.user || msg.keyword || ''}`, 'cyan');
-      if (msg.type === 'keyword_set') {
+      if (msg.type === 'keyword_set' || msg.type === 'keyword') {
         const kw = msg.keyword || '';
         document.getElementById('kw-current').textContent = kw || '- (deaktiviert)';
         document.getElementById('kw-input').value = kw;
@@ -230,6 +248,7 @@ function renderTable(hlKey=null) {
   const entries = Object.entries(participants)
     .filter(([k,p]) => !search || k.includes(search) || (p.display||'').toLowerCase().includes(search))
     .sort(([,a],[,b]) => {
+      if (sortField === 'rank') return 0; // preserve natural insertion order
       const av = sortField==='name' ? (a.display||'').toLowerCase() : (a[sortField]||0);
       const bv = sortField==='name' ? (b.display||'').toLowerCase() : (b[sortField]||0);
       return sortDir * (av<bv?-1:av>bv?1:0);
