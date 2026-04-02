@@ -19,18 +19,17 @@ var CHANNEL  = params.get('channel') || '';
 var TEST_MODE  = params.get('test') === '1';
 var FORCE_LIVE = params.get('forcelive') === '1';
 
-var COOLDOWN_MS      = 30000;   // 30s pro Angreifer
+var COOLDOWN_MS      = 20000;   // 20s pro Angreifer
 var CHAT_ACTIVE_MS   = 5 * 60 * 1000; // 5 Min = "im Chat"
 var WOF_SHOW_SECS    = 15;      // Wall of Fame Anzeigedauer
 
 var ws          = null;
 var wsRetry     = 2000;
+var reconnectTimer = null;
 var irc         = null;
 var queue       = [];
 var isPlaying   = false;
 var recentFights   = {};   // attacker.lower → timestamp
-var pendingChallenges = {}; // defender.lower → {attacker, defender, ts, timeout}
-var CHALLENGE_TIMEOUT = 30000; // 30s zum Annehmen
 var chatActive   = {};   // username.lower → last message timestamp
 var streamLive   = TEST_MODE || FORCE_LIVE; // im Test/Force-Modus immer live
 var wofVisible   = false;
@@ -78,6 +77,7 @@ function connect() {
   catch(e) { scheduleReconnect(); return; }
 
   ws.onopen = function() {
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     wsRetry = 2000;
     ws.send(JSON.stringify({ event: 'gw_spacefight_register' }));
     ws.send(JSON.stringify({ event: 'sf_status_request' }));
@@ -92,7 +92,11 @@ function connect() {
 
 function scheduleReconnect() {
   if (TEST_MODE) return; // Im Test-Modus kein Reconnect-Spam
-  setTimeout(connect, wsRetry);
+  if (reconnectTimer) return;
+  reconnectTimer = setTimeout(function() {
+    reconnectTimer = null;
+    connect();
+  }, wsRetry);
   wsRetry = Math.min(wsRetry * 2, 15000);
 }
 
@@ -101,16 +105,7 @@ function safeParseLocal(s) {
 }
 
 function handleSB(msg) {
-  // Accept/Decline Commands
-  if (msg.event === 'fight_accept') {
-    acceptChallenge(msg.defender || msg.user || '');
-    return;
-  }
-  if (msg.event === 'fight_decline') {
-    declineChallenge(msg.defender || msg.user || '');
-    return;
-  }
-  // Direkter Fight-Command vom SF_ChatForwarder
+  // Fight-Command vom SF_ChatForwarder
   if (msg.event === 'fight_cmd') {
     var attacker = msg.attacker || '';
     var defender = msg.defender || '';
@@ -131,10 +126,7 @@ function handleSB(msg) {
   if (msg.event === 'sf_status' || msg.event === 'stream_status') {
     streamLive = !!msg.live || !!msg.streaming;
   }
-  // OBS streaming status via gw_data
-  if (msg.event === 'gw_data') {
-    streamLive = true; // wenn WS funktioniert und Daten kommen = wahrscheinlich live
-  }
+
 }
 
 // ── Twitch IRC ────────────────────────────────────────────
@@ -156,13 +148,7 @@ function connectIRC() {
         var user = m[1];
         var msg  = m[2].trim();
         chatActive[user.toLowerCase()] = Date.now();
-        if (/^!ja$/i.test(msg)) {
-          acceptChallenge(user);
-        } else if (/^!nein$/i.test(msg)) {
-          declineChallenge(user);
-        } else {
-          parseCommand(user, msg);
-        }
+        parseCommand(user, msg);
       }
     });
   };
@@ -182,7 +168,7 @@ function parseCommand(user, message) {
   if (!m) return;
 
   var attacker = (user || '').trim();
-  var defender = m[1].replace(/^@/, '').trim();
+  var defender = m[1].replace(/^@/, '').replace(/^["']|["']$/g, '').trim();
 
   if (!attacker || !defender) return;
   if (attacker.toLowerCase() === defender.toLowerCase()) return;
@@ -218,78 +204,9 @@ function parseCommand(user, message) {
   if ((now - (recentFights[attacker.toLowerCase()] || 0)) < COOLDOWN_MS) return;
   recentFights[attacker.toLowerCase()] = now;
 
-  // Challenge senden – Defender muss annehmen
-  var defLower = defender.toLowerCase();
-  if (pendingChallenges[defLower]) {
-    // Bereits eine offene Challenge gegen diesen Defender
-    return;
-  }
-
-  // Challenge speichern
-  var challengeTimeout = setTimeout(function() {
-    if (pendingChallenges[defLower]) {
-      delete pendingChallenges[defLower];
-      // Timeout-Meldung an Streamerbot
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({
-          event: 'spacefight_rejected',
-          reason: 'challenge_timeout',
-          attacker: attacker,
-          defender: defender
-        }));
-      }
-    }
-  }, CHALLENGE_TIMEOUT);
-
-  pendingChallenges[defLower] = {
-    attacker: attacker,
-    defender: defender,
-    timeout:  challengeTimeout
-  };
-
-  // Challenge-Event an Streamerbot (postet im Chat)
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({
-      event:    'spacefight_challenge',
-      attacker: attacker,
-      defender: defender
-    }));
-  }
-}
-
-// ── Challenge annehmen/ablehnen ───────────────────────────
-function acceptChallenge(defender) {
-  var defLower = defender.toLowerCase();
-  var challenge = pendingChallenges[defLower];
-  if (!challenge) return;
-
-  clearTimeout(challenge.timeout);
-  delete pendingChallenges[defLower];
-
-  // Cooldown für Angreifer setzen
-  recentFights[challenge.attacker.toLowerCase()] = Date.now();
-
-  queue.push({ attacker: challenge.attacker, defender: challenge.defender });
+  // Sofort in Queue und starten
+  queue.push({ attacker: attacker, defender: defender });
   if (!isPlaying) nextFight();
-}
-
-function declineChallenge(defender) {
-  var defLower = defender.toLowerCase();
-  var challenge = pendingChallenges[defLower];
-  if (!challenge) return;
-
-  clearTimeout(challenge.timeout);
-  var attacker = challenge.attacker;
-  delete pendingChallenges[defLower];
-
-  if (ws && ws.readyState === 1) {
-    ws.send(JSON.stringify({
-      event:    'spacefight_rejected',
-      reason:   'challenge_declined',
-      attacker: attacker,
-      defender: defender
-    }));
-  }
 }
 
 // ── Queue ─────────────────────────────────────────────────
@@ -307,7 +224,7 @@ function runFight(aName, dName) {
 
   var powerA = shipA.power + Math.random() * 3;
   var powerD = shipD.power + Math.random() * 3;
-  var aWins  = powerA >= powerD;
+  var aWins  = powerA > powerD || (powerA === powerD && Math.random() < 0.5);
 
   var rounds = [], tmpA = 100, tmpD = 100;
 
@@ -316,12 +233,12 @@ function runFight(aName, dName) {
       var dmg = Math.floor(Math.random() * 20) + 10;
       if (!aWins && i >= 2) dmg = Math.floor(dmg * 0.4);
       tmpD = Math.max(0, tmpD - dmg);
-      rounds.push({ type: Math.random() > 0.25 ? 'hit_a' : 'miss', dmg: dmg, hp_a: tmpA, hp_d: tmpD });
+      rounds.push({ type: Math.random() > 0.25 ? 'hit_a' : 'miss_a', dmg: dmg, hp_a: tmpA, hp_d: tmpD });
     } else {
       var dmg = Math.floor(Math.random() * 20) + 10;
-      if (aWins && i >= 1) dmg = Math.floor(dmg * 0.4);
+      if (aWins && i >= 2) dmg = Math.floor(dmg * 0.4);
       tmpA = Math.max(0, tmpA - dmg);
-      rounds.push({ type: Math.random() > 0.25 ? 'hit_d' : 'miss', dmg: dmg, hp_a: tmpA, hp_d: tmpD });
+      rounds.push({ type: Math.random() > 0.25 ? 'hit_d' : 'miss_d', dmg: dmg, hp_a: tmpA, hp_d: tmpD });
     }
   }
   aWins ? rounds.push({ type:'kill_a', hp_a:tmpA, hp_d:0 })
@@ -458,14 +375,14 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
         '<div class="pilot-ship">' + esc(shipD.name) + '</div></div>' +
     '</div>' +
     '<div class="hp-row">' +
-      '<span class="hp-label" id="hp-a-lbl">100</span>' +
-      '<div class="hp-bar-wrap"><div class="hp-bar attacker" id="hp-a" style="width:100%"></div></div>' +
+      '<span class="hp-label fc-hp-a-lbl">100</span>' +
+      '<div class="hp-bar-wrap"><div class="hp-bar attacker fc-hp-a" style="width:100%"></div></div>' +
       '<span class="hp-label" style="color:rgba(200,220,232,0.2)">HP</span>' +
-      '<div class="hp-bar-wrap reversed"><div class="hp-bar defender" id="hp-d" style="width:100%"></div></div>' +
-      '<span class="hp-label" id="hp-d-lbl">100</span>' +
+      '<div class="hp-bar-wrap reversed"><div class="hp-bar defender fc-hp-d" style="width:100%"></div></div>' +
+      '<span class="hp-label fc-hp-d-lbl">100</span>' +
     '</div>' +
-    '<div class="combat-log" id="clog">KAMPF BEGINNT...</div>' +
-    '<div class="drain-bar" id="drain-bar"></div>';
+    '<div class="combat-log fc-clog">KAMPF BEGINNT...</div>' +
+    '<div class="drain-bar fc-drain-bar"></div>';
 
   arena.appendChild(card);
 
@@ -474,13 +391,13 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
     var delay = 500;
     rounds.forEach(function(r, i) {
       setTimeout(function() {
-        updateHP(r.hp_a, r.hp_d);
-        updateLog(r, aName, dName, winner, loser, i === rounds.length - 1);
+        updateHP(card, r.hp_a, r.hp_d);
+        updateLog(card, r, aName, dName, winner, loser, i === rounds.length - 1);
       }, delay);
       delay += 900;
     });
 
-    var db = document.getElementById('drain-bar');
+    var db = card.querySelector('.fc-drain-bar');
     if (db) { db.style.animationDuration = (delay+1000)+'ms'; db.classList.add('running'); }
 
     // Nach Ende: Ergebnis senden + Wall of Fame anzeigen
@@ -499,19 +416,19 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
   }); });
 }
 
-function updateHP(hpA, hpD) {
-  var bA = document.getElementById('hp-a');
-  var bD = document.getElementById('hp-d');
+function updateHP(card, hpA, hpD) {
+  var bA = card.querySelector('.fc-hp-a');
+  var bD = card.querySelector('.fc-hp-d');
   if (bA) bA.style.width = Math.max(0,hpA)+'%';
   if (bD) bD.style.width = Math.max(0,hpD)+'%';
-  var lA = document.getElementById('hp-a-lbl');
-  var lD = document.getElementById('hp-d-lbl');
+  var lA = card.querySelector('.fc-hp-a-lbl');
+  var lD = card.querySelector('.fc-hp-d-lbl');
   if (lA) lA.textContent = Math.max(0,hpA);
   if (lD) lD.textContent = Math.max(0,hpD);
 }
 
-function updateLog(round, aName, dName, winner, loser, isFinal) {
-  var log = document.getElementById('clog');
+function updateLog(card, round, aName, dName, winner, loser, isFinal) {
+  var log = card.querySelector('.fc-clog');
   if (!log) return;
   if (isFinal) {
     var tpl = EVENTS_WIN[Math.floor(Math.random()*EVENTS_WIN.length)];
@@ -520,16 +437,21 @@ function updateLog(round, aName, dName, winner, loser, isFinal) {
       tpl.replace('{W}',esc(winner.toUpperCase())).replace('{L}',esc(loser.toUpperCase()))+'</span>';
     return;
   }
-  var text = '';
+  var tpl, text;
   if (round.type === 'hit_a') {
-    var tpl = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
+    tpl  = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
     text = '<span class="hit-a">'+esc(tpl.replace('{A}',aName.toUpperCase()).replace('{D}',dName.toUpperCase()).replace('{DMG}',round.dmg))+'</span>';
   } else if (round.type === 'hit_d') {
-    var tpl = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
+    tpl  = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
     text = '<span class="hit-d">'+esc(tpl.replace('{A}',dName.toUpperCase()).replace('{D}',aName.toUpperCase()).replace('{DMG}',round.dmg))+'</span>';
-  } else {
-    var tpl = EVENTS_MISS[Math.floor(Math.random()*EVENTS_MISS.length)];
+  } else if (round.type === 'miss_a') {
+    // Attacker's shot missed – defender evaded
+    tpl  = EVENTS_MISS[Math.floor(Math.random()*EVENTS_MISS.length)];
     text = esc(tpl.replace('{A}',aName.toUpperCase()).replace('{D}',dName.toUpperCase()));
+  } else {
+    // miss_d: Defender's shot missed – attacker evaded
+    tpl  = EVENTS_MISS[Math.floor(Math.random()*EVENTS_MISS.length)];
+    text = esc(tpl.replace('{A}',dName.toUpperCase()).replace('{D}',aName.toUpperCase()));
   }
   log.innerHTML = text;
 }
