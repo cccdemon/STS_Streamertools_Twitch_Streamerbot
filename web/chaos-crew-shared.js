@@ -166,7 +166,7 @@
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_overlay_register', 'gw_join_register', 'gw_api_register',
     'gw_spacefight_register', 'spacefight_result', 'chat_msg',
-    'ws:connect', 'ws:close', 'http:GET', 'http:POST'
+    'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
   var ALLOWED_CMDS = [
@@ -610,6 +610,54 @@
       throw err;
     });
   };
+
+  // ── Button / Action Interceptor ──────────────────────────
+  // Fängt alle Klicks auf Buttons, Links und klickbare Elemente ab
+  document.addEventListener('click', function(e) {
+    var target = e.target;
+
+    // Durch die DOM-Hierarchie nach oben gehen um das nächste Button/Link-Element zu finden
+    var el = target;
+    var maxDepth = 5;
+    while (el && maxDepth-- > 0) {
+      if (el.tagName === 'BUTTON' || el.tagName === 'A' ||
+          (el.getAttribute && el.getAttribute('onclick'))) {
+        break;
+      }
+      el = el.parentElement;
+    }
+    if (!el || maxDepth < 0) return;
+
+    // Debug-Console eigene Buttons ignorieren
+    if (el.closest && el.closest('.cc-dbg-bar')) return;
+
+    var info = { event: 'ui:click' };
+
+    // Element-Info sammeln
+    if (el.id) info.id = el.id;
+    if (el.className && typeof el.className === 'string') {
+      var cls = el.className.trim();
+      if (cls) info.class = cls.split(/\s+/).slice(0, 3).join(' ');
+    }
+
+    // Button-Text oder Link-Text
+    var text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    if (text.length > 60) text = text.slice(0, 57) + '...';
+    if (text) info.label = text;
+
+    // onclick-Handler analysieren (zeigt was der Button tut)
+    var onclickAttr = el.getAttribute('onclick');
+    if (onclickAttr) {
+      info.action = onclickAttr.replace(/\s+/g, ' ').slice(0, 120);
+    }
+
+    // Link-Ziel
+    if (el.tagName === 'A' && el.href) {
+      info.href = el.href.replace(window.location.origin, '');
+    }
+
+    addEntry('info', info);
+  }, true); // capture phase: vor allen anderen Handlern
 
   // ── Hilfsfunktionen ──────────────────────────────────────
   function pad2(n) { return n < 10 ? '0' + n : String(n); }
