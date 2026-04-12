@@ -30,6 +30,28 @@ public class CPHInline
 
         if (target.Length == 0 || target.Length > 25) return true;
 
+        // ── Twitch User-Info laden (Avatar, Game) ──
+        string avatar = "";
+        string game   = "";
+        try
+        {
+            // TwitchUserInfoByLogin populates targetUser* args
+            var infoMethod = CPH.GetType().GetMethod("TwitchUserInfoByLogin");
+            if (infoMethod != null)
+            {
+                infoMethod.Invoke(CPH, new object[] { target });
+                if (args.ContainsKey("targetUserProfileImageUrl"))
+                    avatar = args["targetUserProfileImageUrl"]?.ToString() ?? "";
+                if (args.ContainsKey("targetLastGame") || args.ContainsKey("targetUserGame"))
+                {
+                    game = (args.ContainsKey("targetLastGame") ? args["targetLastGame"]?.ToString() : null)
+                        ?? (args.ContainsKey("targetUserGame") ? args["targetUserGame"]?.ToString() : null)
+                        ?? "";
+                }
+            }
+        }
+        catch { CPH.LogInfo("[CC Shoutout] TwitchUserInfoByLogin nicht verfügbar"); }
+
         // ── Nativen Twitch-Shoutout auslösen ──
         try
         {
@@ -42,10 +64,11 @@ public class CPHInline
         // shoutout-info.html und alerts.html empfangen das über API WS (9091)
         var payload = new JObject
         {
-            ["event"] = "shoutout",
-            ["user"]  = target,
-            ["game"]  = "",
-            ["bio"]   = ""
+            ["event"]           = "shoutout",
+            ["user"]            = target,
+            ["profileImageUrl"] = avatar,
+            ["game"]            = game,
+            ["bio"]             = ""
         };
 
         string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
