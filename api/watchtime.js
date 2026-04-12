@@ -33,7 +33,8 @@ function sanitizeUsername(s) {
 
 function sanitizeStr(s, maxLen = 100) {
   if (s === null || s === undefined) return '';
-  return String(s).replace(/[\u0000-\u001f<>"'`]/g, '').slice(0, maxLen);
+  // Remove control characters and non‑ASCII bytes to avoid malformed input.
+  return String(s).replace(/[\u0000-\u001f\x80-\xFF<>"'`]/g, '').slice(0, maxLen);
 }
 
 function countWords(msg) {
@@ -112,14 +113,25 @@ class WatchtimeEngine {
     // Mindestens 5 Wörter
     if (countWords(cleanMsg) < CHAT_MIN_WORDS) return null;
 
-    // Cooldown 10s
-    const lastTs = await this.redis.get(K.gwChatTime(u));
-    const now    = Math.floor(Date.now() / 1000);
-    if (lastTs && (now - parseInt(lastTs)) < CHAT_COOLDOWN) return null;
-    await this.redis.set(K.gwChatTime(u), String(now), 'EX', 86400);
-
-    // +5s atomic
-    const newSec = await this.redis.incrby(K.gwWatchSec(u), CHAT_BONUS_SEC);
+    // Non‑atomic cooldown – use WATCH/MULTI to avoid race conditions
+    const chatKey = K.gwChatTime(u);
+    const watchKey = K.gwWatchSec(u);
+    await this.redis.watch(chatKey);
+    const lastTs = await this.redis.get(chatKey);
+    const now = Math.floor(Date.now() / 1000);
+    if (lastTs && (now - parseInt(lastTs)) < CHAT_COOLDOWN) {
+      await this.redis.unwatch();
+      return null;
+    }
+    const multi = this.redis.multi();
+    multi.set(chatKey, String(now), 'EX', 86400);
+    multi.incrby(watchKey, CHAT_BONUS_SEC);
+    const results = await multi.exec();
+    if (!results) {
+      // Transaction aborted due to concurrent modification – ignore bonus
+      return null;
+    }
+    const newSec = results[1][1]; // result of incrby
 
     // Persistieren
     await this._logEvent(u, 'chat_bonus', CHAT_BONUS_SEC, sessionId);
@@ -180,9 +192,21 @@ class WatchtimeEngine {
   }
 
   // Giveaway öffnen
+  // Validate sessionId format – must be 'sess_<digits>'
+  function validateSessionId(id) {
+    if (!id || typeof id !== 'string' || !/^sess_\d+$/i.test(id)) {
+      throw new Error('Invalid sessionId');
+    }
+  }
+
   async openGiveaway(keyword, sessionId) {
+    validateSessionId(sessionId);
     await this.redis.set(K.gwOpen(), 'true');
-    if (keyword) await this.redis.set(K.gwKeyword(), keyword);
+    if (keyword) {
+      await this.redis.set(K.gwKeyword(), keyword);
+    } else {
+      await this.redis.del(K.gwKeyword());
+    }
     if (sessionId) await this.redis.set(K.gwSessionId(), sessionId);
     console.log(`[WTE] Giveaway opened, keyword="${keyword}", session=${sessionId}`);
   }
