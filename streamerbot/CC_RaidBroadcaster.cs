@@ -1,9 +1,9 @@
 // Action: "CC – Raid Broadcaster"
 // Trigger: Twitch → Raid
 //
-// Wenn ein Raid eingeht, werden die Daten an das
-// Raid-Info-Panel (raid-info.html) und das Alert-Overlay
-// (alerts.html) via Custom WS Server gebroadcastet.
+// Wenn ein Raid eingeht, wird das Event an die API gesendet.
+// Die API broadcastet an alle Browser-Overlays (9091):
+// raid-info.html und alerts.html empfangen das Event.
 
 using System;
 using Newtonsoft.Json.Linq;
@@ -17,41 +17,28 @@ public class CPHInline
         string avatar  = GetArg("profileImageUrl") ?? GetArg("userProfileImageUrl") ?? "";
         string game    = GetArg("gameName") ?? GetArg("game") ?? "";
 
-        // ── Broadcast an Alert-Overlay (alerts.html) ──
-        var alertPayload = new JObject
+        var payload = new JObject
         {
-            ["alertType"]       = "raid",
+            ["event"]           = "raid",
             ["user"]            = user,
             ["amount"]          = viewers,
             ["profileImageUrl"] = avatar,
             ["game"]            = game
         };
 
-        // An alle registrierten Alert-Sessions senden
-        BroadcastToSession("cc_alert_session", alertPayload.ToString());
-
-        // ── Broadcast an Raid-Info-Panel (raid-info.html) ──
-        var raidPayload = new JObject
+        // An API senden → broadcastet an alle Browser-Overlays
+        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
+        if (!string.IsNullOrEmpty(apiSession))
         {
-            ["alertType"]       = "raid",
-            ["user"]            = user,
-            ["amount"]          = viewers,
-            ["profileImageUrl"] = avatar,
-            ["game"]            = game,
-            ["bio"]             = ""
-        };
+            CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
+            CPH.LogInfo($"[CC Raid] {user} mit {viewers} Viewern → API broadcast");
+        }
+        else
+        {
+            CPH.LogInfo("[CC Raid] WARNUNG: cc_api_session nicht gesetzt!");
+        }
 
-        BroadcastToSession("cc_raid_session", raidPayload.ToString());
-
-        CPH.LogInfo($"[CC Raid] {user} mit {viewers} Viewern → Broadcast gesendet");
         return true;
-    }
-
-    private void BroadcastToSession(string sessionKey, string json)
-    {
-        string session = CPH.GetGlobalVar<string>(sessionKey, false);
-        if (!string.IsNullOrEmpty(session))
-            CPH.WebsocketCustomServerBroadcast(json, session, 0);
     }
 
     private string GetArg(string key)

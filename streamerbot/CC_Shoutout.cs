@@ -2,9 +2,8 @@
 // Trigger: Core → Command → !so  (Berechtigung: Moderator / Broadcaster)
 //
 // Sendet eine Shoutout-Chatnachricht, löst den nativen
-// Twitch-Shoutout aus, und broadcastet an das
-// Shoutout-Info-Panel (shoutout-info.html) und
-// Alert-Overlay (alerts.html).
+// Twitch-Shoutout aus, und schickt das Event an die API
+// (die es an alle Overlays weiterleitet).
 
 using Newtonsoft.Json.Linq;
 
@@ -16,6 +15,9 @@ public class CPHInline
         string target = "";
         if (args.ContainsKey("input0") && args["input0"] != null)
             target = args["input0"].ToString().Trim().TrimStart('@');
+        // Fallback: rawInput
+        if (string.IsNullOrEmpty(target) && args.ContainsKey("rawInput") && args["rawInput"] != null)
+            target = args["rawInput"].ToString().Trim().TrimStart('@').Split(' ')[0];
 
         if (string.IsNullOrEmpty(target)) return true;
 
@@ -28,9 +30,6 @@ public class CPHInline
 
         if (target.Length == 0 || target.Length > 25) return true;
 
-        // ── Chatnachricht senden ──
-        CPH.SendMessage($"Besucht den Kanal von @{target}! twitch.tv/{target.ToLower()}", true);
-
         // ── Nativen Twitch-Shoutout auslösen ──
         try
         {
@@ -39,35 +38,27 @@ public class CPHInline
         }
         catch { }
 
-        // ── Broadcast an Shoutout-Info-Panel (shoutout-info.html) ──
-        var soPayload = new JObject
+        // ── Event an API senden → wird an alle Browser-Overlays gebroadcastet ──
+        // shoutout-info.html und alerts.html empfangen das über API WS (9091)
+        var payload = new JObject
         {
-            ["alertType"]       = "shoutout-panel",
-            ["user"]            = target,
-            ["game"]            = "",
-            ["bio"]             = "",
-            ["profileImageUrl"] = ""
+            ["event"] = "shoutout",
+            ["user"]  = target,
+            ["game"]  = "",
+            ["bio"]   = ""
         };
-        BroadcastToSession("cc_shoutout_session", soPayload.ToString());
 
-        // ── Broadcast an Alert-Overlay (alerts.html) ──
-        var alertPayload = new JObject
+        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
+        if (!string.IsNullOrEmpty(apiSession))
         {
-            ["alertType"]       = "shoutout",
-            ["user"]            = target,
-            ["game"]            = "",
-            ["profileImageUrl"] = ""
-        };
-        BroadcastToSession("cc_alert_session", alertPayload.ToString());
+            CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
+            CPH.LogInfo($"[CC Shoutout] {target} → API broadcast");
+        }
+        else
+        {
+            CPH.LogInfo($"[CC Shoutout] WARNUNG: cc_api_session nicht gesetzt! API nicht verbunden?");
+        }
 
-        CPH.LogInfo($"[CC Shoutout] {target} → Broadcast gesendet");
         return true;
-    }
-
-    private void BroadcastToSession(string sessionKey, string json)
-    {
-        string session = CPH.GetGlobalVar<string>(sessionKey, false);
-        if (!string.IsNullOrEmpty(session))
-            CPH.WebsocketCustomServerBroadcast(json, session, 0);
     }
 }

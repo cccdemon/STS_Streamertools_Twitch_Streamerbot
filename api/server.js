@@ -333,6 +333,12 @@ async function handleSbEvent(msg) {
       break;
     }
 
+    // ── Shoutout / Raid → an Browser-Overlays weiterleiten ─
+    case 'shoutout':
+    case 'raid':
+      broadcastAll(msg);
+      break;
+
     // ── Stream Online / Offline ───────────────────────────
     case 'stream_online':  await redis.set('sf_live', 'true');  broadcastAll({ event: 'sf_status', live: true });  break;
     case 'stream_offline': await redis.set('sf_live', 'false'); broadcastAll({ event: 'sf_status', live: false }); break;

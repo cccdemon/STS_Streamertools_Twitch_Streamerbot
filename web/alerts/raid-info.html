@@ -284,8 +284,10 @@
 // CONFIG
 // ─────────────────────────────────────────────
 const params  = new URLSearchParams(location.search);
-const WS_HOST = params.get('host') || '192.168.178.39';
-const WS_PORT = params.get('port') || '9090';
+const API_HOST = params.get('apihost') || window.location.hostname || '192.168.178.34';
+const API_PORT = params.get('apiport') || '3000';
+const WS_HOST  = params.get('wshost') || API_HOST;
+const WS_PORT  = params.get('wsport') || '9091';
 const ANTHROPIC_KEY = params.get('apikey') || '';
 
 const panel      = document.getElementById('raid-panel');
@@ -321,13 +323,14 @@ function connect() {
   ws.onopen = () => {
     reconnectDelay = 1000;
     dbg('WS verbunden ✓');
-    // Session bei Streamerbot registrieren
-    ws.send(JSON.stringify({ event: 'cc_raid_register' }));
   };
 
   ws.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
+      // API broadcast format: { event: 'raid', user: '...' }
+      if (d.event === 'raid') handleRaid(d);
+      // Direct format (Streamerbot custom server)
       if (d.alertType === 'raid') handleRaid(d);
     } catch(_) {}
   };
