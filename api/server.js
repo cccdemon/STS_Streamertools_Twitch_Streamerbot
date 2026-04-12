@@ -501,6 +501,13 @@ app.get('/api/spacefight/player/:username', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.post('/api/chat/send', (req, res) => {
+  const msg = sanitizeStr(req.body?.message || '');
+  if (!msg) return res.status(400).json({ error: 'message required' });
+  sbSend({ event: 'chat_reply', message: msg });
+  res.json({ status: 'ok' });
+});
+
 app.post('/api/backup/trigger', async (req, res) => {
   try {
     await redis.bgsave();
