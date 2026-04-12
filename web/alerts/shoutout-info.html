@@ -313,9 +313,6 @@ const WS_HOST  = params.get('wshost') || API_HOST;
 const WS_PORT  = params.get('wsport') || '9091';
 const ANTHROPIC_KEY = params.get('apikey') || '';
 
-const TWITCH_CLIENT_ID = '--TWITCH_CLIENT_ID--';
-const TWITCH_CLIENT_SECRET = '--TWITCH_CLIENT_SECRET--';
-
 const panel     = document.getElementById('so-panel');
 const elName    = document.getElementById('soName');
 const elGame    = document.getElementById('soGame');
@@ -327,76 +324,15 @@ const elDbg     = document.getElementById('dbg');
 
 let hideTimer = null;
 
-let twitchTokenCache = null;
-let twitchTokenExpiresAt = 0;
-
 function dbg(msg) {
   elDbg.textContent = '// ' + msg;
   console.log('[ShoutoutInfo]', msg);
 }
 
-async function getTwitchAppAccessToken() {
-  const now = Date.now();
-
-  if (twitchTokenCache && now < twitchTokenExpiresAt - 60000) {
-    return twitchTokenCache;
-  }
-
-  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET ||
-      TWITCH_CLIENT_ID === '__TWITCH_CLIENT_ID__' ||
-      TWITCH_CLIENT_SECRET === '__TWITCH_CLIENT_SECRET__') {
-    throw new Error('Twitch Client ID/Secret fehlen');
-  }
-
-  const res = await fetch('https://id.twitch.tv/oauth2/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      client_id: TWITCH_CLIENT_ID,
-      client_secret: TWITCH_CLIENT_SECRET,
-      grant_type: 'client_credentials'
-    })
-  });
-
-  if (!res.ok) {
-    throw new Error(`Token HTTP ${res.status}`);
-  }
-
-  const json = await res.json();
-
-  if (!json.access_token) {
-    throw new Error('Kein access_token in der Antwort');
-  }
-
-  twitchTokenCache = json.access_token;
-  twitchTokenExpiresAt = Date.now() + ((json.expires_in || 0) * 1000);
-
-  dbg('Twitch Token ✓');
-  return twitchTokenCache;
-}
-
-async function fetchTwitchAvatar(login) {
-  const token = await getTwitchAppAccessToken();
-
-  const res = await fetch(
-    `https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`,
-    {
-      headers: {
-        'Client-Id': TWITCH_CLIENT_ID,
-        'Authorization': `Bearer ${token}`
-      },
-      cache: 'no-store'
-    }
-  );
-
-  if (!res.ok) {
-    throw new Error(`Twitch User HTTP ${res.status}`);
-  }
-
-  const json = await res.json();
-  return json.data?.[0]?.profile_image_url || null;
+async function fetchTwitchUser(login) {
+  const res = await fetch(`http://${API_HOST}:${API_PORT}/api/twitch/user/${encodeURIComponent(login)}`);
+  if (!res.ok) throw new Error(`API HTTP ${res.status}`);
+  return await res.json();
 }
 
 // ── WEBSOCKET ──
@@ -443,7 +379,7 @@ function connect() {
 async function handleShoutout(data) {
   const user   = data.user || 'Unbekannt';
   const game   = data.game || '';
-  const bio    = data.bio || '';
+  let bio      = data.bio || '';
   let avatar   = data.profileImageUrl || '';
 
   dbg(`Shoutout: ${user}`);
@@ -456,12 +392,14 @@ async function handleShoutout(data) {
   elGame.textContent = game ? `// ${game}` : '';
   elUrl.textContent  = `twitch.tv/${user.toLowerCase()}`;
 
-  if (!avatar) {
+  if (!avatar || !bio) {
     try {
-      avatar = await fetchTwitchAvatar(user.toLowerCase());
-      dbg(avatar ? 'Twitch Avatar ✓' : 'Twitch Avatar leer');
+      const tw = await fetchTwitchUser(user.toLowerCase());
+      if (!avatar && tw.profile_image_url) avatar = tw.profile_image_url;
+      if (!bio && tw.description) bio = tw.description;
+      dbg(avatar ? 'Twitch User ✓' : 'Twitch User leer');
     } catch (err) {
-      dbg(`Twitch Avatar Fehler: ${err.message}`);
+      dbg(`Twitch User Fehler: ${err.message}`);
     }
   }
 

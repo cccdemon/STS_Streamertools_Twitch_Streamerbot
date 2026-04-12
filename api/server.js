@@ -514,6 +514,44 @@ app.post('/api/chat/send', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+// ── Twitch User Lookup (Avatar, Game) ────────────────────
+let twitchToken = null;
+let twitchTokenExp = 0;
+
+async function getTwitchToken() {
+  if (twitchToken && Date.now() < twitchTokenExp - 60000) return twitchToken;
+  const cid = process.env.TWITCH_CLIENT_ID;
+  const sec = process.env.TWITCH_CLIENT_SECRET;
+  if (!cid || !sec) return null;
+  const r = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: cid, client_secret: sec, grant_type: 'client_credentials' }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  twitchToken = j.access_token;
+  twitchTokenExp = Date.now() + (j.expires_in || 0) * 1000;
+  return twitchToken;
+}
+
+app.get('/api/twitch/user/:login', async (req, res) => {
+  try {
+    const token = await getTwitchToken();
+    if (!token) return res.status(503).json({ error: 'Twitch credentials not configured' });
+    const login = sanitizeUsername(req.params.login);
+    if (!login) return res.status(400).json({ error: 'invalid login' });
+    const r = await fetch(`https://api.twitch.tv/helix/users?login=${login}`, {
+      headers: { 'Client-Id': process.env.TWITCH_CLIENT_ID, 'Authorization': `Bearer ${token}` },
+    });
+    if (!r.ok) return res.status(r.status).json({ error: `Twitch API ${r.status}` });
+    const j = await r.json();
+    const u = j.data?.[0];
+    if (!u) return res.status(404).json({ error: 'user not found' });
+    res.json({ login: u.login, display_name: u.display_name, profile_image_url: u.profile_image_url, description: u.description });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/backup/trigger', async (req, res) => {
   try {
     await redis.bgsave();
