@@ -85,6 +85,8 @@ services:
       PG_DB:         ${PG_DB:-chaoscrew}
       PG_USER:       ${PG_USER:-chaoscrew}
       PG_PASSWORD:   ${PG_PASSWORD:-changeme}
+      TWITCH_CLIENT_ID:     ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       TZ: Europe/Berlin
     depends_on:
       postgres:
