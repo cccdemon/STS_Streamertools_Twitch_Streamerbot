@@ -1143,6 +1143,8 @@ function connect() {
     dbg('WS verbunden ✓', 'ok');
     wsConnected  = true;
     wsRetryDelay = 1000; // reset backoff on success
+    // Session bei Streamerbot registrieren
+    ws.send(JSON.stringify({ event: 'cc_alert_register' }));
     wsSubscribe();
     wsStartPing();
   };

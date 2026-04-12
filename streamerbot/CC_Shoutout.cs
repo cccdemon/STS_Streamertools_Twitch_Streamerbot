@@ -1,8 +1,12 @@
 // Action: "CC – Shoutout"
 // Trigger: Core → Command → !so  (Berechtigung: Moderator / Broadcaster)
 //
-// Sendet eine Shoutout-Chatnachricht und löst den nativen
-// Twitch-Shoutout aus.
+// Sendet eine Shoutout-Chatnachricht, löst den nativen
+// Twitch-Shoutout aus, und broadcastet an das
+// Shoutout-Info-Panel (shoutout-info.html) und
+// Alert-Overlay (alerts.html).
+
+using Newtonsoft.Json.Linq;
 
 public class CPHInline
 {
@@ -24,10 +28,10 @@ public class CPHInline
 
         if (target.Length == 0 || target.Length > 25) return true;
 
-        // Chatnachricht senden
+        // ── Chatnachricht senden ──
         CPH.SendMessage($"Besucht den Kanal von @{target}! twitch.tv/{target.ToLower()}", true);
 
-        // Nativen Twitch-Shoutout auslösen (falls Streamerbot-Version es unterstützt)
+        // ── Nativen Twitch-Shoutout auslösen ──
         try
         {
             var m = CPH.GetType().GetMethod("TwitchSendShoutout");
@@ -35,6 +39,35 @@ public class CPHInline
         }
         catch { }
 
+        // ── Broadcast an Shoutout-Info-Panel (shoutout-info.html) ──
+        var soPayload = new JObject
+        {
+            ["alertType"]       = "shoutout-panel",
+            ["user"]            = target,
+            ["game"]            = "",
+            ["bio"]             = "",
+            ["profileImageUrl"] = ""
+        };
+        BroadcastToSession("cc_shoutout_session", soPayload.ToString());
+
+        // ── Broadcast an Alert-Overlay (alerts.html) ──
+        var alertPayload = new JObject
+        {
+            ["alertType"]       = "shoutout",
+            ["user"]            = target,
+            ["game"]            = "",
+            ["profileImageUrl"] = ""
+        };
+        BroadcastToSession("cc_alert_session", alertPayload.ToString());
+
+        CPH.LogInfo($"[CC Shoutout] {target} → Broadcast gesendet");
         return true;
+    }
+
+    private void BroadcastToSession(string sessionKey, string json)
+    {
+        string session = CPH.GetGlobalVar<string>(sessionKey, false);
+        if (!string.IsNullOrEmpty(session))
+            CPH.WebsocketCustomServerBroadcast(json, session, 0);
     }
 }

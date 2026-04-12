@@ -277,6 +277,8 @@ function connect() {
   ws.onopen = () => {
     reconnectDelay = 1000;
     dbg('WS verbunden ✓');
+    // Session bei Streamerbot registrieren
+    ws.send(JSON.stringify({ event: 'cc_shoutout_register' }));
     const test = params.get('test');
     if (test === 'shoutout') {
       setTimeout(() => handleShoutout({
