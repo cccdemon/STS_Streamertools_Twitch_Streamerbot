@@ -41,54 +41,102 @@
     transform: translateX(0);
   }
 
-  /* Gold corner brackets */
   #so-panel::before, #so-panel::after {
-    content: ''; position: absolute;
-    width: 40px; height: 40px;
-    border-color: #f0a500; border-style: solid;
+    content: '';
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border-color: #f0a500;
+    border-style: solid;
   }
-  #so-panel::before { top:-2px; left:-2px; border-width:3px 0 0 3px; }
-  #so-panel::after  { bottom:-2px; left:-2px; border-width:0 0 3px 3px; }
+
+  #so-panel::before {
+    top:-2px;
+    left:-2px;
+    border-width:3px 0 0 3px;
+  }
+
+  #so-panel::after {
+    bottom:-2px;
+    left:-2px;
+    border-width:0 0 3px 3px;
+  }
 
   .panel-corner-tr {
-    position: absolute; top:-2px; right:-2px;
-    width:40px; height:40px;
-    border:3px solid #f0a500; border-width:3px 3px 0 0;
+    position: absolute;
+    top:-2px;
+    right:-2px;
+    width:40px;
+    height:40px;
+    border:3px solid #f0a500;
+    border-width:3px 3px 0 0;
   }
+
   .panel-corner-br {
-    position: absolute; bottom:-2px; right:-2px;
-    width:40px; height:40px;
-    border:3px solid #f0a500; border-width:0 3px 3px 0;
+    position: absolute;
+    bottom:-2px;
+    right:-2px;
+    width:40px;
+    height:40px;
+    border:3px solid #f0a500;
+    border-width:0 3px 3px 0;
   }
 
   .panel-top-line {
-    position: absolute; top:0; left:40px; right:40px; height:1px;
+    position: absolute;
+    top:0;
+    left:40px;
+    right:40px;
+    height:1px;
     background: linear-gradient(90deg, transparent, #f0a500, #00d4ff, #f0a500, transparent);
     opacity: 0.7;
   }
+
   .panel-bottom-line {
-    position: absolute; bottom:0; left:40px; right:40px; height:1px;
+    position: absolute;
+    bottom:0;
+    left:40px;
+    right:40px;
+    height:1px;
     background: linear-gradient(90deg, transparent, #00d4ff, #f0a500, #00d4ff, transparent);
     opacity: 0.5;
   }
 
   .panel-bar {
-    position: absolute; top:60px; bottom:60px; left:-10px; width:2px;
-    background: linear-gradient(to bottom,
-      transparent, rgba(240,165,0,0.6) 30%, rgba(0,212,255,0.8) 50%, rgba(240,165,0,0.6) 70%, transparent);
+    position: absolute;
+    top:60px;
+    bottom:60px;
+    left:-10px;
+    width:2px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(240,165,0,0.6) 30%,
+      rgba(0,212,255,0.8) 50%,
+      rgba(240,165,0,0.6) 70%,
+      transparent
+    );
     animation: barPulse 3s ease-in-out infinite;
   }
+
   @keyframes barPulse {
-    0%,100% { opacity:0.4; } 50% { opacity:1.0; }
+    0%,100% { opacity:0.4; }
+    50% { opacity:1.0; }
   }
 
   .panel-scan {
-    position: absolute; inset:0; pointer-events:none;
-    background: repeating-linear-gradient(0deg, transparent, transparent 3px,
-      rgba(240,165,0,0.006) 3px, rgba(240,165,0,0.006) 4px);
+    position: absolute;
+    inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(240,165,0,0.006) 3px,
+      rgba(240,165,0,0.006) 4px
+    );
   }
 
-  /* ── LABEL ── */
   .so-label {
     font-family: 'Share Tech Mono', monospace;
     font-size: 11px;
@@ -99,29 +147,43 @@
     margin-bottom: 36px;
   }
 
-  /* ── AVATAR ── */
   .so-avatar-wrap {
     position: relative;
     display: inline-block;
     margin-bottom: 32px;
   }
-  .so-avatar-wrap::before, .so-avatar-wrap::after {
-    content: ''; position: absolute;
-    width: 18px; height: 18px;
-    border-color: #00d4ff; border-style: solid;
+
+  .so-avatar-wrap::before,
+  .so-avatar-wrap::after {
+    content: '';
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-color: #00d4ff;
+    border-style: solid;
   }
-  .so-avatar-wrap::before { top:-3px; left:-3px; border-width:3px 0 0 3px; }
-  .so-avatar-wrap::after  { bottom:-3px; right:-3px; border-width:0 3px 3px 0; }
+
+  .so-avatar-wrap::before {
+    top:-3px;
+    left:-3px;
+    border-width:3px 0 0 3px;
+  }
+
+  .so-avatar-wrap::after {
+    bottom:-3px;
+    right:-3px;
+    border-width:0 3px 3px 0;
+  }
 
   #soAvatar {
     width: 180px;
     height: 180px;
     border: 2px solid rgba(240,165,0,0.7);
     display: block;
+    object-fit: cover;
     filter: drop-shadow(0 0 24px rgba(240,165,0,0.55));
   }
 
-  /* ── NAME ── */
   #soName {
     font-family: 'Orbitron', monospace;
     font-size: 38px;
@@ -136,7 +198,6 @@
     word-break: break-all;
   }
 
-  /* ── GAME ── */
   #soGame {
     font-family: 'Share Tech Mono', monospace;
     font-size: 13px;
@@ -162,7 +223,6 @@
     margin-bottom: 8px;
   }
 
-  /* ── AI SUMMARY ── */
   #soSummary {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 22px;
@@ -185,9 +245,11 @@
     width: 100%;
     display: none;
   }
-  #loadingDots.visible { display: block; }
 
-  /* ── URL ── */
+  #loadingDots.visible {
+    display: block;
+  }
+
   #soUrl {
     font-family: 'Share Tech Mono', monospace;
     font-size: 12px;
@@ -251,6 +313,9 @@ const WS_HOST  = params.get('wshost') || API_HOST;
 const WS_PORT  = params.get('wsport') || '9091';
 const ANTHROPIC_KEY = params.get('apikey') || '';
 
+const TWITCH_CLIENT_ID = '--TWITCH_CLIENT_ID--';
+const TWITCH_CLIENT_SECRET = '--TWITCH_CLIENT_SECRET--';
+
 const panel     = document.getElementById('so-panel');
 const elName    = document.getElementById('soName');
 const elGame    = document.getElementById('soGame');
@@ -262,9 +327,76 @@ const elDbg     = document.getElementById('dbg');
 
 let hideTimer = null;
 
+let twitchTokenCache = null;
+let twitchTokenExpiresAt = 0;
+
 function dbg(msg) {
   elDbg.textContent = '// ' + msg;
   console.log('[ShoutoutInfo]', msg);
+}
+
+async function getTwitchAppAccessToken() {
+  const now = Date.now();
+
+  if (twitchTokenCache && now < twitchTokenExpiresAt - 60000) {
+    return twitchTokenCache;
+  }
+
+  if (!TWITCH_CLIENT_ID || !TWITCH_CLIENT_SECRET ||
+      TWITCH_CLIENT_ID === '__TWITCH_CLIENT_ID__' ||
+      TWITCH_CLIENT_SECRET === '__TWITCH_CLIENT_SECRET__') {
+    throw new Error('Twitch Client ID/Secret fehlen');
+  }
+
+  const res = await fetch('https://id.twitch.tv/oauth2/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: new URLSearchParams({
+      client_id: TWITCH_CLIENT_ID,
+      client_secret: TWITCH_CLIENT_SECRET,
+      grant_type: 'client_credentials'
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error(`Token HTTP ${res.status}`);
+  }
+
+  const json = await res.json();
+
+  if (!json.access_token) {
+    throw new Error('Kein access_token in der Antwort');
+  }
+
+  twitchTokenCache = json.access_token;
+  twitchTokenExpiresAt = Date.now() + ((json.expires_in || 0) * 1000);
+
+  dbg('Twitch Token ✓');
+  return twitchTokenCache;
+}
+
+async function fetchTwitchAvatar(login) {
+  const token = await getTwitchAppAccessToken();
+
+  const res = await fetch(
+    `https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`,
+    {
+      headers: {
+        'Client-Id': TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${token}`
+      },
+      cache: 'no-store'
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error(`Twitch User HTTP ${res.status}`);
+  }
+
+  const json = await res.json();
+  return json.data?.[0]?.profile_image_url || null;
 }
 
 // ── WEBSOCKET ──
@@ -277,12 +409,13 @@ function connect() {
   ws.onopen = () => {
     reconnectDelay = 1000;
     dbg('WS verbunden ✓');
+
     const test = params.get('test');
     if (test === 'shoutout') {
       setTimeout(() => handleShoutout({
-        user:            params.get('user')   || 'TestStreamer',
-        game:            params.get('game')   || 'Star Citizen',
-        bio:             params.get('bio')    || 'Ein cooler Streamer aus dem Vers.',
+        user:            params.get('user') || 'TestStreamer',
+        game:            params.get('game') || 'Star Citizen',
+        bio:             params.get('bio')  || 'Ein cooler Streamer aus dem Vers.',
         profileImageUrl: '',
       }), 800);
     }
@@ -291,15 +424,14 @@ function connect() {
   ws.onmessage = (e) => {
     try {
       const d = JSON.parse(e.data);
-      // API broadcast format: { event: 'shoutout', user: '...' }
+
       if (d.event === 'shoutout') handleShoutout(d);
-      // Direct format (Streamerbot custom server)
       if (d.alertType === 'shoutout-panel') handleShoutout(d);
-    } catch(_) {}
+    } catch (_) {}
   };
 
   ws.onclose = () => {
-    dbg(`WS getrennt – reconnect in ${reconnectDelay/1000}s`);
+    dbg(`WS getrennt – reconnect in ${reconnectDelay / 1000}s`);
     setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 10000);
   };
@@ -309,10 +441,10 @@ function connect() {
 
 // ── HANDLE SHOUTOUT ──
 async function handleShoutout(data) {
-  const user   = data.user   || 'Unbekannt';
-  const game   = data.game   || '';
-  const bio    = data.bio    || '';
-  const avatar = data.profileImageUrl || '';
+  const user   = data.user || 'Unbekannt';
+  const game   = data.game || '';
+  const bio    = data.bio || '';
+  let avatar   = data.profileImageUrl || '';
 
   dbg(`Shoutout: ${user}`);
 
@@ -324,10 +456,21 @@ async function handleShoutout(data) {
   elGame.textContent = game ? `// ${game}` : '';
   elUrl.textContent  = `twitch.tv/${user.toLowerCase()}`;
 
+  if (!avatar) {
+    try {
+      avatar = await fetchTwitchAvatar(user.toLowerCase());
+      dbg(avatar ? 'Twitch Avatar ✓' : 'Twitch Avatar leer');
+    } catch (err) {
+      dbg(`Twitch Avatar Fehler: ${err.message}`);
+    }
+  }
+
   if (avatar) {
     elAvatar.src = avatar;
+    elAvatar.alt = user;
     elAvatar.style.display = 'block';
   } else {
+    elAvatar.removeAttribute('src');
     elAvatar.style.display = 'none';
   }
 
@@ -338,12 +481,14 @@ async function handleShoutout(data) {
   elLoading.classList.remove('visible');
   elSummary.textContent = summary;
 
-  // Send shoutout message to Twitch chat via API (max 500 chars)
   const url = `twitch.tv/${user.toLowerCase()}`;
   const prefix = `▶ Shoutout an ${user}! `;
   const suffix = ` → ${url}`;
   const maxSummary = 500 - prefix.length - suffix.length;
-  const trimmed = summary.length > maxSummary ? summary.slice(0, maxSummary - 1) + '…' : summary;
+  const trimmed = summary.length > maxSummary
+    ? summary.slice(0, maxSummary - 1) + '…'
+    : summary;
+
   sendChat(prefix + trimmed + suffix);
 
   hideTimer = setTimeout(() => panel.classList.remove('active'), 25000);
@@ -377,10 +522,14 @@ Antworte nur mit dem Text.`;
         messages: [{ role: 'user', content: prompt }],
       }),
     });
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const json = await res.json();
     dbg('Claude ✓');
-    return json.content?.find(b => b.type === 'text')?.text?.trim() || buildFallback(user, game, bio);
+
+    return json.content?.find(b => b.type === 'text')?.text?.trim()
+      || buildFallback(user, game, bio);
   } catch (err) {
     dbg(`Claude Fehler: ${err.message}`);
     return buildFallback(user, game, bio);
@@ -398,7 +547,10 @@ function sendChat(message) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
   })
-  .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); dbg('Chat gesendet ✓'); })
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    dbg('Chat gesendet ✓');
+  })
   .catch(e => dbg(`Chat Fehler: ${e.message}`));
 }
 
