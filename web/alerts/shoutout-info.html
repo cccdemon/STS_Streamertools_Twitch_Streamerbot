@@ -338,9 +338,13 @@ async function handleShoutout(data) {
   elLoading.classList.remove('visible');
   elSummary.textContent = summary;
 
-  // Send shoutout message to Twitch chat via API
-  const chatMsg = `▶ Shoutout an ${user}! ${summary} → twitch.tv/${user.toLowerCase()}`;
-  sendChat(chatMsg);
+  // Send shoutout message to Twitch chat via API (max 500 chars)
+  const url = `twitch.tv/${user.toLowerCase()}`;
+  const prefix = `▶ Shoutout an ${user}! `;
+  const suffix = ` → ${url}`;
+  const maxSummary = 500 - prefix.length - suffix.length;
+  const trimmed = summary.length > maxSummary ? summary.slice(0, maxSummary - 1) + '…' : summary;
+  sendChat(prefix + trimmed + suffix);
 
   hideTimer = setTimeout(() => panel.classList.remove('active'), 25000);
 }
@@ -369,7 +373,7 @@ Antworte nur mit dem Text.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 150,
+        max_tokens: 80,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
