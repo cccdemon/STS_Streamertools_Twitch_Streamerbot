@@ -508,7 +508,7 @@ app.get('/api/spacefight/player/:username', async (req, res) => {
 });
 
 app.post('/api/chat/send', (req, res) => {
-  const msg = sanitizeStr(req.body?.message || '');
+  const msg = sanitizeStr(req.body?.message || '', 500);
   if (!msg) return res.status(400).json({ error: 'message required' });
   sbSend({ event: 'chat_reply', message: msg });
   res.json({ status: 'ok' });
