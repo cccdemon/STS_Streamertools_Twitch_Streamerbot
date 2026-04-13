@@ -167,6 +167,7 @@
     'gw_overlay_register', 'gw_join_register', 'gw_api_register',
     'gw_spacefight_register', 'spacefight_result', 'chat_msg',
     'sf_cmd', 'sf_status_request',
+    'cc_identify',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 

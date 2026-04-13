@@ -73,7 +73,7 @@ function connect() {
   ws.onopen = function() {
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
     wsRetry = 2000;
-    // Spielstatus abfragen
+    ws.send(JSON.stringify({ event: 'cc_identify', role: 'spacefight-overlay' }));
     ws.send(JSON.stringify({ event: 'sf_status_request' }));
   };
   ws.onmessage = function(e) {

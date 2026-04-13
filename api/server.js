@@ -12,7 +12,13 @@ const express   = require('express');
 const { Pool }  = require('pg');
 const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr } = require('./watchtime.js');
 
+// ── Logging ───────────────────────────────────────────────
+function log(tag, ...args)  { console.log( `[${tag}]`, ...args); }
+function logErr(tag, ...args) { console.error(`[${tag}]`, ...args); }
+
 // ── Config ────────────────────────────────────────────────
+const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY || '';
+
 const CFG = {
   sbHost:  process.env.SB_HOST   || '192.168.178.39',
   sbPort:  parseInt(process.env.SB_PORT    || '9090'),
@@ -40,22 +46,22 @@ const CFG = {
 const redis = new Redis(CFG.redis);
 const pg    = new Pool(CFG.pg);
 
-redis.on('connect', () => console.log('[Redis] Connected (DB ' + CFG.redis.db + ')'));
-redis.on('error',   (e) => console.error('[Redis] Error:', e.message));
-pg.on('error',      (e) => console.error('[PG] Error:', e.message));
+redis.on('connect', () => log('Redis', 'Connected (DB ' + CFG.redis.db + ')'));
+redis.on('error',   (e) => logErr('Redis', e.message));
+pg.on('error',      (e) => logErr('PG', e.message));
 
 async function redisReady() {
   for (let i = 0; i < 30; i++) {
-    try { await redis.connect(); await redis.ping(); console.log('[Redis] Ready'); return; }
-    catch(e) { console.log(`[Redis] Waiting... (${i+1}/30)`); await sleep(2000); }
+    try { await redis.connect(); await redis.ping(); log('Redis', 'Ready'); return; }
+    catch(e) { log('Redis', `Waiting... (${i+1}/30)`); await sleep(2000); }
   }
   throw new Error('[Redis] Could not connect');
 }
 
 async function pgReady() {
   for (let i = 0; i < 30; i++) {
-    try { const c = await pg.connect(); c.release(); console.log('[PG] Ready'); return; }
-    catch(e) { console.log(`[PG] Waiting... (${i+1}/30): ${e.message}`); await sleep(2000); }
+    try { const c = await pg.connect(); c.release(); log('PG', 'Ready'); return; }
+    catch(e) { log('PG', `Waiting... (${i+1}/30): ${e.message}`); await sleep(2000); }
   }
   throw new Error('[PG] Could not connect');
 }
@@ -76,7 +82,7 @@ async function ensureSession() {
     ON CONFLICT (id) DO NOTHING
   `, [currentSessionId]);
   await redis.set(K.gwSessionId(), currentSessionId);
-  console.log('[Session] Created:', currentSessionId);
+  log('Session', 'Created:', currentSessionId);
   return currentSessionId;
 }
 
@@ -87,7 +93,7 @@ async function openGiveaway(keyword) {
     UPDATE sessions SET keyword = $1 WHERE id = $2
   `, [keyword || '', sid]);
   broadcastAll({ event: 'gw_status', status: 'open' });
-  console.log('[GW] Opened, keyword:', keyword);
+  log('GW', 'Opened, keyword:', keyword);
 }
 
 async function closeGiveaway() {
@@ -95,32 +101,60 @@ async function closeGiveaway() {
   await wte.closeGiveaway(sid);
   currentSessionId = null;
   broadcastAll({ event: 'gw_status', status: 'closed' });
-  console.log('[GW] Closed');
+  log('GW', 'Closed');
 }
 
 // ── WebSocket Server (Browser-Clients) ───────────────────
 const wss = new WebSocket.Server({ port: 9091 });
-const clients = new Map(); // sessionId → ws
+const clients = new Map(); // clientId → { ws, role, ip, connectedAt, msgCount }
 
-wss.on('connection', (ws) => {
+function broadcastAll(obj) {
+  const str = JSON.stringify(obj);
+  for (const [, c] of clients) {
+    if (c.ws.readyState === WebSocket.OPEN) c.ws.send(str);
+  }
+}
+
+function broadcastClients() {
+  const list = [...clients.entries()].map(([id, c]) => ({
+    id,
+    role:        c.role || 'unbekannt',
+    ip:          c.ip,
+    connectedAt: c.connectedAt,
+    msgCount:    c.msgCount,
+  }));
+  broadcastAll({ event: 'ws_clients', clients: list });
+}
+
+wss.on('connection', (ws, req) => {
   const clientId = `c_${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-  clients.set(clientId, ws);
+  const meta = { ws, role: null, ip: req.socket.remoteAddress, connectedAt: Date.now(), msgCount: 0 };
+  clients.set(clientId, meta);
+  log('WS', `Client connected: ${clientId} (${meta.ip}) – ${clients.size} total`);
+  broadcastClients();
 
   ws.on('message', async (data) => {
     let msg;
     try { msg = JSON.parse(data.toString()); } catch { return; }
+    meta.msgCount++;
+
+    if (msg.event === 'cc_identify') {
+      meta.role = sanitizeStr(msg.role || '', 50);
+      log('WS', `${clientId} identified as: ${meta.role}`);
+      broadcastClients();
+      return;
+    }
+
+    broadcastAll({ event: 'ws_traffic', clientId, role: meta.role || 'unbekannt', msgEvent: msg.event || '?', ts: Date.now() });
     await handleClientMessage(ws, msg);
   });
 
-  ws.on('close', () => clients.delete(clientId));
+  ws.on('close', () => {
+    clients.delete(clientId);
+    log('WS', `Client disconnected: ${clientId} – ${clients.size} remaining`);
+    broadcastClients();
+  });
 });
-
-function broadcastAll(obj) {
-  const str = JSON.stringify(obj);
-  for (const [, ws] of clients) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(str);
-  }
-}
 
 async function handleClientMessage(ws, msg) {
   const send = (obj) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(obj));
@@ -159,20 +193,20 @@ async function handleSfCmd(send, msg) {
     case 'sf_start': {
       await redis.set('sf_game_active', 'true');
       broadcastAll({ event: 'sf_game_status', active: true });
-      console.log('[SF] Game activated by admin');
+      log('SF', 'Game activated by admin');
       break;
     }
     case 'sf_stop': {
       await redis.set('sf_game_active', 'false');
       broadcastAll({ event: 'sf_game_status', active: false });
-      console.log('[SF] Game deactivated by admin');
+      log('SF', 'Game deactivated by admin');
       break;
     }
     case 'sf_reset': {
       await pg.query('DELETE FROM spacefight_stats');
       await pg.query('DELETE FROM spacefight_results');
       send({ event: 'sf_ack', type: 'reset' });
-      console.log('[SF] All data reset by admin');
+      log('SF', 'All data reset by admin');
       break;
     }
     case 'sf_delete_player': {
@@ -181,7 +215,7 @@ async function handleSfCmd(send, msg) {
       await pg.query('DELETE FROM spacefight_stats WHERE username=$1', [u]);
       await pg.query('DELETE FROM spacefight_results WHERE winner=$1 OR loser=$1', [u]);
       send({ event: 'sf_ack', type: 'player_deleted', user: u });
-      console.log('[SF] Player deleted:', u);
+      log('SF', 'Player deleted:', u);
       break;
     }
     case 'sf_edit_player': {
@@ -194,7 +228,7 @@ async function handleSfCmd(send, msg) {
         [wins, losses, u]
       );
       send({ event: 'sf_ack', type: 'player_edited', user: u, wins, losses });
-      console.log('[SF] Player edited:', u, wins, losses);
+      log('SF', 'Player edited:', u, wins, losses);
       break;
     }
   }
@@ -295,31 +329,32 @@ function connectToStreamerbot() {
   if (sbWs) { try { sbWs.terminate(); } catch(e){} }
 
   const url = `ws://${CFG.sbHost}:${CFG.sbPort}`;
-  console.log('[SB] Connecting to', url);
+  log('SB', 'Connecting to', url);
   sbWs = new WebSocket(url);
 
   sbWs.on('open', () => {
-    console.log('[SB] Connected');
+    log('SB', 'Connected');
     sbWs.send(JSON.stringify({ event: 'cc_api_register' }));
   });
 
   sbWs.on('message', async (data) => {
     let msg;
     try { msg = JSON.parse(data.toString()); } catch { return; }
-    try { await handleSbEvent(msg); } catch(e) { console.error('[SB] Handler error:', e.message); }
+    try { await handleSbEvent(msg); } catch(e) { logErr('SB', 'Handler error:', e.message, e.stack); }
   });
 
   sbWs.on('close', () => {
-    console.log('[SB] Disconnected, reconnecting in', CFG.reconnectDelay, 'ms');
+    log('SB', `Disconnected, reconnecting in ${CFG.reconnectDelay}ms`);
     setTimeout(connectToStreamerbot, CFG.reconnectDelay);
   });
 
-  sbWs.on('error', (e) => console.error('[SB] Error:', e.message));
+  sbWs.on('error', (e) => logErr('SB', e.message));
 }
 
 // Streamerbot Event Handler
 async function handleSbEvent(msg) {
   if (!msg || !msg.event) return;
+  log('SB', `← ${msg.event}${msg.user ? ' [' + msg.user + ']' : ''}`);
   const sid = currentSessionId || await redis.get(K.gwSessionId());
 
   switch (msg.event) {
@@ -329,7 +364,7 @@ async function handleSbEvent(msg) {
     case 'viewer_tick': {
       const result = await wte.handleViewerTick(msg.user, sid);
       if (result) {
-        console.log(`[Tick] ${msg.user}: +${result.added}s → ${result.watchSec}s (${result.coins} coins)`);
+        log('Tick', `${msg.user}: +${result.added}s → ${result.watchSec}s (${result.coins} coins)`);
         broadcastAll({ event: 'wt_update', user: msg.user, watchSec: result.watchSec, coins: result.coins });
       }
       break;
@@ -340,11 +375,11 @@ async function handleSbEvent(msg) {
     case 'chat_msg': {
       const result = await wte.handleChatMessage(msg.user, msg.message, sid);
       if (result && result.isNew) {
-        console.log(`[GW] New registration: ${msg.user}`);
+        log('GW', 'New registration:', msg.user);
         broadcastAll({ event: 'gw_join', user: msg.user });
       }
       if (result && result.added) {
-        console.log(`[Chat] ${msg.user}: +${result.added}s → ${result.watchSec}s`);
+        log('Chat', `${msg.user}: +${result.added}s → ${result.watchSec}s`);
         broadcastAll({ event: 'wt_update', user: msg.user, watchSec: result.watchSec, coins: result.coins });
       }
       break;
@@ -390,9 +425,11 @@ async function handleSbEvent(msg) {
       break;
     }
 
-    // ── Shoutout / Raid → an Browser-Overlays weiterleiten ─
+    // ── Shoutout / Raid / Follow / Cheer → an Browser-Overlays weiterleiten ─
     case 'shoutout':
     case 'raid':
+    case 'follow':
+    case 'cheer':
       broadcastAll(msg);
       break;
 
@@ -471,10 +508,10 @@ async function saveSpacefightResult(result) {
     // Redis Sorted Set aktualisieren
     const wins = (await pg.query('SELECT wins FROM spacefight_stats WHERE username=$1', [winner])).rows[0]?.wins || 0;
     await redis.zadd(K.sfIndex(), wins, winner);
-    console.log(`[SF] ${winner} defeated ${loser}`);
+    log('SF', `${winner} defeated ${loser}`);
   } catch(e) {
     await client.query('ROLLBACK');
-    console.error('[SF] Save error:', e.message);
+    logErr('SF', 'Save error:', e.message);
   } finally {
     client.release();
   }
@@ -486,6 +523,10 @@ app.use(express.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+app.use((req, _res, next) => {
+  log('HTTP', `${req.method} ${req.path}`);
   next();
 });
 
@@ -628,18 +669,81 @@ app.post('/api/backup/trigger', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── WS Client List ────────────────────────────────────────
+app.get('/api/ws/clients', (_req, res) => {
+  const list = [...clients.entries()].map(([id, c]) => ({
+    id,
+    role:        c.role || 'unbekannt',
+    ip:          c.ip,
+    connectedAt: c.connectedAt,
+    msgCount:    c.msgCount,
+  }));
+  res.json({ clients: list, total: list.length });
+});
+
+// ── Claude AI Summary ─────────────────────────────────────
+const CLAUDE_PROMPTS = {
+  shoutout: (user, game, bio) =>
+    `Du bist der Bordcomputer eines Raumschiffs im Firefly-Universum.\n` +
+    `Die Crew gibt einem Twitch-Kanal einen Shoutout. Schreibe eine kurze, warme Empfehlung auf Deutsch – maximal 2 Sätze. Verwende ausschließlich den Kanalnamen, keine Pronomen (nicht er/sie/es/ihm/ihr). Normaler Satzbau, kein Markdown, keine Aufzählungen.\n\n` +
+    `Streamer: ${user}\nLetztes Spiel: ${game || 'unbekannt'}\nKanal-Bio: ${bio || 'keine Angaben'}\n\nAntworte nur mit dem Text.`,
+  raid: (user, game, bio) =>
+    `Du bist der Bordcomputer eines Raumschiffs im Firefly-Universum.\n` +
+    `Ein Twitch-Kanal hat gerade einen Raid gesendet. Schreibe eine kurze Crew-Analyse auf Deutsch – maximal 2 Sätze. Verwende ausschließlich den Kanalnamen, keine Pronomen (nicht er/sie/es/ihm/ihr). Normaler Satzbau, kein Markdown, keine Aufzählungen.\n\n` +
+    `Streamer: ${user}\nLetztes Spiel: ${game || 'unbekannt'}\nKanal-Bio: ${bio || 'keine Angaben'}\n\nAntworte nur mit dem Analysetext.`,
+};
+
+app.post('/api/claude/summary', async (req, res) => {
+  if (!ANTHROPIC_KEY) return res.status(503).json({ error: 'ANTHROPIC_KEY nicht konfiguriert' });
+
+  const type = req.body?.type === 'raid' ? 'raid' : 'shoutout';
+  const user = sanitizeStr(req.body?.user || '', 50);
+  const game = sanitizeStr(req.body?.game || '', 100);
+  const bio  = sanitizeStr(req.body?.bio  || '', 300);
+  if (!user) return res.status(400).json({ error: 'user required' });
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: type === 'raid' ? 200 : 80,
+        messages: [{ role: 'user', content: CLAUDE_PROMPTS[type](user, game, bio) }],
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.text();
+      logErr('Claude', `API error ${r.status}:`, err);
+      return res.status(502).json({ error: `Claude API: HTTP ${r.status}` });
+    }
+    const json = await r.json();
+    const summary = json.content?.find(b => b.type === 'text')?.text?.trim() || '';
+    log('Claude', `${type} for ${user}: ${summary.length} chars`);
+    res.json({ summary });
+  } catch(e) {
+    logErr('Claude', 'Fetch error:', e.message);
+    res.status(502).json({ error: e.message });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────
 async function main() {
   await redisReady();
   await pgReady();
 
   const existing = await redis.get(K.gwSessionId());
-  if (existing) { currentSessionId = existing; console.log('[Session] Resuming:', currentSessionId); }
+  if (existing) { currentSessionId = existing; log('Session', 'Resuming:', currentSessionId); }
 
-  app.listen(CFG.apiPort, () => console.log(`[API] REST on port ${CFG.apiPort}`));
-  console.log('[WS] Browser WS on port 9091');
+  app.listen(CFG.apiPort, () => log('API', `REST on port ${CFG.apiPort}`));
+  log('WS', 'Browser WS on port 9091');
+  log('Claude', ANTHROPIC_KEY ? 'API key configured' : 'WARNING: ANTHROPIC_KEY not set – summaries disabled');
   connectToStreamerbot();
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-main().catch(err => { console.error('[FATAL]', err.message); process.exit(1); });
+main().catch(err => { logErr('FATAL', err.message); process.exit(1); });

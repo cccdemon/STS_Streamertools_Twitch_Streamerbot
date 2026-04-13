@@ -288,7 +288,7 @@ const API_HOST = params.get('apihost') || window.location.hostname || '192.168.1
 const API_PORT = params.get('apiport') || '3000';
 const WS_HOST  = params.get('wshost') || API_HOST;
 const WS_PORT  = params.get('wsport') || '9091';
-const ANTHROPIC_KEY = params.get('apikey') || '';
+
 
 const panel      = document.getElementById('raid-panel');
 const elName     = document.getElementById('raidName');
@@ -323,6 +323,7 @@ function connect() {
   ws.onopen = () => {
     reconnectDelay = 1000;
     dbg('WS verbunden ✓');
+    ws.send(JSON.stringify({ event: 'cc_identify', role: 'raid-overlay' }));
   };
 
   ws.onmessage = (e) => {
@@ -413,41 +414,16 @@ function typeWriter(text, el, delay = 30) {
 // CLAUDE API – SUMMARY
 // ─────────────────────────────────────────────
 async function fetchSummary(user, game, bio) {
-  if (!ANTHROPIC_KEY) {
-    dbg('Kein API-Key – Fallback-Text');
-    return buildFallback(user, game, bio);
-  }
-
-  const prompt = `Du bist der Bordcomputer eines Raumschiffs im Firefly-Universum.
-Ein Twitch-Kanal hat gerade einen Raid gesendet. Schreibe eine kurze Crew-Analyse auf Deutsch – maximal 2 Sätze. Verwende ausschließlich den Kanalnamen, keine Pronomen (nicht er/sie/es/ihm/ihr). Normaler Satzbau, kein Markdown, keine Aufzählungen.
-
-Streamer: ${user}
-Letztes Spiel: ${game || 'unbekannt'}
-Kanal-Bio: ${bio || 'keine Angaben'}
-
-Antworte nur mit dem Analysetext.`;
-
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(`http://${API_HOST}:${API_PORT}/api/claude/summary`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'raid', user, game, bio }),
     });
-
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    const text = json.content?.find(b => b.type === 'text')?.text || '';
     dbg('Claude ✓');
-    return text.trim();
+    return json.summary || buildFallback(user, game, bio);
   } catch (err) {
     dbg(`Claude Fehler: ${err.message}`);
     return buildFallback(user, game, bio);

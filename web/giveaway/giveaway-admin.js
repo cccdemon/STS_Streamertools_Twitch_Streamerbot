@@ -66,6 +66,7 @@ function connectWS() {
     setBadge(true);
     gwWsRetry = 1000;
     log('WebSocket verbunden', 'cyan');
+    send({ event: 'cc_identify', role: 'giveaway-admin' });
     requestData();
     loadKeyword();
   };
@@ -148,7 +149,43 @@ function handle(msg) {
       document.getElementById('kw-input').value = kw2;
       break;
     }
+
+    case 'ws_clients':
+      renderWsClients(msg.clients || []);
+      break;
+
+    case 'ws_traffic':
+      appendWsTraffic(msg);
+      break;
   }
+}
+
+function renderWsClients(list) {
+  const el = document.getElementById('ws-clients-list');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<div class="wsc-empty">Keine Clients verbunden</div>'; return; }
+  const now = Date.now();
+  el.innerHTML = list.map(c => {
+    const ago = Math.floor((now - c.connectedAt) / 1000);
+    const t = ago < 60 ? ago + 's' : Math.floor(ago / 60) + 'm';
+    const short = c.id.slice(-5);
+    return `<div class="wsc-row">
+      <span class="wsc-role">${esc(c.role)}</span>
+      <span class="wsc-id">${short}</span>
+      <span class="wsc-meta">${t} · ${c.msgCount} msg</span>
+    </div>`;
+  }).join('');
+}
+
+function appendWsTraffic(msg) {
+  const el = document.getElementById('ws-traffic-log');
+  if (!el) return;
+  const short = (msg.clientId || '').slice(-5);
+  const e = document.createElement('div');
+  e.className = 'wst-row';
+  e.textContent = `[${short}] ${esc(msg.role)} → ${esc(msg.msgEvent)}`;
+  el.insertBefore(e, el.firstChild);
+  while (el.children.length > 50) el.removeChild(el.lastChild);
 }
 
 // ── Giveaway Controls ─────────────────────────────────────

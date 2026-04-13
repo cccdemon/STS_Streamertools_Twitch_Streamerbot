@@ -50,7 +50,7 @@ function connectWS() {
     sfWsRetry = 1000;
     if (sfWsReconnectTimer) { clearTimeout(sfWsReconnectTimer); sfWsReconnectTimer = null; }
     setWsBadge(true);
-    // Spielstatus abfragen
+    send({ event: 'cc_identify', role: 'spacefight-admin' });
     send({ event: 'sf_status_request' });
   };
   sfWs.onmessage = function(e) {
@@ -110,6 +110,36 @@ function handleMsg(msg) {
     loadLeaderboard();
     loadHistory();
   }
+  if (msg.event === 'ws_clients')  renderWsClients(msg.clients || []);
+  if (msg.event === 'ws_traffic')  appendWsTraffic(msg);
+}
+
+function renderWsClients(list) {
+  var el = document.getElementById('ws-clients-list');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<div class="wsc-empty">Keine Clients verbunden</div>'; return; }
+  var now = Date.now();
+  el.innerHTML = list.map(function(c) {
+    var ago = Math.floor((now - c.connectedAt) / 1000);
+    var t = ago < 60 ? ago + 's' : Math.floor(ago / 60) + 'm';
+    var short = c.id.slice(-5);
+    return '<div class="wsc-row">' +
+      '<span class="wsc-role">' + c.role + '</span>' +
+      '<span class="wsc-id">' + short + '</span>' +
+      '<span class="wsc-meta">' + t + ' · ' + c.msgCount + ' msg</span>' +
+      '</div>';
+  }).join('');
+}
+
+function appendWsTraffic(msg) {
+  var el = document.getElementById('ws-traffic-log');
+  if (!el) return;
+  var short = (msg.clientId || '').slice(-5);
+  var e = document.createElement('div');
+  e.className = 'wst-row';
+  e.textContent = '[' + short + '] ' + msg.role + ' → ' + msg.msgEvent;
+  el.insertBefore(e, el.firstChild);
+  while (el.children.length > 50) el.removeChild(el.lastChild);
 }
 
 // ── Game Toggle ──────────────────────────────────────────

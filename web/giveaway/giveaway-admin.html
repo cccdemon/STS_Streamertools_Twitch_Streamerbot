@@ -113,6 +113,15 @@
       <div id="log"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">WS Clients</div>
+      <div id="ws-clients-list" style="font-size:10px;margin-bottom:8px;"><div class="wsc-empty">Keine Clients verbunden</div></div>
+      <div class="card-title" style="margin-top:4px;display:flex;justify-content:space-between;">
+        Traffic <span style="cursor:pointer;color:rgba(255,68,68,0.5);" onclick="document.getElementById('ws-traffic-log').innerHTML=''">CLR</span>
+      </div>
+      <div id="ws-traffic-log" style="font-size:10px;max-height:120px;overflow-y:auto;"></div>
+    </div>
+
   </div>
 </div>
 

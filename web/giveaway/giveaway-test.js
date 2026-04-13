@@ -18,6 +18,7 @@ function connect() {
     ws.onopen = function() {
       setStatus(true);
       log('Verbunden: ws://' + host + ':' + port, 'info');
+      ws.send(JSON.stringify({ event: 'cc_identify', role: 'giveaway-test' }));
       send({ event: 'gw_get_all' });
     };
     ws.onmessage = function(e) {

@@ -87,6 +87,7 @@ services:
       PG_PASSWORD:   ${PG_PASSWORD:-changeme}
       TWITCH_CLIENT_ID:     ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      ANTHROPIC_KEY:        ${ANTHROPIC_KEY:-}
       TZ: Europe/Berlin
     depends_on:
       postgres:

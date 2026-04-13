@@ -782,6 +782,14 @@ input:focus { border-color:rgba(0,212,255,0.5); }
 .setting-row input { max-width:120px; flex:0 0 120px; }
 section .btn { margin:12px 14px 14px; }
 
+/* WS Monitor */
+.wsc-empty { color:var(--dim); font-style:italic; padding:4px 0; }
+.wsc-row   { display:flex; gap:6px; align-items:baseline; padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+.wsc-role  { color:var(--cyan); font-family:'Share Tech Mono',monospace; flex:1; }
+.wsc-id    { color:var(--dim); font-size:9px; }
+.wsc-meta  { color:rgba(255,255,255,0.3); font-size:9px; }
+.wst-row   { padding:2px 0; border-bottom:1px solid rgba(255,255,255,0.03); color:rgba(255,255,255,0.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
 /* Confirm Overlay */
 #confirm-overlay {
   position:fixed; inset:0; background:rgba(4,6,10,0.85);

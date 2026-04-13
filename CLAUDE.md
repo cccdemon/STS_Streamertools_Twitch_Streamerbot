@@ -41,11 +41,42 @@ Dockerized stack: Node.js API + Redis + PostgreSQL + Caddy reverse proxy.
 - `CC.validate` namespace for all input sanitization (XSS, prototype pollution, WS payload validation)
 - Debug console at bottom of admin pages auto-intercepts all WS send/recv, fetch requests, button clicks, and user actions
 
+## Alert Overlays (`web/alerts/`)
+All three overlays connect to the **API WS on 9091**, not Streamerbot directly.
+
+| File | Purpose |
+|---|---|
+| `alerts.html` | Bottom-bar alert (follow, sub, resub, bits, raid, subgift, subbomb, hypetrain, redeem, shoutout, outraid) |
+| `raid-info.html` | Right-panel raid info with AI summary (Claude API, Firefly theme) |
+| `shoutout-info.html` | Right-panel shoutout info with AI summary + chat reply via `/api/chat/send` |
+
+### alerts.html WS message formats
+Three formats accepted (checked in order):
+1. **Format A** — `{ alertType: 'follow', user, ... }` — used by CC_Follow/CC_Cheer/CC_RaidBroadcaster via API
+2. **Format B** — `{ event: { source: 'General', type: 'Custom' }, data: { alertType, ... } }` — Streamerbot native broadcast
+3. **Format C** — native Streamerbot subscription events (Follow, Sub, Cheer, etc.) — only works when connected directly to Streamerbot on 9090
+
+Claude API key is stored server-side in `.env` as `ANTHROPIC_KEY` — **never pass it as a URL param**. The `POST /api/claude/summary` endpoint handles all AI calls; overlays POST `{ type, user, game, bio }` and receive `{ summary }`.
+
+New alert types routed through API must:
+- Send `{ event: 'X', alertType: 'X', ... }` from C# (both fields needed)
+- Add `case 'X':` to the `broadcastAll` switch in `server.js`
+
+### Sound files
+`web/alerts/` requires these files (not committed — add manually):
+`sound_follow.mp3`, `sound_sub.mp3`, `sound_bits.mp3`, `sound_bomb.mp3`, `sound_raid.mp3`, `sound_redeem.mp3`, `sound_hype.mp3`, `sound_outraid.mp3`
+
+OBS browser source: enable **"Control audio via OBS"** in source properties for audio to appear in the OBS mixer.
+
 ## Streamerbot C# Actions (`streamerbot/`)
+All broadcasters send to `cc_api_session` (set by `CC_ApiRegister.cs` on connect) via `CPH.WebsocketCustomServerBroadcast`.
+
 - `CC_ApiRegister.cs` — Registers API session on WS connect
 - `CC_AlertRegister.cs` — Registers overlay sessions (alert, raid, shoutout)
-- `CC_RaidBroadcaster.cs` — Forwards raid events to API
-- `CC_Shoutout.cs` — Forwards shoutout events to API
+- `CC_RaidBroadcaster.cs` — Forwards `raid` events to API → alerts.html + raid-info.html
+- `CC_Follow.cs` — Forwards `follow` events to API → alerts.html
+- `CC_Cheer.cs` — Forwards `cheer` (bits) events to API → alerts.html
+- `CC_Shoutout.cs` — Forwards shoutout events to API → shoutout-info.html
 - `CC_ChatReply.cs` — Sends chat messages from API back to Twitch
 - `GW_A_ViewerTick.cs` / `GW_B_ChatMessage.cs` — Watchtime events
 - `GW_TimeInfo.cs` — !time command handler

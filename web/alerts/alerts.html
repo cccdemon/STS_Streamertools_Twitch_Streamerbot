@@ -520,6 +520,19 @@ const statLbl   = document.getElementById('statLbl');
 let queue     = [];
 let isShowing = false;
 
+// OBS browser source: CEF keeps AudioContext suspended until explicitly resumed.
+// Call resume() immediately – works because OBS uses --autoplay-policy=no-user-gesture-required.
+(function unlockObsAudio() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  const ctx = new Ctx();
+  ctx.resume().then(() => ctx.close()).catch(() => {});
+  // Fallback: also unlock on first click (normal browser / test mode)
+  document.addEventListener('click', () => {
+    const c = new Ctx(); c.resume().then(() => c.close()).catch(() => {});
+  }, { once: true });
+}());
+
 // ─────────────────────────────────────────────
 // ALERT DEFINITIONS
 // ─────────────────────────────────────────────
@@ -871,7 +884,10 @@ function showAlert(cfg) {
 
   // Sound
   const snd = document.getElementById(cfg.sound);
-  if (snd) { snd.currentTime = 0; snd.play().catch(()=>{}); }
+  if (snd) {
+    snd.currentTime = 0;
+    snd.play().catch(e => console.warn('[alert] Sound konnte nicht abgespielt werden:', cfg.sound, e.message));
+  }
 
   // Red flash (before reveal) – use per-alert settings if defined
   if (cfg.flash) {
