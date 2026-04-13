@@ -163,7 +163,9 @@ async function handleClientMessage(ws, msg) {
     case 'gw_get_all': {
       const participants = await wte.getAllParticipants();
       const open = await redis.get(K.gwOpen()) === 'true';
+      const firstChatterEnabled = await redis.get('cc_first_chatter_enabled') === 'true';
       send({ event: 'gw_data', open, session: currentSessionId, participants });
+      send({ event: 'cc_first_chatter_status', enabled: firstChatterEnabled });
       break;
     }
     case 'gw_cmd':
@@ -296,6 +298,14 @@ async function handleAdminCmd(send, msg) {
       await wte.resetGiveaway();
       currentSessionId = null;
       send({ event: 'gw_ack', type: 'reset' });
+      break;
+    }
+    case 'cc_first_chatter_toggle': {
+      const cur = await redis.get('cc_first_chatter_enabled') === 'true';
+      const next = !cur;
+      await redis.set('cc_first_chatter_enabled', next ? 'true' : 'false');
+      log('FirstChatter', next ? 'Aktiviert' : 'Deaktiviert');
+      broadcastAll({ event: 'cc_first_chatter_status', enabled: next });
       break;
     }
     case 'gw_draw_winner': {
@@ -432,6 +442,19 @@ async function handleSbEvent(msg) {
     case 'cheer':
       broadcastAll(msg);
       break;
+
+    // ── First-Time Chatter ────────────────────────────────
+    case 'first_chatter': {
+      const enabled = await redis.get('cc_first_chatter_enabled') === 'true';
+      if (enabled && msg.user) {
+        const u = sanitizeUsername(msg.user);
+        if (u) {
+          sbSend({ event: 'chat_reply', message: `@${u} Willkommen in der Chaos Crew! Schön, dass du heute zum ersten Mal chattest! chaoscrHype` });
+          log('FirstChatter', u);
+        }
+      }
+      break;
+    }
 
     // ── Stream Online / Offline ───────────────────────────
     case 'stream_online':  await redis.set('sf_live', 'true');  broadcastAll({ event: 'sf_status', live: true });  break;

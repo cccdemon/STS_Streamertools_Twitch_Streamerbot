@@ -176,6 +176,7 @@
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
     'gw_set_keyword', 'gw_get_keyword',
+    'cc_first_chatter_toggle',
     'sf_start', 'sf_stop', 'sf_reset',
     'sf_delete_player', 'sf_edit_player'
   ];

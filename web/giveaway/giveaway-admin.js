@@ -150,6 +150,10 @@ function handle(msg) {
       break;
     }
 
+    case 'cc_first_chatter_status':
+      updateFirstChatterUI(!!msg.enabled);
+      break;
+
     case 'ws_clients':
       renderWsClients(msg.clients || []);
       break;
@@ -157,6 +161,27 @@ function handle(msg) {
     case 'ws_traffic':
       appendWsTraffic(msg);
       break;
+  }
+}
+
+function toggleFirstChatter() {
+  send({ event: 'gw_cmd', cmd: 'cc_first_chatter_toggle' });
+}
+
+function updateFirstChatterUI(enabled) {
+  const status = document.getElementById('fc-status');
+  const btn    = document.getElementById('fc-btn');
+  if (!status || !btn) return;
+  if (enabled) {
+    status.textContent = 'AKTIV';
+    status.style.color = 'var(--cyan)';
+    btn.textContent = 'DEAKTIVIEREN';
+    btn.className = 'btn btn-gold';
+  } else {
+    status.textContent = 'INAKTIV';
+    status.style.color = 'var(--dim)';
+    btn.textContent = 'AKTIVIEREN';
+    btn.className = 'btn btn-cyan';
   }
 }
 
