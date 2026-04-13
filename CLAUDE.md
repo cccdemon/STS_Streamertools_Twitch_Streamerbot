@@ -25,11 +25,17 @@ Dockerized stack: Node.js API + Redis + PostgreSQL + Caddy reverse proxy.
 - `web/alerts/alerts.html` — Alert overlay (follow, sub, bits, raid, redeem, hype train)
 
 ## Event Flow
-- Streamerbot sends raw events to API (9090 → 9091): `fight_cmd`, `chat_msg`, `viewer_tick`, `raid`, `shoutout`, etc.
+- Streamerbot sends raw events to API (9090 → 9091): `fight_cmd`, `chat_msg`, `viewer_tick`, `raid`, `shoutout`, `follow`, `cheer`, `first_chatter`, etc.
 - API processes, persists, and broadcasts to all browser clients via `broadcastAll()`
 - Admin panels send commands via WS: `{ event: 'gw_cmd', cmd: '...' }` or `{ event: 'sf_cmd', cmd: '...' }`
 - Spacefight: Admin activates game → `sf_game_active` in Redis → `fight_cmd` only forwarded when active
 - Giveaway: Admin opens/closes → watchtime engine tracks coins → draw winner
+- First chatter: `cc_first_chatter_enabled` Redis key (default off) — toggled via giveaway admin panel (`cc_first_chatter_toggle` cmd)
+
+## WS Client Identification
+Every browser WS client sends `{ event: 'cc_identify', role: '<name>' }` on open. The API stores metadata per client (role, IP, connectedAt, msgCount) and broadcasts `ws_clients` on any change. All client messages also trigger a `ws_traffic` broadcast. Admin panels (giveaway, spacefight) render live client lists and traffic logs.
+
+Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-overlay`, `shoutout-overlay`, `raid-overlay`
 
 ## Conventions
 - German UI text throughout (Twitch streamer is German-speaking)
@@ -40,6 +46,7 @@ Dockerized stack: Node.js API + Redis + PostgreSQL + Caddy reverse proxy.
 - New WS events/cmds must be added to `ALLOWED_EVENTS`/`ALLOWED_CMDS` in `chaos-crew-shared.js`
 - `CC.validate` namespace for all input sanitization (XSS, prototype pollution, WS payload validation)
 - Debug console at bottom of admin pages auto-intercepts all WS send/recv, fetch requests, button clicks, and user actions
+- `api/server.js` uses `log(tag, ...args)` / `logErr(tag, ...args)` helpers — all output goes through these, never raw `console.log`
 
 ## Alert Overlays (`web/alerts/`)
 All three overlays connect to the **API WS on 9091**, not Streamerbot directly.
@@ -78,6 +85,10 @@ All broadcasters send to `cc_api_session` (set by `CC_ApiRegister.cs` on connect
 - `CC_Cheer.cs` — Forwards `cheer` (bits) events to API → alerts.html
 - `CC_Shoutout.cs` — Forwards shoutout events to API → shoutout-info.html
 - `CC_ChatReply.cs` — Sends chat messages from API back to Twitch
+- `CC_ClipCreated.cs` — Sends clip title + URL as chat message on Clip Created
+- `CC_AdBreakStart.cs` — Sends ad break start notice as chat message
+- `CC_AdBreakEnd.cs` — Sends ad break end notice as chat message
+- `CC_FirstChatter.cs` — Sends `{ event: 'first_chatter', user }` to API; API checks Redis toggle and sends welcome chat if enabled
 - `GW_A_ViewerTick.cs` / `GW_B_ChatMessage.cs` — Watchtime events
 - `GW_TimeInfo.cs` — !time command handler
 
