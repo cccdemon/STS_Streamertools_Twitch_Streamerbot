@@ -191,16 +191,15 @@ class WatchtimeEngine {
     }
   }
 
-  // Giveaway öffnen
   // Validate sessionId format – must be 'sess_<digits>'
-  function validateSessionId(id) {
+  validateSessionId(id) {
     if (!id || typeof id !== 'string' || !/^sess_\d+$/i.test(id)) {
       throw new Error('Invalid sessionId');
     }
   }
 
   async openGiveaway(keyword, sessionId) {
-    validateSessionId(sessionId);
+    this.validateSessionId(sessionId);
     await this.redis.set(K.gwOpen(), 'true');
     if (keyword) {
       await this.redis.set(K.gwKeyword(), keyword);
