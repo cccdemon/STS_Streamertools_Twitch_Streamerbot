@@ -137,7 +137,64 @@ async function handleClientMessage(ws, msg) {
       break;
     case 'sf_status_request': {
       const live = await redis.get('sf_live') === 'true';
-      send({ event: 'sf_status', live });
+      const gameActive = await redis.get('sf_game_active') === 'true';
+      send({ event: 'sf_game_status', active: gameActive, live });
+      break;
+    }
+    case 'sf_cmd':
+      await handleSfCmd(send, msg);
+      break;
+    case 'spacefight_result': {
+      if (msg.winner && msg.loser) {
+        await saveSpacefightResult(msg);
+        broadcastAll({ event: 'sf_result', winner: msg.winner, loser: msg.loser, ship_w: msg.ship_w, ship_l: msg.ship_l });
+      }
+      break;
+    }
+  }
+}
+
+async function handleSfCmd(send, msg) {
+  switch (msg.cmd) {
+    case 'sf_start': {
+      await redis.set('sf_game_active', 'true');
+      broadcastAll({ event: 'sf_game_status', active: true });
+      console.log('[SF] Game activated by admin');
+      break;
+    }
+    case 'sf_stop': {
+      await redis.set('sf_game_active', 'false');
+      broadcastAll({ event: 'sf_game_status', active: false });
+      console.log('[SF] Game deactivated by admin');
+      break;
+    }
+    case 'sf_reset': {
+      await pg.query('DELETE FROM spacefight_stats');
+      await pg.query('DELETE FROM spacefight_results');
+      send({ event: 'sf_ack', type: 'reset' });
+      console.log('[SF] All data reset by admin');
+      break;
+    }
+    case 'sf_delete_player': {
+      const u = sanitizeUsername(msg.user);
+      if (!u) break;
+      await pg.query('DELETE FROM spacefight_stats WHERE username=$1', [u]);
+      await pg.query('DELETE FROM spacefight_results WHERE winner=$1 OR loser=$1', [u]);
+      send({ event: 'sf_ack', type: 'player_deleted', user: u });
+      console.log('[SF] Player deleted:', u);
+      break;
+    }
+    case 'sf_edit_player': {
+      const u = sanitizeUsername(msg.user);
+      if (!u) break;
+      const wins   = Math.max(0, parseInt(msg.wins) || 0);
+      const losses = Math.max(0, parseInt(msg.losses) || 0);
+      await pg.query(
+        'UPDATE spacefight_stats SET wins=$1, losses=$2 WHERE username=$3',
+        [wins, losses, u]
+      );
+      send({ event: 'sf_ack', type: 'player_edited', user: u, wins, losses });
+      console.log('[SF] Player edited:', u, wins, losses);
       break;
     }
   }
@@ -344,9 +401,11 @@ async function handleSbEvent(msg) {
     case 'stream_offline': await redis.set('sf_live', 'false'); broadcastAll({ event: 'sf_status', live: false }); break;
 
     // ── Challenge Events (Spacefight) ─────────────────────
-    case 'fight_cmd':
-      broadcastAll(msg);
+    case 'fight_cmd': {
+      const gameActive = await redis.get('sf_game_active') === 'true';
+      if (gameActive) broadcastAll(msg);
       break;
+    }
 
     case 'spacefight_challenge': {
       const a = msg.attacker || '';
@@ -445,6 +504,16 @@ app.get('/api/participants', async (req, res) => {
     const participants = await wte.getAllParticipants();
     const open = await redis.get(K.gwOpen()) === 'true';
     res.json({ session: currentSessionId, open, participants });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/spacefight', async (req, res) => {
+  try {
+    const { winner, loser, ship_w, ship_l } = req.body || {};
+    if (!winner || !loser) return res.status(400).json({ error: 'winner and loser required' });
+    await saveSpacefightResult({ winner, loser, ship_w: ship_w || '', ship_l: ship_l || '' });
+    broadcastAll({ event: 'sf_result', winner, loser, ship_w, ship_l });
+    res.json({ status: 'ok' });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

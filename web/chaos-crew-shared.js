@@ -166,6 +166,7 @@
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_overlay_register', 'gw_join_register', 'gw_api_register',
     'gw_spacefight_register', 'spacefight_result', 'chat_msg',
+    'sf_cmd', 'sf_status_request',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
@@ -173,7 +174,9 @@
     'gw_open', 'gw_close', 'gw_reset',
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
-    'gw_set_keyword', 'gw_get_keyword'
+    'gw_set_keyword', 'gw_get_keyword',
+    'sf_start', 'sf_stop', 'sf_reset',
+    'sf_delete_player', 'sf_edit_player'
   ];
 
   function validateWsPayload(obj) {
@@ -184,9 +187,9 @@
       console.warn('[validate] Unbekanntes WS Event blockiert:', evt);
       return false;
     }
-    if (evt === 'gw_cmd') {
+    if (evt === 'gw_cmd' || evt === 'sf_cmd') {
       if (!obj.cmd || ALLOWED_CMDS.indexOf(obj.cmd) === -1) {
-        console.warn('[validate] Unbekanntes gw_cmd blockiert:', obj.cmd);
+        console.warn('[validate] Unbekanntes cmd blockiert:', obj.cmd);
         return false;
       }
       if (obj.user && !validate(obj.user, 'username')) {

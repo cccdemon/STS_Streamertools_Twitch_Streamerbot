@@ -14,18 +14,50 @@
     <span class="logo-crew">ADMIN</span>
   </div>
   <div class="header-badges">
-    <span id="badge-stream" class="badge off">STREAM: OFFLINE</span>
-    <span id="badge-api"    class="badge off">API: –</span>
+    <span id="badge-game" class="badge off">SPIEL: INAKTIV</span>
+    <span id="badge-ws"   class="badge off">WS: OFFLINE</span>
   </div>
 </header>
 
 <main>
 
+  <!-- Game Toggle -->
+  <div class="panel-row">
+    <section class="panel narrow">
+      <div class="panel-title">SPIELSTEUERUNG</div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button id="btn-start" class="btn green" onclick="toggleGame(true)">SPIEL STARTEN</button>
+        <button id="btn-stop"  class="btn red"   onclick="toggleGame(false)" disabled>SPIEL STOPPEN</button>
+      </div>
+      <p id="game-hint" style="color:var(--dim);font-size:10px;margin-top:8px;">
+        Spiel muss aktiv sein, damit !fight funktioniert.
+      </p>
+    </section>
+
+    <!-- Settings -->
+    <section class="panel narrow">
+      <div class="panel-title">EINSTELLUNGEN</div>
+      <div class="setting-row">
+        <span class="setting-label">API Host</span>
+        <input id="cfg-apihost" type="text" value="192.168.178.34" maxlength="253">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">API Port</span>
+        <input id="cfg-apiport" type="text" value="9091" maxlength="5">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">WoF Eintraege</span>
+        <input id="cfg-wof-limit" type="number" value="10" min="5" max="50">
+      </div>
+      <button class="btn cyan" onclick="applySettings()">UEBERNEHMEN</button>
+    </section>
+  </div>
+
   <div class="panel-row">
 
     <!-- Wall of Fame -->
     <section class="panel">
-      <div class="panel-title">🏆 WALL OF FAME – BEST SPACE PILOTS</div>
+      <div class="panel-title">WALL OF FAME – BEST SPACE PILOTS</div>
       <table class="wof-table">
         <thead>
           <tr>
@@ -42,7 +74,7 @@
 
     <!-- Kampf-Historie -->
     <section class="panel">
-      <div class="panel-title">⚔ KAMPF-HISTORIE</div>
+      <div class="panel-title">KAMPF-HISTORIE</div>
       <table class="hist-table">
         <thead>
           <tr><th>ZEIT</th><th>SIEGER</th><th>VERLIERER</th><th>SCHIFF W</th><th>SCHIFF L</th></tr>
@@ -60,7 +92,7 @@
 
     <!-- Spieler-Suche -->
     <section class="panel narrow">
-      <div class="panel-title">&#x25CE; SPIELER SUCHE</div>
+      <div class="panel-title">SPIELER SUCHE</div>
       <div class="search-row">
         <input id="player-search" type="text" placeholder="Username..." maxlength="25">
         <button class="btn cyan" onclick="searchPlayer()">SUCHEN</button>
@@ -68,36 +100,57 @@
       <div id="player-result" class="player-result"></div>
     </section>
 
-    <!-- Settings -->
-    <section class="panel narrow">
-      <div class="panel-title">&#x2699; EINSTELLUNGEN</div>
-      <div class="setting-row">
-        <span class="setting-label">API Host</span>
-        <input id="cfg-apihost" type="text" value="192.168.178.34" maxlength="253">
-      </div>
-      <div class="setting-row">
-        <span class="setting-label">API Port</span>
-        <input id="cfg-apiport" type="text" value="3000" maxlength="5">
-      </div>
-      <div class="setting-row">
-        <span class="setting-label">WoF Einträge</span>
-        <input id="cfg-wof-limit" type="number" value="10" min="5" max="50">
-      </div>
-      <button class="btn cyan" onclick="applySettings()">ÜBERNEHMEN</button>
-    </section>
-
   </div>
 
 </main>
 
 <script src="spacefight-admin.js"></script>
+
+<!-- Reset Confirm -->
 <div id="confirm-overlay">
   <div class="confirm-box">
-    <h3>⚠ WALL OF FAME RESET</h3>
-    <p>Alle Kampfdaten werden unwiderruflich gelöscht.<br>Wirklich fortfahren?</p>
+    <h3>WALL OF FAME RESET</h3>
+    <p>Alle Kampfdaten werden unwiderruflich geloescht.<br>Wirklich fortfahren?</p>
     <div class="confirm-btns">
       <button class="btn red"  onclick="doReset()">JA, RESET</button>
       <button class="btn cyan" onclick="closeConfirm()">ABBRECHEN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Player Modal -->
+<div id="edit-overlay">
+  <div class="confirm-box">
+    <h3>SPIELER BEARBEITEN</h3>
+    <input type="hidden" id="edit-username">
+    <div class="setting-row">
+      <span class="setting-label">Spieler</span>
+      <span id="edit-display" style="color:var(--cyan);font-weight:bold;"></span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Siege</span>
+      <input id="edit-wins" type="number" min="0" value="0">
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Niederlagen</span>
+      <input id="edit-losses" type="number" min="0" value="0">
+    </div>
+    <div class="confirm-btns">
+      <button class="btn cyan" onclick="saveEdit()">SPEICHERN</button>
+      <button class="btn red"  onclick="confirmDeleteFromEdit()">LOESCHEN</button>
+      <button class="btn"      onclick="closeEdit()">ABBRECHEN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm -->
+<div id="delete-overlay">
+  <div class="confirm-box">
+    <h3>SPIELER LOESCHEN</h3>
+    <p>Alle Daten von <strong id="delete-name"></strong> werden geloescht.<br>Wirklich fortfahren?</p>
+    <div class="confirm-btns">
+      <button class="btn red"  onclick="doDelete()">JA, LOESCHEN</button>
+      <button class="btn cyan" onclick="closeDelete()">ABBRECHEN</button>
     </div>
   </div>
 </div>

@@ -13,7 +13,7 @@ function parseDec(v) {
 // ── State ─────────────────────────────────────────────────
 let participants = {};
 let gwIsOpen     = false;
-let sortField    = 'tickets';
+let sortField    = 'coins';
 let sortDir      = -1;
 let gwWs         = null;
 let gwWsRetry    = 1000;
@@ -106,12 +106,11 @@ function handle(msg) {
       participants = {};
       gwIsOpen = !!msg.open;
       (msg.participants || []).forEach(p => {
-        const key = (p.key || p.display || '').toLowerCase();
+        const key = (p.username || '').toLowerCase();
         participants[key] = {
-          display:  p.display  || key,
+          display:  p.username || key,
           watchSec: parseInt(p.watchSec)   || 0,
-          msgs:     parseInt(p.msgs)       || 0,
-          tickets:  parseDec(p.tickets),  // Dezimalwert, InvariantCulture-safe
+          coins:    parseDec(p.coins),
           banned:   !!p.banned
         };
       });
@@ -128,11 +127,17 @@ function handle(msg) {
       break;
 
     case 'gw_ack':
-      log(`ACK: ${msg.type} -> ${msg.user || msg.keyword || ''}`, 'cyan');
+      log(`ACK: ${msg.type} -> ${msg.user || msg.keyword || msg.winner || ''}`, 'cyan');
       if (msg.type === 'keyword_set' || msg.type === 'keyword') {
         const kw = msg.keyword || '';
         document.getElementById('kw-current').textContent = kw || '- (deaktiviert)';
         document.getElementById('kw-input').value = kw;
+      }
+      if (msg.type === 'winner_drawn') {
+        showWinnerAnimation(msg.winner, msg.watchSec, msg.coins);
+      }
+      if (msg.type === 'no_winner') {
+        log('Keine Teilnehmer mit Coins im Pool!', 'red');
       }
       requestData();
       break;
@@ -156,36 +161,31 @@ function updateGwStatus() {
   else          { el.textContent='CLOSED'; el.className='gw-status closed'; }
 }
 
-function drawWinner(excludeKey=null) {
-  const pool = [];
-  for (const [k,p] of Object.entries(participants)) {
-    if (!p.banned && p.tickets > 0 && k !== excludeKey) {
-      // Kommawert-Tickets: 0.5 = 50 Lose, 1.0 = 100 Lose (Gewichtung)
-      const lots = Math.max(1, Math.round(parseFloat(p.tickets) * 100));
-      for (let i=0; i<lots; i++) pool.push(k);
-    }
-  }
-  if (!pool.length) { log('Keine Tickets im Pool!', 'red'); return; }
+function drawWinner() {
+  send({ event:'gw_cmd', cmd:'gw_draw_winner' });
+}
+
+function showWinnerAnimation(winnerName, watchSec, coins) {
+  const names = Object.keys(participants).filter(k => !participants[k].banned && participants[k].coins > 0);
+  if (!names.length) names.push(winnerName);
 
   let flashes = 0;
   document.getElementById('winner-card').style.display = 'block';
   const interval = setInterval(() => {
-    const tmp = pool[Math.floor(Math.random()*pool.length)];
+    const tmp = names[Math.floor(Math.random()*names.length)];
     document.getElementById('w-name').textContent = (participants[tmp]?.display||tmp).toUpperCase();
     if (++flashes >= 14) {
       clearInterval(interval);
-      lastWinner = pool[Math.floor(Math.random()*pool.length)];
-      const wp = participants[lastWinner];
-      document.getElementById('w-name').textContent = (wp?.display||lastWinner).toUpperCase();
-      document.getElementById('w-info').textContent = `${parseDec(wp?.tickets||0).toFixed(2)} Coins // ${fmtTime(wp?.watchSec||0)}`;
-      renderTable(lastWinner);
-      broadcastOverlay(wp?.display||lastWinner);
-      log(`GEWINNER: ${wp?.display||lastWinner} (${wp?.tickets||0} Tickets)`, 'gold');
+      lastWinner = winnerName;
+      document.getElementById('w-name').textContent = winnerName.toUpperCase();
+      document.getElementById('w-info').textContent = `${parseDec(coins).toFixed(2)} Coins // ${fmtTime(watchSec||0)}`;
+      renderTable(winnerName);
+      log(`GEWINNER: ${winnerName} (${parseDec(coins).toFixed(2)} Coins)`, 'gold');
     }
   }, 75);
 }
 
-function reroll()      { drawWinner(lastWinner); }
+function reroll()      { drawWinner(); }
 function clearWinner() { lastWinner=null; document.getElementById('winner-card').style.display='none'; broadcastOverlay(); }
 
 // ── Manual Actions ────────────────────────────────────────
@@ -259,9 +259,8 @@ function renderTable(hlKey=null) {
     <tr class="${p.banned?'banned':''} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
       <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}</td>
-      <td class="tickets">${parseDec(p.tickets).toFixed(2)}</td>
+      <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       <td class="watchtime">${fmtTime(p.watchSec)}</td>
-      <td class="msgs">${p.msgs}</td>
       <td style="display:flex;gap:4px;">
         <button class="mini-btn add" onclick="addTicketTo('${esc(key)}')">+1</button>
         <button class="mini-btn sub" onclick="subTicketFrom('${esc(key)}')">-1</button>
@@ -279,8 +278,7 @@ function sortBy(f) {
 function updateStats() {
   const active = Object.values(participants).filter(p=>!p.banned);
   document.getElementById('s-total').textContent   = active.length;
-  document.getElementById('s-tickets').textContent = active.reduce((s,p)=>s+(parseFloat(p.tickets)||0),0).toFixed(4).replace(/\.?0+$/,'');
-  document.getElementById('s-msgs').textContent    = active.reduce((s,p)=>s+p.msgs,0);
+  document.getElementById('s-tickets').textContent = active.reduce((s,p)=>s+(parseFloat(p.coins)||0),0).toFixed(4).replace(/\.?0+$/,'');
 }
 
 function broadcastOverlay(winner=null) {
@@ -288,10 +286,10 @@ function broadcastOverlay(winner=null) {
     event:   'gw_overlay',
     open:    gwIsOpen,
     total:   Object.values(participants).filter(p=>!p.banned).length,
-    tickets: Object.values(participants).filter(p=>!p.banned&&p.tickets>0).reduce((s,p)=>s+p.tickets,0),
-    top5:    [...Object.values(participants)].filter(p=>!p.banned&&p.tickets>0)
-               .sort((a,b)=>b.tickets-a.tickets).slice(0,5)
-               .map(p=>({ name:p.display, tickets:p.tickets })),
+    tickets: Object.values(participants).filter(p=>!p.banned&&p.coins>0).reduce((s,p)=>s+p.coins,0),
+    top5:    [...Object.values(participants)].filter(p=>!p.banned&&p.coins>0)
+               .sort((a,b)=>b.coins-a.coins).slice(0,5)
+               .map(p=>({ name:p.display, tickets:p.coins })),
     winner:  winner || null
   });
 }
@@ -300,11 +298,11 @@ function broadcastOverlay(winner=null) {
 function exportCSV() {
   const active = Object.values(participants).filter(p => !p.banned);
   if (!active.length) { log('Keine Daten zum Exportieren', 'red'); return; }
-  const total = active.reduce((s,p) => s + (p.tickets||0), 0);
-  const rows = [['Username','Coins','Watchtime (s)','Watchtime','Nachrichten','Gewinnchance %']];
-  active.sort((a,b) => b.tickets - a.tickets).forEach(p => {
-    const chance = total > 0 ? ((p.tickets / total) * 100).toFixed(2) : '0.00';
-    rows.push([p.display, parseDec(p.tickets).toFixed(2), p.watchSec, fmtTime(p.watchSec), p.msgs, chance]);
+  const total = active.reduce((s,p) => s + (p.coins||0), 0);
+  const rows = [['Username','Coins','Watchtime (s)','Watchtime','Gewinnchance %']];
+  active.sort((a,b) => b.coins - a.coins).forEach(p => {
+    const chance = total > 0 ? ((p.coins / total) * 100).toFixed(2) : '0.00';
+    rows.push([p.display, parseDec(p.coins).toFixed(2), p.watchSec, fmtTime(p.watchSec), chance]);
   });
   const csv = rows.map(r => r.join(';')).join('\n');
   dlFile('giveaway_export.csv', csv, 'text/csv;charset=utf-8');
@@ -312,9 +310,9 @@ function exportCSV() {
 }
 
 function exportChances() {
-  const active = Object.values(participants).filter(p => !p.banned && p.tickets > 0);
+  const active = Object.values(participants).filter(p => !p.banned && p.coins > 0);
   if (!active.length) { log('Keine Teilnehmer mit Tickets', 'red'); return; }
-  const total = active.reduce((s,p) => s + p.tickets, 0);
+  const total = active.reduce((s,p) => s + p.coins, 0);
   const sep = '-'.repeat(48);
   let txt = 'CHAOS CREW - GIVEAWAY GEWINNCHANCEN\n';
   txt += 'Stand: ' + new Date().toLocaleString('de-DE') + '\n';
@@ -322,9 +320,9 @@ function exportChances() {
   txt += sep + '\n';
   txt += 'Platz '.padEnd(6) + 'Username'.padEnd(22) + 'Tickets'.padEnd(10) + 'Chance\n';
   txt += sep + '\n';
-  active.sort((a,b) => b.tickets - a.tickets).forEach((p, i) => {
-    const chance = ((p.tickets / total) * 100).toFixed(2);
-    txt += String(i+1).padEnd(6) + (p.display||'').padEnd(22) + String(p.tickets).padEnd(10) + chance + '%\n';
+  active.sort((a,b) => b.coins - a.coins).forEach((p, i) => {
+    const chance = ((p.coins / total) * 100).toFixed(2);
+    txt += String(i+1).padEnd(6) + (p.display||'').padEnd(22) + String(p.coins).padEnd(10) + chance + '%\n';
   });
   dlFile('gewinnchancen.txt', txt, 'text/plain;charset=utf-8');
   log('Gewinnchancen exportiert (' + active.length + ' Teilnehmer)', 'gold');
