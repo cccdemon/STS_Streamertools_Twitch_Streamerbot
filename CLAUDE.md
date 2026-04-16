@@ -92,6 +92,54 @@ All broadcasters send to `cc_api_session` (set by `CC_ApiRegister.cs` on connect
 - `GW_A_ViewerTick.cs` / `GW_B_ChatMessage.cs` — Watchtime events
 - `GW_TimeInfo.cs` — !time command handler
 
+## Data Storage
+- **Redis (ephemeral state)**: giveaway open/closed, current keyword, banned users, watchsec/msgs per user, spacefight live/active flags, first chatter toggle, current session ID
+- **PostgreSQL (persistent)**: `sessions`, `users` (giveaway winners, ticket counts), `spacefight_stats` (wins/losses), `spacefight_results` (fight history)
+
+## REST API Endpoints
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/health` | Healthcheck (Redis + PG status) |
+| GET | `/api/participants` | All giveaway participants |
+| GET | `/api/user/:username` | Single user giveaway data |
+| GET | `/api/sessions` | All giveaway sessions |
+| GET | `/api/leaderboard` | Giveaway winner leaderboard |
+| GET | `/api/spacefight/leaderboard` | Spacefight win/loss stats |
+| GET | `/api/spacefight/history` | Recent fight results |
+| GET | `/api/spacefight/player/:username` | Single player stats |
+| POST | `/api/spacefight` | Record fight result |
+| POST | `/api/chat/send` | Send Twitch chat message (via Streamerbot) |
+| GET | `/api/twitch/user/:login` | Twitch user profile (cached) |
+| POST | `/api/claude/summary` | AI summary for shoutout/raid overlays |
+| GET | `/api/ws/clients` | Connected WS client list |
+| POST | `/api/backup/trigger` | Trigger manual backup |
+
+## Admin WS Commands
+`gw_cmd` payload (`{ event: 'gw_cmd', cmd: '...' }`):
+
+| cmd | Effect |
+|---|---|
+| `gw_open` | Open giveaway |
+| `gw_close` | Close giveaway |
+| `gw_draw_winner` | Draw random winner (weighted by tickets) |
+| `gw_set_keyword` | Set join keyword (+ `keyword` field) |
+| `gw_get_keyword` | Request current keyword |
+| `gw_add_ticket` | Add tickets (+ `username`, `amount`) |
+| `gw_sub_ticket` | Remove tickets (+ `username`, `amount`) |
+| `gw_ban` / `gw_unban` | Ban/unban user |
+| `gw_reset` | Full giveaway reset |
+| `cc_first_chatter_toggle` | Toggle first-chatter welcome feature |
+
+`sf_cmd` payload (`{ event: 'sf_cmd', cmd: '...' }`):
+
+| cmd | Effect |
+|---|---|
+| `sf_start` | Activate spacefight game |
+| `sf_stop` | Deactivate spacefight game |
+| `sf_reset` | Reset all stats + history |
+| `sf_delete_player` | Remove player (+ `username`) |
+| `sf_edit_player` | Edit player stats (+ `username`, `wins`, `losses`) |
+
 ## Development
 
 ### Commands (run from `api/`)
