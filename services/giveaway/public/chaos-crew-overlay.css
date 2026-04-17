@@ -1,0 +1,485 @@
+/*
+ * Chaos Crew – Giveaway System v4
+ * Copyright (C) 2026 justcallmedeimos / Chaos Crew
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Bebas+Neue&family=Orbitron:wght@400;700;900&display=swap');
+
+/* ── chat.css ──────────────────────────────────────────── */
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Rajdhani','Share Tech Mono',monospace;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 8px 8px 8px;
+}
+
+#chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding-bottom: 2px;
+  /* Neue Nachrichten unten, älteste oben werden abgeschnitten */
+  justify-content: flex-end;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(0,10,18,0.82) 0%, rgba(0,20,30,0.75) 100%);
+  border-left: 2px solid var(--user-color, #00d4ff);
+  border-bottom: 1px solid rgba(0,212,255,0.15);
+  padding: 5px 10px 6px 10px;
+  position: relative;
+  animation: slideIn 0.25s ease-out;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.msg::before {
+  content:''; position:absolute; top:0; right:0; width:12px; height:12px;
+  border-top:1px solid rgba(0,212,255,0.35); border-right:1px solid rgba(0,212,255,0.35);
+}
+
+.msg.highlight {
+  border-left-color: #f0a500;
+  border-bottom-color: rgba(240,165,0,0.2);
+  background: linear-gradient(135deg, rgba(20,12,0,0.85) 0%, rgba(15,10,0,0.78) 100%);
+}
+.msg.highlight::before { border-color: rgba(240,165,0,0.4); }
+
+.msg-header { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
+.badges     { display:flex; gap:2px; align-items:center; }
+
+.badge { font-size:9px; font-family:'Share Tech Mono',monospace; padding:1px 4px; border:1px solid; letter-spacing:0.5px; line-height:1.4; }
+.badge.broadcaster { color:#f0a500; border-color:rgba(240,165,0,0.6); background:rgba(240,165,0,0.08); }
+.badge.moderator   { color:#00d4ff; border-color:rgba(0,212,255,0.6); background:rgba(0,212,255,0.08); }
+.badge.subscriber  { color:#a0e8ff; border-color:rgba(160,232,255,0.5); background:rgba(160,232,255,0.06); }
+.badge.vip         { color:#ff80ff; border-color:rgba(255,128,255,0.5); background:rgba(255,128,255,0.06); }
+
+.username { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--user-color, #00d4ff); text-shadow:0 0 8px var(--user-color, #00d4ff); }
+
+.msg-text { font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:400; color:rgba(210,235,245,0.92); line-height:1.4; letter-spacing:0.3px; word-break:break-word; }
+.msg-text img.emote { height:20px; vertical-align:middle; margin:0 1px; }
+
+.msg::after {
+  content:''; position:absolute; top:0; left:0; right:0; bottom:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.015) 3px,rgba(0,212,255,0.015) 4px);
+  pointer-events:none;
+}
+
+@keyframes slideIn { from{opacity:0;transform:translateX(-12px);} to{opacity:1;transform:translateX(0);} }
+@keyframes fadeOut { from{opacity:1;max-height:80px;} to{opacity:0;max-height:0;padding:0;margin:0;} }
+.msg.removing { animation:fadeOut 0.4s ease-in forwards; }
+
+#status { position:fixed; top:8px; right:10px; font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1px; opacity:0.5; transition:opacity 0.5s; }
+#status.connected    { color:#00d4ff; }
+#status.disconnected { color:#f0a500; }
+#status.hidden       { opacity:0; }
+
+/* ── giveaway-join.css ──────────────────────────────────────────── */
+:root { --cyan:#00d4ff; --gold:#f0a500; --green:#00ff88; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:transparent; width:620px; height:110px; overflow:hidden; }
+
+#container {
+  position:absolute;
+  bottom:0; left:0; right:0;
+  display:flex;
+  flex-direction:column-reverse;
+  gap:4px;
+  padding:0 4px 4px;
+}
+
+.join-card {
+  background:rgba(4,6,10,0.93);
+  border-left:2px solid var(--cyan);
+  border-top:1px solid rgba(0,212,255,0.2);
+  border-right:1px solid rgba(0,212,255,0.08);
+  border-bottom:1px solid rgba(0,212,255,0.08);
+  padding:9px 14px 9px 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  position:relative;
+  overflow:hidden;
+  transform:translateX(-110%);
+  opacity:0;
+}
+
+.join-card::before {
+  content:''; position:absolute; top:0; right:0; width:8px; height:8px;
+  border-top:1px solid rgba(0,212,255,0.45);
+  border-right:1px solid rgba(0,212,255,0.45);
+}
+
+.join-card::after {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.012) 3px,rgba(0,212,255,0.012) 4px);
+  pointer-events:none;
+}
+
+.join-card.enter { animation:slideIn 0.4s cubic-bezier(0.22,1,0.36,1) forwards; }
+.join-card.exit  { animation:slideOut 0.3s ease-in forwards; }
+
+@keyframes slideIn  { from{transform:translateX(-110%);opacity:0;} to{transform:translateX(0);opacity:1;} }
+@keyframes slideOut { from{transform:translateX(0);opacity:1;} to{transform:translateX(110%);opacity:0;} }
+
+.queue-nr { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(0,212,255,0.4); letter-spacing:1px; min-width:32px; line-height:1; }
+.divider  { width:1px; height:32px; background:rgba(0,212,255,0.15); flex-shrink:0; }
+
+.join-text { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
+
+.join-username { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:20px; color:var(--cyan); text-shadow:0 0 10px rgba(0,212,255,0.35); letter-spacing:1.5px; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.join-status   { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(200,220,232,0.4); letter-spacing:1.5px; white-space:nowrap; overflow:hidden; min-height:14px; }
+
+.cur { display:inline-block; width:5px; height:9px; background:var(--cyan); margin-left:1px; vertical-align:middle; opacity:1; animation:blink 0.55s step-end infinite; }
+@keyframes blink { 50%{opacity:0;} }
+
+.queue-bar   { font-family:'Share Tech Mono',monospace; font-size:9px; color:rgba(0,212,255,0.28); letter-spacing:1px; white-space:nowrap; min-width:140px; line-height:1; padding-top:2px; }
+.queue-count { color:rgba(0,212,255,0.55); }
+
+.ticket-badge { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--gold); border:1px solid rgba(240,165,0,0.35); padding:4px 9px; letter-spacing:1px; background:rgba(240,165,0,0.04); white-space:nowrap; flex-shrink:0; }
+
+.drain-bar { position:absolute; bottom:0; left:0; height:2px; width:100%; transform-origin:left center; background:linear-gradient(90deg, var(--cyan) 0%, rgba(0,212,255,0.15) 100%); }
+.drain-bar.running { animation:drain linear forwards; }
+@keyframes drain { from{transform:scaleX(1);} to{transform:scaleX(0);} }
+
+/* ── giveaway-overlay.css ──────────────────────────────────────────── */
+:root { --cyan:#00d4ff; --gold:#f0a500; --green:#00ff88; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:transparent; font-family:'Rajdhani',sans-serif; width:320px; }
+
+#overlay {
+  background:rgba(4,6,10,0.92);
+  border-left:2px solid var(--cyan);
+  border-bottom:1px solid rgba(0,212,255,0.2);
+  padding:12px 14px;
+  position:relative;
+  backdrop-filter:blur(6px);
+  display:none;
+}
+#overlay.visible { display:block; }
+#overlay::before {
+  content:''; position:absolute; top:0; right:0; width:12px; height:12px;
+  border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);
+}
+
+.ov-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; border-bottom:1px solid rgba(0,212,255,0.15); padding-bottom:8px; }
+.ov-title  { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:2px; color:var(--cyan); }
+.ov-status { font-family:'Share Tech Mono',monospace; font-size:10px; padding:2px 8px; border:1px solid; letter-spacing:1px; }
+.ov-status.open   { color:var(--green); border-color:rgba(0,255,136,0.4); }
+.ov-status.closed { color:var(--gold);  border-color:rgba(240,165,0,0.4); }
+
+.ov-stats    { display:flex; gap:16px; margin-bottom:12px; }
+.ov-stat     { display:flex; flex-direction:column; }
+.ov-stat-val { font-family:'Share Tech Mono',monospace; font-size:20px; color:var(--cyan); font-weight:700; }
+.ov-stat-lbl { font-size:10px; color:rgba(200,220,232,0.45); letter-spacing:1px; }
+
+.ov-top-title { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(0,212,255,0.5); margin-bottom:6px; }
+.ov-row         { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid rgba(0,212,255,0.06); }
+.ov-row-name    { font-size:13px; font-weight:600; color:rgba(210,235,245,0.85); }
+.ov-row-tickets { font-family:'Share Tech Mono',monospace; font-size:13px; color:var(--cyan); }
+.ov-row:first-child .ov-row-name    { color:var(--gold); }
+.ov-row:first-child .ov-row-tickets { color:var(--gold); }
+
+#winner-overlay {
+  display:none;
+  background:rgba(4,6,10,0.95);
+  border:1px solid var(--gold);
+  padding:18px 20px;
+  text-align:center;
+  position:relative;
+  animation:winnerIn 0.4s ease-out;
+}
+#winner-overlay.show { display:block; }
+
+@keyframes winnerIn { from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);} }
+
+.win-label   { font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:3px; color:var(--gold); margin-bottom:8px; }
+.win-name    { font-family:'Rajdhani',sans-serif; font-weight:700; font-size:28px; color:var(--gold); text-shadow:0 0 30px rgba(240,165,0,0.6); letter-spacing:2px; text-transform:uppercase; }
+.win-tickets { font-family:'Share Tech Mono',monospace; font-size:11px; color:rgba(240,165,0,0.55); margin-top:6px; }
+
+#overlay::after, #winner-overlay::after {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.012) 3px,rgba(0,212,255,0.012) 4px);
+  pointer-events:none;
+}
+
+/* ── spacefight.css ──────────────────────────────────────────── */
+:root { --cyan:#00d4ff; --gold:#f0a500; --red:#ff4444; --green:#00ff88; --bg:rgba(4,6,10,0); }
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { background:transparent; width:640px; height:200px; overflow:hidden; }
+
+#arena {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 8px 8px;
+  gap: 6px;
+}
+
+/* ── Fight Card ──────────────────────────────────────────── */
+.fight-card {
+  background: rgba(4,6,10,0.94);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-left: 2px solid var(--cyan);
+  padding: 10px 16px;
+  position: relative;
+  overflow: hidden;
+  transform: translateY(120%);
+  opacity: 0;
+}
+
+.fight-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 8px; height: 8px;
+  border-top: 1px solid rgba(0,212,255,0.5);
+  border-right: 1px solid rgba(0,212,255,0.5);
+}
+
+.fight-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,212,255,0.012) 3px, rgba(0,212,255,0.012) 4px
+  );
+  pointer-events: none;
+}
+
+.fight-card.enter { animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) forwards; }
+.fight-card.exit  { animation: slideDown 0.35s ease-in forwards; }
+
+@keyframes slideUp   { from{transform:translateY(120%);opacity:0;} to{transform:translateY(0);opacity:1;} }
+@keyframes slideDown { from{transform:translateY(0);opacity:1;}   to{transform:translateY(120%);opacity:0;} }
+
+/* ── Combatants Row ──────────────────────────────────────── */
+.combatants {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pilot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 200px;
+}
+
+.pilot-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pilot.attacker .pilot-name { color: var(--cyan); text-shadow: 0 0 10px rgba(0,212,255,0.4); }
+.pilot.defender .pilot-name { color: var(--gold); text-shadow: 0 0 10px rgba(240,165,0,0.3); text-align:right; }
+
+.pilot-ship {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: rgba(200,220,232,0.4);
+  letter-spacing: 1px;
+}
+
+.pilot.defender .pilot-ship { text-align: right; }
+
+.vs-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vs-text {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 18px;
+  color: rgba(200,220,232,0.3);
+  letter-spacing: 2px;
+}
+
+.vs-icon { font-size: 22px; }
+
+/* ── HP Bars ─────────────────────────────────────────────── */
+.hp-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.hp-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: rgba(200,220,232,0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.hp-bar {
+  height: 100%;
+  width: 100%;
+  transition: width 0.4s ease-out;
+}
+
+.hp-bar.attacker { background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.4)); }
+.hp-bar.defender { background: linear-gradient(90deg, rgba(240,165,0,0.4), var(--gold)); }
+
+.hp-bar-wrap.reversed { direction: rtl; }
+
+.hp-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: rgba(200,220,232,0.3);
+  letter-spacing: 1px;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* ── Combat Log ──────────────────────────────────────────── */
+.combat-log {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  color: rgba(200,220,232,0.6);
+  letter-spacing: 0.5px;
+  min-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.combat-log .hit-a  { color: var(--cyan); }
+.combat-log .hit-d  { color: var(--gold); }
+.combat-log .winner { font-size: 13px; letter-spacing: 1px; }
+.combat-log .winner.cyan { color: var(--cyan); text-shadow: 0 0 10px rgba(0,212,255,0.5); }
+.combat-log .winner.gold { color: var(--gold); text-shadow: 0 0 10px rgba(240,165,0,0.4); }
+
+/* ── Drain Bar ───────────────────────────────────────────── */
+.drain-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.1));
+}
+
+.drain-bar.running { animation: drain linear forwards; }
+@keyframes drain { from{transform:scaleX(1);} to{transform:scaleX(0);} }
+
+/* ── Wall of Fame ────────────────────────────────────────── */
+#wof {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 280px;
+  background: rgba(4,6,10,0.95);
+  border: 1px solid rgba(240,165,0,0.3);
+  border-left: 2px solid var(--gold);
+  overflow: hidden;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+}
+
+#wof.wof-in  { transform: translateX(0); opacity: 1; }
+#wof.wof-out { transform: translateX(120%); opacity: 0; }
+
+.wof-header {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  padding: 7px 12px 5px;
+  border-bottom: 1px solid rgba(240,165,0,0.15);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wof-header-icon { font-size: 13px; }
+
+.wof-close {
+  margin-left: auto;
+  cursor: pointer;
+  opacity: 0.4;
+  font-size: 12px;
+  color: rgba(200,220,232,0.5);
+  transition: opacity 0.15s;
+}
+.wof-close:hover { opacity: 1; }
+
+.wof-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.wof-row.wof-highlight {
+  background: rgba(240,165,0,0.07);
+  border-left: 2px solid var(--gold);
+}
+
+.wof-rank   { font-size: 11px; min-width: 22px; color: rgba(200,220,232,0.4); }
+.wof-name   { font-size: 11px; flex: 1; color: rgba(200,220,232,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wof-wins   { font-size: 10px; color: var(--green); min-width: 32px; text-align: right; }
+.wof-losses { font-size: 10px; color: var(--red);   min-width: 28px; text-align: right; }
+.wof-ratio  { font-size: 10px; color: rgba(200,220,232,0.4); min-width: 36px; text-align: right; }
+
+.wof-player-rank {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--gold);
+  padding: 5px 10px;
+  border-top: 1px solid rgba(240,165,0,0.15);
+  display: none;
+  letter-spacing: 0.5px;
+}
+
+.wof-empty {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: rgba(200,220,232,0.3);
+  padding: 10px;
+  text-align: center;
+}
+
