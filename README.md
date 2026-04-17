@@ -1,10 +1,10 @@
-# Chaos Crew Giveaway System v5
+# Chaos Crew Streamer Tools v6
 
-## Architektur-Änderungen zu v4
+## Architektur-Änderungen zu v5
 
-**Problem v4:** Watchtime-Logik in Streamerbot GlobalVars → Race Conditions, kein Monitoring, keine Fehlertoleranz.
+**Problem v5:** Monolithische API → ein Prozess für alles, schwer zu skalieren/debuggen.
 
-**Lösung v5:** Streamerbot ist nur noch Event-Forwarder. Die API übernimmt alles.
+**Lösung v6:** Microservices. Jeder Dienst hat genau eine Aufgabe. Bridge entkoppelt Streamerbot von den Services via Redis Pub/Sub.
 
 ## Communication Flow
 
@@ -13,111 +13,100 @@ flowchart TB
     subgraph TWITCH["☁ TWITCH"]
         TW_CHAT["💬 Chat Messages"]
         TW_PRESENT["👥 Present Viewers<br/><i>every 60s</i>"]
-        TW_IRC["📡 IRC WebSocket<br/><i>wss://irc-ws.chat.twitch.tv</i>"]
+        TW_IRC["📡 IRC WebSocket"]
     end
 
     subgraph WINDOWS["🖥 WINDOWS PC · 192.168.178.39"]
         subgraph SB["STREAMERBOT · :9090 WS Server"]
-            SB_TICK["GW_A_ViewerTick.cs<br/><i>Trigger: Present Viewer</i>"]
-            SB_CHAT["GW_B_ChatMessage.cs<br/><i>Trigger: Chat Message</i>"]
-            SB_TIME["GW_TimeInfo.cs<br/><i>Trigger: !time / !coin</i>"]
-            SB_REPLY["CC_ChatReply.cs<br/><i>Trigger: WS Message</i>"]
-            SB_REG["CC_ApiRegister.cs<br/><i>Trigger: WS Message</i>"]
-            SB_SO["CC_Shoutout.cs<br/><i>Trigger: !so @user</i>"]
+            SB_TICK["GW_A_ViewerTick.cs"]
+            SB_CHAT["GW_B_ChatMessage.cs"]
+            SB_TIME["GW_TimeInfo.cs · !time / !coin"]
+            SB_TOP["GW_Leaderboard.cs · !top"]
+            SB_REPLY["CC_ChatReply.cs"]
+            SB_REG["CC_ApiRegister.cs"]
+            SB_SO["CC_Shoutout.cs · !so"]
+            SB_ALERTS["CC_Follow / CC_Cheer / CC_RaidBroadcaster"]
         end
-        OBS["OBS Studio<br/><i>Browser Sources → :80</i>"]
+        OBS["OBS Studio · Browser Sources → :80"]
     end
 
     subgraph SERVER["🐧 LXC SERVER · 192.168.178.34 · Docker"]
-        subgraph API["cc-api · Node.js"]
-            API_SB["Streamerbot WS Client<br/><i>connects to :9090</i>"]
-            API_ENGINE["WatchtimeEngine<br/><i>watchtime.js</i>"]
-            API_WS["Browser WS Server<br/><i>:9091</i>"]
-            API_REST["REST API<br/><i>:3000</i>"]
+        BRIDGE["cc-bridge · :3000<br/>SB WS Client + Redis Router"]
+        REDIS[("Redis :6379<br/>DB0=prod DB1=test")]
+        subgraph SERVICES["Microservices"]
+            GW["cc-giveaway · :3001<br/>Watchtime + WS"]
+            SF["cc-spacefight · :3002<br/>Fight Engine + WS"]
+            AL["cc-alerts · :3003<br/>Alert Overlays + Claude AI + WS"]
+            ST["cc-stats · :3004<br/>Read-only PG REST"]
+            ADM["cc-admin · :3005<br/>Admin Pages + Health"]
         end
-        REDIS[("Redis<br/><i>:6379 · DB 0</i><br/>Live State")]
-        PG[("PostgreSQL<br/><i>:5432</i><br/>Persistent")]
-        CADDY["Caddy<br/><i>:80 / :443</i><br/>Static Files"]
+        PG[("PostgreSQL :5432")]
+        CADDY["Caddy :80<br/>/giveaway/* /spacefight/*<br/>/alerts/* /stats/* /admin/*"]
     end
 
-    subgraph BROWSER["🌐 BROWSER CLIENTS"]
-        ADMIN["Admin Panel<br/><i>giveaway-admin.html</i>"]
-        TEST["Test Console<br/><i>giveaway-test.html</i>"]
-        STATS["Statistics<br/><i>stats.html</i>"]
-        SF_ADMIN["Spacefight Admin<br/><i>spacefight-admin.html</i>"]
-        GW_OV["GW Overlay<br/><i>OBS Browser Source</i>"]
-        JOIN_OV["Join Animation<br/><i>OBS Browser Source</i>"]
-        SF_OV["Spacefight Overlay<br/><i>OBS Browser Source</i>"]
-        CHAT_OV["HUD Chat<br/><i>OBS Browser Source</i>"]
+    subgraph BROWSER["🌐 CLIENTS"]
+        GW_ADMIN["GW Admin · /giveaway/giveaway-admin.html"]
+        SF_ADMIN["SF Admin · /spacefight/spacefight-admin.html"]
+        STATS["Stats · /stats/stats.html"]
+        TEST["Test Console · /admin/giveaway-test.html"]
+        GW_OV["GW Overlay · OBS"]
+        JOIN_OV["Join Anim · OBS"]
+        SF_OV["Spacefight · OBS"]
+        CHAT_OV["HUD Chat · OBS"]
+        ALERT_OV["Alerts · OBS"]
     end
 
-    %% Twitch → Streamerbot
-    TW_PRESENT -->|"Viewer list"| SB_TICK
-    TW_CHAT -->|"All chat msgs"| SB_CHAT
-    TW_CHAT -->|"!time / !coin"| SB_TIME
-    TW_CHAT -->|"!so @user"| SB_SO
+    TW_PRESENT --> SB_TICK --> BRIDGE
+    TW_CHAT --> SB_CHAT --> BRIDGE
+    TW_CHAT --> SB_TIME --> BRIDGE
+    TW_CHAT --> SB_SO
 
-    %% Streamerbot → API (WS :9090)
-    SB_TICK -->|"① viewer_tick<br/>{event, user, ts}"| API_SB
-    SB_CHAT -->|"② chat_msg<br/>{event, user, message, ts}"| API_SB
-    SB_TIME -->|"③ time_cmd<br/>{event, user}"| API_SB
+    BRIDGE -->|ch:giveaway| GW
+    BRIDGE -->|ch:spacefight| SF
+    BRIDGE -->|ch:alerts| AL
+    BRIDGE -->|ch:chat| AL
+    BRIDGE <-->|Redis| REDIS
 
-    %% API Registration
-    API_SB -->|"cc_api_register<br/>{event}"| SB_REG
-    SB_REG -.->|"saves cc_api_session<br/>GlobalVar"| SB_REG
+    GW -->|ch:chat_reply| BRIDGE --> SB_REPLY -->|CPH.SendMessage| TW_CHAT
+    SB_REG -.->|cc_api_session GlobalVar| SB_REG
+    BRIDGE -->|cc_api_register| SB_REG
 
-    %% API → Streamerbot (responses)
-    API_SB -->|"④ chat_reply<br/>{event, user, message}"| SB_REPLY
-    SB_REPLY -->|"CPH.SendMessage()"| TW_CHAT
-    SB_SO -->|"CPH.SendMessage()<br/>+ TwitchSendShoutout"| TW_CHAT
+    SB_ALERTS -->|follow/cheer/raid| BRIDGE
+    SB_TOP -->|HTTP GET /stats/api/leaderboard| ST
+    SB_TOP -->|CPH.SendMessage| TW_CHAT
 
-    %% API internal processing
-    API_SB --> API_ENGINE
-    API_ENGINE <-->|"INCRBY, GET, SET<br/>gw_watch:user<br/>gw_registered:user<br/>gw_banned:user"| REDIS
-    API_ENGINE <-->|"INSERT/UPDATE<br/>users, sessions<br/>spacefight_stats"| PG
+    GW <--> REDIS
+    GW <--> PG
+    SF <--> REDIS
+    SF <--> PG
+    ST --> PG
 
-    %% API → Browser WS broadcasts
-    API_ENGINE -->|"⑤ wt_update<br/>{user, watchSec, coins}"| API_WS
-    API_ENGINE -->|"⑥ gw_join<br/>{user}"| API_WS
-    API_ENGINE -->|"⑦ gw_status<br/>{status: open/closed}"| API_WS
-    API_ENGINE -->|"⑧ gw_data<br/>{open, session, participants[]}"| API_WS
+    GW <-->|WS /giveaway/ws| GW_ADMIN
+    GW <-->|WS /giveaway/ws| TEST
+    GW -->|WS broadcasts| GW_OV
+    GW -->|WS broadcasts| JOIN_OV
+    SF <-->|WS /spacefight/ws| SF_ADMIN
+    SF -->|WS broadcasts| SF_OV
+    AL <-->|WS /alerts/ws| ALERT_OV
+    ST -->|REST| STATS
 
-    %% Browser → API WS
-    API_WS <-->|"gw_get_all →<br/>← gw_data"| ADMIN
-    API_WS <-->|"gw_cmd →<br/>← gw_ack"| ADMIN
-    API_WS <-->|"events"| TEST
-    API_WS -->|"gw_overlay<br/>{open, total, top5, winner}"| GW_OV
-    API_WS -->|"gw_join<br/>{user}"| JOIN_OV
+    TW_IRC <-->|IRC WS| CHAT_OV
+    CADDY --> OBS
+    CADDY --> BROWSER
 
-    %% REST API
-    API_REST -->|"GET /api/participants<br/>GET /api/sessions<br/>GET /api/leaderboard"| STATS
-    API_REST -->|"GET /api/spacefight/*"| SF_ADMIN
-
-    %% Spacefight overlay connects to both
-    SF_OV <-->|"fight_cmd, spacefight_result<br/>WS :9090 via Streamerbot"| SB
-    SF_OV -->|"POST /api/spacefight<br/>GET /api/spacefight/leaderboard"| API_REST
-
-    %% HUD Chat connects directly to Twitch IRC
-    TW_IRC <-->|"PRIVMSG, JOIN, PING/PONG"| CHAT_OV
-
-    %% Caddy serves static files
-    CADDY -->|"HTML, JS, CSS"| OBS
-    CADDY -->|"HTML, JS, CSS"| BROWSER
-
-    %% Styling
     classDef twitch fill:#9146FF,stroke:#7B2FE0,color:#fff
     classDef sb fill:#2D5A27,stroke:#1A3A15,color:#fff
-    classDef api fill:#0D3B66,stroke:#082B4F,color:#fff
+    classDef svc fill:#0D3B66,stroke:#082B4F,color:#fff
     classDef db fill:#1A1A2E,stroke:#16213E,color:#C8DCE8
     classDef browser fill:#0A1628,stroke:#0D2137,color:#C8DCE8
     classDef overlay fill:#1A0A28,stroke:#2D1040,color:#C8DCE8
 
     class TW_CHAT,TW_PRESENT,TW_IRC twitch
-    class SB_TICK,SB_CHAT,SB_TIME,SB_REPLY,SB_REG,SB_SO sb
-    class API_SB,API_ENGINE,API_WS,API_REST api
+    class SB_TICK,SB_CHAT,SB_TIME,SB_TOP,SB_REPLY,SB_REG,SB_SO,SB_ALERTS sb
+    class BRIDGE,GW,SF,AL,ST,ADM svc
     class REDIS,PG db
-    class ADMIN,TEST,STATS,SF_ADMIN browser
-    class GW_OV,JOIN_OV,SF_OV,CHAT_OV overlay
+    class GW_ADMIN,SF_ADMIN,STATS,TEST browser
+    class GW_OV,JOIN_OV,SF_OV,CHAT_OV,ALERT_OV overlay
 ```
 
 ### Event Message Reference
@@ -177,29 +166,64 @@ flowchart TB
 
 #### REST API Endpoints
 
+**Giveaway** (`/giveaway/api/...`)
+
 | Method | Path | Response |
 |--------|------|----------|
-| GET | `/health` | `{ status, session, redis, pg }` |
-| GET | `/api/participants` | `{ session, open, participants[] }` |
-| GET | `/api/user/:username` | `{ username, watchSec, coins, registered, banned, lifetime }` |
-| GET | `/api/sessions?limit=` | `[{ id, opened_at, closed_at, winner, ... }]` |
-| GET | `/api/leaderboard?limit=` | `[{ display, total_tickets, total_watch_sec, times_won }]` |
-| GET | `/api/spacefight/leaderboard?limit=` | `[{ username, wins, losses, ratio, last_fight }]` |
-| GET | `/api/spacefight/history?limit=` | `[{ winner, loser, ship_w, ship_l, ts }]` |
-| GET | `/api/spacefight/player/:name` | `{ username, wins, losses, ratio, rank }` |
-| POST | `/api/spacefight` | Save fight result |
-| POST | `/api/backup/trigger` | Trigger Redis BGSAVE |
+| GET | `/giveaway/health` | `{ status, service, session, redis, pg }` |
+| GET | `/giveaway/api/participants` | `{ session, open, participants[] }` |
+| GET | `/giveaway/api/user/:username` | `{ username, watchSec, coins, registered, banned, lifetime }` |
+| GET | `/giveaway/api/sessions?limit=` | `[{ id, opened_at, closed_at, winner, ... }]` |
+| GET | `/giveaway/api/leaderboard?limit=` | `[{ display, total_tickets, total_watch_sec, times_won }]` |
+
+**Spacefight** (`/spacefight/api/...`)
+
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/spacefight/api/spacefight/leaderboard?limit=` | `[{ username, wins, losses, ratio, last_fight }]` |
+| GET | `/spacefight/api/spacefight/history?limit=` | `[{ winner, loser, ship_w, ship_l, ts }]` |
+| GET | `/spacefight/api/spacefight/player/:name` | `{ username, wins, losses, ratio, rank }` |
+| POST | `/spacefight/api/spacefight` | Save fight result |
+
+**Alerts** (`/alerts/api/...`)
+
+| Method | Path | Response |
+|--------|------|----------|
+| POST | `/alerts/api/chat/send` | Send Twitch chat message |
+| GET | `/alerts/api/twitch/user/:login` | Twitch user profile (cached) |
+| POST | `/alerts/api/claude/summary` | AI summary `{ type, user, game, bio }` → `{ summary }` |
+
+**Stats** (`/stats/api/...`)
+
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/stats/api/sessions?limit=` | `[{ id, opened_at, closed_at, winner, ... }]` |
+| GET | `/stats/api/leaderboard?limit=` | `[{ display, total_tickets, total_watch_sec, times_won }]` |
+| GET | `/stats/api/spacefight/leaderboard?limit=` | `[{ username, wins, losses, ratio }]` |
+| GET | `/stats/api/spacefight/history?limit=` | `[{ winner, loser, ts }]` |
+| GET | `/stats/api/spacefight/player/:name` | `{ username, wins, losses, ratio, rank }` |
+
+**Aggregated**
+
+| Method | Path | Response |
+|--------|------|----------|
+| GET | `/health` | `{ status, services: { bridge, giveaway, ... } }` |
 
 ## Services
 
-| Service | Port | Beschreibung |
+| Container | Port | Beschreibung |
 |---|---|---|
-| API REST | 3000 | REST Endpoints |
-| API WS | 9091 | Browser WebSocket (Admin, Overlays) |
-| PostgreSQL | 5432 | Persistente Daten |
-| Redis | 6379 | Live-State (DB 0 = Prod, DB 1 = Test) |
-| Caddy | 80/443 | Web + Reverse Proxy |
-| Redis Commander | 8081 | Redis Admin UI |
+| cc-bridge | 3000 | Streamerbot WS Client → Redis Pub/Sub Router |
+| cc-giveaway | 3001 | Watchtime Engine + REST + WS Admin |
+| cc-spacefight | 3002 | Fight Engine + REST + WS Admin |
+| cc-alerts | 3003 | Alert Overlays + Claude AI + REST + WS |
+| cc-stats | 3004 | Read-only Statistiken (REST only, kein WS) |
+| cc-admin | 3005 | Admin Dashboard + Aggregated Health |
+| cc-web (Caddy) | 80/443 | Reverse Proxy (path-based routing) |
+| cc-postgres | 5432 | Persistente Daten |
+| cc-redis | 6379 | Live-State (DB 0 = Prod, DB 1 = Test) |
+| cc-redis-ui | 8081 | Redis Commander |
+| cc-backup | – | Taegliches Backup um 03:00 |
 
 ## Vollstaendige Setup-Anleitung
 
@@ -282,21 +306,30 @@ curl http://localhost:3000/health
 
 | Container | Image | Funktion |
 |-----------|-------|----------|
-| `cc-api` | node:20-alpine | API + Watchtime Engine + WS Bridge |
+| `cc-bridge` | node:20-alpine | Streamerbot WS → Redis Pub/Sub |
+| `cc-giveaway` | node:20-alpine | Watchtime Engine + WS |
+| `cc-spacefight` | node:20-alpine | Fight Engine + WS |
+| `cc-alerts` | node:20-alpine | Alert Overlays + Claude AI |
+| `cc-stats` | node:20-alpine | Read-only Stats REST |
+| `cc-admin` | node:20-alpine | Admin Dashboard + Health |
 | `cc-postgres` | postgres:16-alpine | Persistente Daten |
 | `cc-redis` | redis:7-alpine | Live-State |
-| `cc-web` | caddy:2-alpine | Webserver + Reverse Proxy |
+| `cc-web` | caddy (custom) | Webserver + Reverse Proxy |
 | `cc-backup` | postgres:16-alpine | Taegliches Backup um 03:00 |
 | `cc-redis-ui` | rediscommander | Redis Admin UI |
 
 **Troubleshooting:**
 ```bash
 # Logs anschauen
-docker compose logs -f api
+docker compose logs -f bridge
+docker compose logs -f giveaway
+docker compose logs -f spacefight
+docker compose logs -f alerts
+docker compose logs -f stats
 docker compose logs -f postgres
 
 # Neustart eines Services
-docker compose restart api
+docker compose restart giveaway
 
 # Alles neu bauen (nach Code-Aenderungen)
 docker compose up -d --build
@@ -558,10 +591,19 @@ Fuer jede Action:
 |---|---|---|---|---|---|
 | 1 | CC – API Register | `CC_ApiRegister.cs` | WS Custom Server Message | None | – |
 | 2 | CC – Chat Reply Handler | `CC_ChatReply.cs` | WS Custom Server Message | None | – |
-| 3 | GW – Viewer Tick | `GW_A_ViewerTick.cs` | Twitch Present Viewer | GW Viewer Queue | – |
-| 4 | GW – Chat Message | `GW_B_ChatMessage.cs` | Twitch Chat Message | GW Chat Queue | – |
-| 5 | GW – Time Info | `GW_TimeInfo.cs` | Core Command | None | `!time`, `!coin` |
-| 6 | CC – Shoutout | `CC_Shoutout.cs` | Core Command | None | `!so` (Mod only) |
+| 3 | CC – Alert Register | `CC_AlertRegister.cs` | WS Custom Server Message | None | – |
+| 4 | GW – Viewer Tick | `GW_A_ViewerTick.cs` | Twitch Present Viewer | GW Viewer Queue | – |
+| 5 | GW – Chat Message | `GW_B_ChatMessage.cs` | Twitch Chat Message | GW Chat Queue | – |
+| 6 | GW – Time Info | `GW_TimeInfo.cs` | Core Command | None | `!time`, `!coin` |
+| 7 | GW – Leaderboard | `GW_Leaderboard.cs` | Core Command | None | `!top` (Everyone) |
+| 8 | CC – Shoutout | `CC_Shoutout.cs` | Core Command | None | `!so` (Mod only) |
+| 9 | CC – Follow | `CC_Follow.cs` | Twitch Follow | None | – |
+| 10 | CC – Cheer | `CC_Cheer.cs` | Twitch Cheer/Bits | None | – |
+| 11 | CC – Raid Broadcaster | `CC_RaidBroadcaster.cs` | Twitch Raid | None | – |
+| 12 | CC – First Chatter | `CC_FirstChatter.cs` | Twitch Chat Message | None | – |
+| 13 | CC – Clip Created | `CC_ClipCreated.cs` | Clip Created | None | – |
+| 14 | CC – Ad Break Start | `CC_AdBreakStart.cs` | Ad Break Start | None | – |
+| 15 | CC – Ad Break End | `CC_AdBreakEnd.cs` | Ad Break End | None | – |
 
 ---
 
@@ -590,12 +632,8 @@ Fuer jedes Overlay eine **Browser Source** in OBS anlegen:
 | Breite | `320` |
 | Hoehe | `400` |
 | FPS | `30` |
-| Custom CSS | *(leer lassen)* |
-| Shutdown source when not visible | Nein |
-| Refresh browser when scene becomes active | Nein |
 
-> **URL-Parameter** (optional, wenn Server auf anderer IP):
-> `?host=192.168.178.34&port=9091`
+> **Test-Modus:** `?test=1`
 
 ---
 
@@ -608,12 +646,8 @@ Fuer jedes Overlay eine **Browser Source** in OBS anlegen:
 | Breite | `620` |
 | Hoehe | `110` |
 | FPS | `30` |
-| Custom CSS | *(leer lassen)* |
-| Shutdown source when not visible | Nein |
-| Refresh browser when scene becomes active | Nein |
 
-> **Test-Modus:** `?test=1` an die URL anhaengen um Demo-Daten zu sehen:
-> `http://192.168.178.34/giveaway/giveaway-join.html?test=1`
+> **Test-Modus:** `http://192.168.178.34/giveaway/giveaway-join.html?test=1`
 
 ---
 
@@ -622,29 +656,25 @@ Fuer jedes Overlay eine **Browser Source** in OBS anlegen:
 | Einstellung | Wert |
 |---|---|
 | Name | `Raumkampf` |
-| URL | `http://192.168.178.34/games/spacefight.html` |
+| URL | `http://192.168.178.34/spacefight/spacefight.html` |
 | Breite | `1920` |
 | Hoehe | `1080` |
 | FPS | `60` |
-| Custom CSS | *(leer lassen)* |
-| Shutdown source when not visible | Nein |
-| Refresh browser when scene becomes active | Nein |
 
 > **URL-Parameter:**
 > - `?host=192.168.178.39&port=9090` – WS zum Streamerbot (fuer Chat-Commands)
-> - `&apihost=192.168.178.34&apiport=3000` – API fuer Wall of Fame
 > - `&channel=justcallmedeimos` – Twitch-Kanal fuer IRC Chat-Tracking
 > - `&forcelive=1` – Stream-Check ueberspringen (zum Testen)
 > - `&test=1` – Demo-Kaempfe abspielen
 >
 > **Komplett-URL Produktion:**
 > ```
-> http://192.168.178.34/games/spacefight.html?host=192.168.178.39&port=9090&apihost=192.168.178.34&channel=DEIN_KANAL
+> http://192.168.178.34/spacefight/spacefight.html?host=192.168.178.39&port=9090&channel=DEIN_KANAL
 > ```
 >
 > **Komplett-URL Test:**
 > ```
-> http://192.168.178.34/games/spacefight.html?test=1
+> http://192.168.178.34/spacefight/spacefight.html?test=1
 > ```
 
 ---
@@ -654,16 +684,50 @@ Fuer jedes Overlay eine **Browser Source** in OBS anlegen:
 | Einstellung | Wert |
 |---|---|
 | Name | `HUD Chat` |
-| URL | `http://192.168.178.34/chat.html?channel=DEIN_KANAL` |
+| URL | `http://192.168.178.34/alerts/chat.html?channel=DEIN_KANAL` |
 | Breite | `500` |
 | Hoehe | `600` |
 | FPS | `30` |
-| Custom CSS | *(leer lassen)* |
-| Shutdown source when not visible | Nein |
-| Refresh browser when scene becomes active | Nein |
 
 > **Wichtig:** `?channel=DEIN_KANAL` ersetzen mit deinem Twitch-Kanalnamen (lowercase).
-> Ohne `?channel=` Parameter zeigt das Overlay Demo-Nachrichten.
+
+---
+
+**Alert Bar** (Follow, Sub, Bits, Raid usw.)
+
+| Einstellung | Wert |
+|---|---|
+| Name | `Alerts` |
+| URL | `http://192.168.178.34/alerts/alerts.html` |
+| Breite | `1920` |
+| Hoehe | `200` |
+| FPS | `30` |
+
+> OBS: **"Control audio via OBS"** aktivieren damit Sounds im Mixer erscheinen.
+
+---
+
+**Raid Info** (Rechtes Panel mit AI-Zusammenfassung)
+
+| Einstellung | Wert |
+|---|---|
+| Name | `Raid Info` |
+| URL | `http://192.168.178.34/alerts/raid-info.html` |
+| Breite | `400` |
+| Hoehe | `600` |
+| FPS | `30` |
+
+---
+
+**Shoutout Info** (Rechtes Panel mit AI-Zusammenfassung)
+
+| Einstellung | Wert |
+|---|---|
+| Name | `Shoutout Info` |
+| URL | `http://192.168.178.34/alerts/shoutout-info.html` |
+| Breite | `400` |
+| Hoehe | `600` |
+| FPS | `30` |
 
 ---
 
@@ -687,30 +751,34 @@ Szene: Stream
 #### 4.1 Server pruefen
 
 ```bash
-# API Health
-curl http://192.168.178.34:3000/health
-# Erwartet: {"status":"ok","session":null,"redis":"ok","pg":"ok"}
+# Aggregated Health (alle Services)
+curl http://192.168.178.34/health
+# Erwartet: {"status":"ok","services":{"bridge":"ok","giveaway":"ok",...}}
+
+# Einzelne Services
+curl http://192.168.178.34/giveaway/health
+curl http://192.168.178.34/stats/health
 
 # Web-Oberflaeche oeffnen
 # Browser: http://192.168.178.34/
-# → Chaos Crew Control Center muss erscheinen
+# → Chaos Crew Admin Dashboard muss erscheinen
 ```
 
 #### 4.2 Streamer.bot Verbindung pruefen
 
 ```bash
-# API Logs anschauen
-docker compose logs -f api
+# Bridge Logs anschauen
+docker compose logs -f bridge
 # Erwartet: [SB] Connected
-#           [SB] cc_api_register received
+#           [SB] ← cc_api_register → [ch:giveaway, ...]
 ```
 
 In Streamer.bot unter **Servers/Clients** → **WebSocket Server** → **Sessions** sollte eine aktive Verbindung von der Server-IP erscheinen.
 
 #### 4.3 Giveaway testen (ohne Stream)
 
-1. Browser: `http://192.168.178.34/giveaway/giveaway-test.html` oeffnen
-2. **VERBINDEN** klicken (Host: `192.168.178.34`, Port: `9091`)
+1. Browser: `http://192.168.178.34/admin/giveaway-test.html` oeffnen
+2. **VERBINDEN** klicken
 3. **OEFFNEN** klicken → Giveaway ist offen
 4. Keyword setzen: `!mitmachen` → **SETZEN**
 5. Chat-Nachricht simulieren: Username `TestViewer`, Nachricht `!mitmachen` → **KEYWORD SENDEN**
@@ -719,9 +787,9 @@ In Streamer.bot unter **Servers/Clients** → **WebSocket Server** → **Session
 
 #### 4.4 Spacefight testen (ohne Stream)
 
-1. Browser: `http://192.168.178.34/games/spacefight.html?test=1` oeffnen
+1. Browser: `http://192.168.178.34/spacefight/spacefight.html?test=1` oeffnen
 2. Demo-Kaempfe sollten automatisch starten
-3. Admin: `http://192.168.178.34/games/spacefight-admin.html` oeffnen
+3. Admin: `http://192.168.178.34/spacefight/spacefight-admin.html` oeffnen
 
 #### 4.5 Unit Tests ausfuehren (kein Docker noetig)
 
@@ -736,13 +804,15 @@ node --test tests/console-unit-tests.js tests/watchtime.test.js tests/integratio
 
 1. **OBS** starten und Stream starten
 2. **Streamer.bot** starten (sollte auto-connect zu Twitch + OBS + WS)
-3. Im API-Log pruefen: `[SB] Connected`
-4. Giveaway oeffnen via Admin Panel: `http://192.168.178.34/giveaway/giveaway-admin.html`
-5. Keyword setzen (z.B. `!mitmachen`)
-6. Viewer tippen `!mitmachen` im Chat → Registrierung
-7. Viewer Ticks laufen automatisch → Watchtime + Coins steigen
-8. `!time` im Chat → Bot antwortet mit Watchtime + Coins
-9. Gewinner ziehen wenn fertig
+3. Im Bridge-Log pruefen: `docker compose logs -f bridge` → `[SB] Connected`
+4. Admin Dashboard oeffnen: `http://192.168.178.34/` (→ `/admin/`)
+5. Giveaway Admin: `http://192.168.178.34/giveaway/giveaway-admin.html`
+6. Keyword setzen (z.B. `!mitmachen`) → Giveaway oeffnen
+7. Viewer tippen `!mitmachen` im Chat → Registrierung
+8. Viewer Ticks laufen automatisch → Watchtime + Coins steigen
+9. `!time` im Chat → Bot antwortet mit Watchtime + Coins
+10. `!top` im Chat → Bot postet Top 3 Leaderboard
+11. Gewinner ziehen wenn fertig
 
 ## Tests
 
