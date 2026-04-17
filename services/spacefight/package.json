@@ -1,0 +1,16 @@
+{
+  "name": "cc-spacefight",
+  "version": "1.0.0",
+  "description": "Chaos Crew – Spacefight game service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev":   "node --watch server.js"
+  },
+  "dependencies": {
+    "ioredis":  "^5.3.2",
+    "ws":       "^8.16.0",
+    "express":  "^4.18.2",
+    "pg":       "^8.11.3"
+  }
+}

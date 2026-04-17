@@ -4,31 +4,62 @@
 
 :80 {
 
-    root * /srv/web
-
-    @root path /
-    rewrite @root /index.html
-
-    file_server
-
-    # REST API
-    handle /api/* {
-        reverse_proxy api:3000
+    # ── Giveaway Service ──────────────────────────────────
+    # REST + WebSocket (/giveaway/ws)
+    handle /giveaway/* {
+        uri strip_prefix /giveaway
+        reverse_proxy giveaway:3001
     }
 
+    # ── Spacefight Service ────────────────────────────────
+    # REST + WebSocket (/spacefight/ws)
+    handle /spacefight/* {
+        uri strip_prefix /spacefight
+        reverse_proxy spacefight:3002
+    }
+
+    # ── Alert Service ─────────────────────────────────────
+    # REST + WebSocket (/alerts/ws)
+    # Also serves HUD chat overlay
+    handle /alerts/* {
+        uri strip_prefix /alerts
+        reverse_proxy alerts:3003
+    }
+
+    # ── Stats Service ─────────────────────────────────────
+    # REST only (leaderboards, session history)
+    handle /stats/* {
+        uri strip_prefix /stats
+        reverse_proxy stats:3004
+    }
+
+    # ── Admin Dashboard ───────────────────────────────────
+    # Aggregated health + shared tools
+    handle /admin/* {
+        uri strip_prefix /admin
+        reverse_proxy admin:3005
+    }
+
+    # ── Bridge health (internal use only) ─────────────────
+    handle /bridge/* {
+        uri strip_prefix /bridge
+        reverse_proxy bridge:3000
+    }
+
+    # ── Aggregated health ─────────────────────────────────
     handle /health {
-        reverse_proxy api:3000
+        reverse_proxy admin:3005
     }
 
-    # Browser WebSocket (v5: Port 9091, nicht mehr Streamerbot direkt)
-    handle /ws {
-        reverse_proxy api:9091
-    }
-
+    # ── Redis UI ──────────────────────────────────────────
     handle /redis-ui/* {
         uri strip_prefix /redis-ui
         reverse_proxy redis-ui:8081
     }
+
+    # ── Root redirect → admin dashboard ──────────────────
+    @root path /
+    rewrite @root /admin/
 
     header {
         Access-Control-Allow-Origin *
