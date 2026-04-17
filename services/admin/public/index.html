@@ -9,17 +9,25 @@
 <script src="admin-shared.js"></script>
 <div class="scanlines"></div>
 
-<header>
-  <div class="logo">
+<div class="index-header">
+  <div class="index-logo">
     <span class="logo-cc">CHAOS</span>
     <span class="logo-sep">//</span>
     <span class="logo-crew">CREW</span>
   </div>
-  <div class="logo-sub">CONTROL CENTER // v6.0</div>
+  <span class="logo-sub">CONTROL CENTER // v6.0</span>
   <div class="header-time" id="clock"></div>
-</header>
+</div>
 
-<main>
+<div class="health-bar">
+  <div id="h-bridge"     class="health-svc loading"><div class="health-dot"></div>BRIDGE</div>
+  <div id="h-giveaway"   class="health-svc loading"><div class="health-dot"></div>GIVEAWAY</div>
+  <div id="h-spacefight" class="health-svc loading"><div class="health-dot"></div>SPACEFIGHT</div>
+  <div id="h-alerts"     class="health-svc loading"><div class="health-dot"></div>ALERTS</div>
+  <div id="h-stats"      class="health-svc loading"><div class="health-dot"></div>STATS</div>
+</div>
+
+<div class="index-main">
 
   <section class="module-group">
     <div class="group-title">GIVEAWAY SYSTEM</div>
@@ -161,7 +169,7 @@
     </div>
   </section>
 
-</main>
+</div>
 
 <footer>
   <span class="footer-text">CHAOS IS A PLAN &nbsp;//&nbsp; o7</span>

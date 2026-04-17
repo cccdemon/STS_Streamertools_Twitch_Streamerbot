@@ -2,45 +2,53 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Chaos Crew – Giveaway Stats</title>
+<title>Chaos Crew – Statistiken</title>
 <link rel="stylesheet" href="chaos-crew-admin.css">
 </head>
 <body>
 <script src="stats-shared.js"></script>
-<header>
-  <h1>CHAOS CREW // <span>Stats</span></h1>
-</header>
 
-<nav>
+<div class="page-header">
+  <div class="page-title">CHAOS<span> //</span> <em>STATISTIKEN</em></div>
+</div>
+
+<div class="tab-nav">
   <div class="nav-tab active" data-tab="participants" onclick="showTab('participants')">TEILNEHMER</div>
-  <div class="nav-tab" data-tab="winners"      onclick="showTab('winners')">GEWINNER</div>
-  <div class="nav-tab" data-tab="leaderboard"  onclick="showTab('leaderboard')">LEADERBOARD</div>
-  <div class="nav-tab" data-tab="sessions"     onclick="showTab('sessions')">SESSIONS</div>
-</nav>
+  <div class="nav-tab"        data-tab="winners"      onclick="showTab('winners')">GEWINNER</div>
+  <div class="nav-tab"        data-tab="leaderboard"  onclick="showTab('leaderboard')">LEADERBOARD</div>
+  <div class="nav-tab"        data-tab="sessions"     onclick="showTab('sessions')">SESSIONS</div>
+</div>
 
-<div class="content">
+<div class="tab-content">
 
   <!-- Participants -->
   <div class="tab-panel active" id="tab-participants">
-    <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-val" id="ps-total">-</div>
+    <div class="stat-row">
+      <div class="stat-block">
+        <div class="stat-val" id="ps-total">–</div>
         <div class="stat-lbl">AKTIVE TEILNEHMER</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" id="ps-tickets">-</div>
-        <div class="stat-lbl">GESAMT TICKETS</div>
+      <div class="stat-block">
+        <div class="stat-val" id="ps-tickets">–</div>
+        <div class="stat-lbl">GESAMT COINS</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-val" id="ps-session">-</div>
+      <div class="stat-block">
+        <div class="stat-val" id="ps-session">–</div>
         <div class="stat-lbl">SESSION ID</div>
       </div>
     </div>
-    <button class="refresh-btn" onclick="loadParticipants()">AKTUALISIEREN</button>
+    <div class="toolbar">
+      <button class="btn btn-cyan btn-sm" onclick="loadParticipants()">&#x21BB; AKTUALISIEREN</button>
+    </div>
     <div class="section-title">AKTUELLE SESSION</div>
     <table>
       <thead><tr>
-        <th>#</th><th>NAME</th><th>TICKETS</th><th>WATCHTIME</th><th>MSGS</th><th>CHANCE</th>
+        <th>#</th>
+        <th>NAME</th>
+        <th>COINS</th>
+        <th>WATCHTIME</th>
+        <th>MSGS</th>
+        <th>CHANCE</th>
       </tr></thead>
       <tbody id="participants-tbl"></tbody>
     </table>
@@ -48,11 +56,17 @@
 
   <!-- Winners -->
   <div class="tab-panel" id="tab-winners">
-    <button class="refresh-btn" onclick="loadWinners()">AKTUALISIEREN</button>
+    <div class="toolbar">
+      <button class="btn btn-cyan btn-sm" onclick="loadWinners()">&#x21BB; AKTUALISIEREN</button>
+    </div>
     <div class="section-title">GEWINNER-HISTORIE</div>
     <table>
       <thead><tr>
-        <th></th><th>NAME</th><th>TICKETS</th><th>KEYWORD</th><th>DATUM</th>
+        <th></th>
+        <th>NAME</th>
+        <th>COINS</th>
+        <th>KEYWORD</th>
+        <th>DATUM</th>
       </tr></thead>
       <tbody id="winners-tbl"></tbody>
     </table>
@@ -60,11 +74,18 @@
 
   <!-- Leaderboard -->
   <div class="tab-panel" id="tab-leaderboard">
-    <button class="refresh-btn" onclick="loadLeaderboard()">AKTUALISIEREN</button>
+    <div class="toolbar">
+      <button class="btn btn-cyan btn-sm" onclick="loadLeaderboard()">&#x21BB; AKTUALISIEREN</button>
+    </div>
     <div class="section-title">GLOBALES LEADERBOARD // ALLE SESSIONS</div>
     <table>
       <thead><tr>
-        <th>#</th><th>NAME</th><th>TICKETS GESAMT</th><th>WATCHTIME</th><th>MSGS</th><th>GEWONNEN</th>
+        <th>#</th>
+        <th>NAME</th>
+        <th>COINS GESAMT</th>
+        <th>WATCHTIME</th>
+        <th>MSGS</th>
+        <th>GEWONNEN</th>
       </tr></thead>
       <tbody id="leaderboard-tbl"></tbody>
     </table>
@@ -72,11 +93,18 @@
 
   <!-- Sessions -->
   <div class="tab-panel" id="tab-sessions">
-    <button class="refresh-btn" onclick="loadSessions()">AKTUALISIEREN</button>
+    <div class="toolbar">
+      <button class="btn btn-cyan btn-sm" onclick="loadSessions()">&#x21BB; AKTUALISIEREN</button>
+    </div>
     <div class="section-title">SESSION-HISTORIE</div>
     <table>
       <thead><tr>
-        <th>ID</th><th>GEOEFFNET</th><th>GESCHLOSSEN</th><th>TEILNEHMER</th><th>TICKETS</th><th>GEWINNER</th>
+        <th>ID</th>
+        <th>GEÖFFNET</th>
+        <th>GESCHLOSSEN</th>
+        <th>TEILNEHMER</th>
+        <th>COINS</th>
+        <th>GEWINNER</th>
       </tr></thead>
       <tbody id="sessions-tbl"></tbody>
     </table>

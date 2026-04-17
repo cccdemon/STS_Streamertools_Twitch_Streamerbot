@@ -7,17 +7,20 @@
 </head>
 <body>
 <script src="admin-shared.js"></script>
-<header>
-  <div class="logo">
-    <span class="logo-cc">STREAMERBOT</span>
-    <span class="logo-sep">//</span>
-    <span class="logo-crew">ACTIONS</span>
-  </div>
-  <div class="logo-sub">C# CODE // KOPIEREN &amp; EINF&Uuml;GEN</div>
-  <a href="/admin/" class="back-link">&#x2190; CONTROL CENTER</a>
-</header>
 
-<main>
+<div class="page-header">
+  <div class="page-title">CHAOS<span> //</span> <em>STREAMERBOT</em> ACTIONS</div>
+  <div class="header-right">
+    <a href="/admin/" class="back-link">&#x2190; CONTROL CENTER</a>
+  </div>
+</div>
+
+<div class="sb-main">
+
+  <div class="sb-toolbar">
+    <input type="text" id="sb-filter" placeholder="Actions filtern..." oninput="filterActions(this.value)">
+    <span class="sb-count" id="sb-count"></span>
+  </div>
 
   <div class="setup-box">
     <div class="setup-title">SETUP ANLEITUNG</div>
@@ -32,23 +35,24 @@
 
   <div id="actions-container"></div>
 
-</main>
+</div>
 
 <script src="streamerbot-data.js"></script>
 <script>
 (function() {
   var container = document.getElementById('actions-container');
+  var countEl   = document.getElementById('sb-count');
   if (!container) return;
   if (!window.SB_ACTIONS || !SB_ACTIONS.length) {
-    container.innerHTML = '<div style="color:#ff4444;font-family:monospace;padding:20px;">Fehler: streamerbot-data.js nicht geladen</div>';
+    container.innerHTML = '<div style="color:#ff4444;font-family:\'Share Tech Mono\',monospace;padding:20px;font-size:12px;">Fehler: streamerbot-data.js nicht geladen</div>';
     return;
   }
 
   SB_ACTIONS.forEach(function(action, idx) {
     var id = 'action-' + idx;
-
     var card = document.createElement('div');
     card.className = 'action-card';
+    card.dataset.name = (action.name + ' ' + action.desc).toLowerCase();
 
     var header = document.createElement('div');
     header.className = 'action-header';
@@ -81,12 +85,28 @@
     container.appendChild(card);
   });
 
+  updateCount();
+
+  window.filterActions = function(q) {
+    var term = q.toLowerCase().trim();
+    var cards = container.querySelectorAll('.action-card');
+    cards.forEach(function(c) {
+      c.classList.toggle('hidden', term.length > 0 && c.dataset.name.indexOf(term) === -1);
+    });
+    updateCount();
+  };
+
+  function updateCount() {
+    if (!countEl) return;
+    var visible = container.querySelectorAll('.action-card:not(.hidden)').length;
+    var total   = SB_ACTIONS.length;
+    countEl.textContent = visible === total ? total + ' ACTIONS' : visible + ' / ' + total + ' ACTIONS';
+  }
+
   function copyCode(code, btnId) {
     var btn = document.getElementById(btnId);
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(code).then(function() {
-        flashBtn(btn);
-      }).catch(function() { fallbackCopy(code, btn); });
+      navigator.clipboard.writeText(code).then(function() { flashBtn(btn); }).catch(function() { fallbackCopy(code, btn); });
     } else {
       fallbackCopy(code, btn);
     }
@@ -98,8 +118,7 @@
     ta.style.position = 'fixed';
     ta.style.opacity = '0';
     document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
+    ta.focus(); ta.select();
     try { document.execCommand('copy'); flashBtn(btn); } catch(e) {}
     document.body.removeChild(ta);
   }

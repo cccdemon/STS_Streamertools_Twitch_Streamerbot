@@ -7,106 +7,117 @@
 </head>
 <body>
 <script src="spacefight-shared.js"></script>
-<header>
-  <div class="logo">
-    <span class="logo-cc">RAUMKAMPF</span>
-    <span class="logo-sep">//</span>
-    <span class="logo-crew">ADMIN</span>
-  </div>
-  <div class="header-badges">
+
+<div class="page-header">
+  <div class="page-title">CHAOS<span> //</span> <em>RAUMKAMPF</em> ADMIN</div>
+  <div class="header-right">
     <span id="badge-game" class="badge off">SPIEL: INAKTIV</span>
     <span id="badge-ws"   class="badge off">WS: OFFLINE</span>
   </div>
-</header>
+</div>
 
-<main>
+<div class="sf-layout">
 
-  <!-- Game Toggle -->
-  <div class="panel-row">
-    <section class="panel narrow">
-      <div class="panel-title">SPIELSTEUERUNG</div>
-      <div style="display:flex;gap:12px;align-items:center;">
-        <button id="btn-start" class="btn green" onclick="toggleGame(true)">SPIEL STARTEN</button>
-        <button id="btn-stop"  class="btn red"   onclick="toggleGame(false)" disabled>SPIEL STOPPEN</button>
-      </div>
-      <p id="game-hint" style="color:var(--dim);font-size:10px;margin-top:8px;">
-        Spiel muss aktiv sein, damit !fight funktioniert.
-      </p>
-    </section>
-
-    <!-- Settings -->
-    <section class="panel narrow">
-      <div class="panel-title">EINSTELLUNGEN</div>
-      <div class="setting-row">
-        <span class="setting-label">WoF Eintraege</span>
-        <input id="cfg-wof-limit" type="number" value="10" min="5" max="50">
-      </div>
-      <button class="btn cyan" onclick="applySettings()">UEBERNEHMEN</button>
-    </section>
-  </div>
-
-  <div class="panel-row">
+  <!-- ── Main ────────────────────────────────────────── -->
+  <div class="sf-main">
 
     <!-- Wall of Fame -->
-    <section class="panel">
-      <div class="panel-title">WALL OF FAME – BEST SPACE PILOTS</div>
-      <table class="wof-table">
-        <thead>
-          <tr>
-            <th>#</th><th>PILOT</th><th>SIEGE</th><th>NIEDERLAGEN</th><th>WINRATE</th><th>LETZTER KAMPF</th><th></th>
-          </tr>
-        </thead>
+    <div class="panel">
+      <div class="panel-title">
+        WALL OF FAME – BEST SPACE PILOTS
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-sm cyan" onclick="loadLeaderboard()">&#x21BB; REFRESH</button>
+          <button class="btn btn-sm red"  onclick="confirmReset()">RESET</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>#</th>
+          <th>PILOT</th>
+          <th>SIEGE</th>
+          <th>NIEDERLAGEN</th>
+          <th>WINRATE</th>
+          <th>LETZTER KAMPF</th>
+          <th></th>
+        </tr></thead>
         <tbody id="wof-tbody"><tr><td colspan="7" class="loading">Lade...</td></tr></tbody>
       </table>
-      <div class="panel-footer">
-        <button class="btn cyan" onclick="loadLeaderboard()">&#x21BB; AKTUALISIEREN</button>
-        <button class="btn red"  onclick="confirmReset()">RESET WOF</button>
-      </div>
-    </section>
+    </div>
 
-    <!-- Kampf-Historie -->
-    <section class="panel">
-      <div class="panel-title">KAMPF-HISTORIE</div>
-      <table class="hist-table">
-        <thead>
-          <tr><th>ZEIT</th><th>SIEGER</th><th>VERLIERER</th><th>SCHIFF W</th><th>SCHIFF L</th></tr>
-        </thead>
+    <!-- Fight History -->
+    <div class="panel">
+      <div class="panel-title">
+        KAMPF-HISTORIE
+        <button class="btn btn-sm cyan" onclick="loadHistory()">&#x21BB; REFRESH</button>
+      </div>
+      <table>
+        <thead><tr>
+          <th>ZEIT</th>
+          <th>SIEGER</th>
+          <th>VERLIERER</th>
+          <th>SCHIFF W</th>
+          <th>SCHIFF L</th>
+        </tr></thead>
         <tbody id="hist-tbody"><tr><td colspan="5" class="loading">Lade...</td></tr></tbody>
       </table>
-      <div class="panel-footer">
-        <button class="btn cyan" onclick="loadHistory()">&#x21BB; AKTUALISIEREN</button>
-      </div>
-    </section>
+    </div>
 
   </div>
 
-  <div class="panel-row">
+  <!-- ── Sidebar ──────────────────────────────────────── -->
+  <div class="sf-side">
 
-    <!-- Spieler-Suche -->
-    <section class="panel narrow">
+    <!-- Game Control -->
+    <div class="panel">
+      <div class="panel-title">SPIELSTEUERUNG</div>
+      <div class="panel-body">
+        <div class="game-ctl">
+          <button id="btn-start" class="btn green" onclick="toggleGame(true)">STARTEN</button>
+          <button id="btn-stop"  class="btn red"   onclick="toggleGame(false)" disabled>STOPPEN</button>
+        </div>
+        <p id="game-hint" style="color:var(--dim);font-family:'Share Tech Mono',monospace;font-size:10px;margin-top:10px;letter-spacing:1px;line-height:1.4;">
+          Spiel muss aktiv sein, damit !fight funktioniert.
+        </p>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="panel">
+      <div class="panel-title">EINSTELLUNGEN</div>
+      <div class="setting-row">
+        <span class="setting-label">WoF Einträge</span>
+        <input id="cfg-wof-limit" type="number" value="10" min="5" max="50">
+      </div>
+      <div class="panel-footer">
+        <button class="btn cyan" onclick="applySettings()">ÜBERNEHMEN</button>
+      </div>
+    </div>
+
+    <!-- Player Search -->
+    <div class="panel">
       <div class="panel-title">SPIELER SUCHE</div>
       <div class="search-row">
         <input id="player-search" type="text" placeholder="Username..." maxlength="25">
         <button class="btn cyan" onclick="searchPlayer()">SUCHEN</button>
       </div>
       <div id="player-result" class="player-result"></div>
-    </section>
+    </div>
 
-  </div>
-
-  <!-- WS Monitor -->
-  <div class="panel-row">
-    <section class="panel narrow">
+    <!-- WS Clients -->
+    <div class="panel">
       <div class="panel-title">WS CLIENTS</div>
-      <div id="ws-clients-list" style="font-size:10px;margin-bottom:8px;"><div class="wsc-empty">Keine Clients verbunden</div></div>
-      <div class="panel-title" style="display:flex;justify-content:space-between;">
-        TRAFFIC <span style="cursor:pointer;color:rgba(255,68,68,0.5);" onclick="document.getElementById('ws-traffic-log').innerHTML=''">CLR</span>
+      <div class="panel-body">
+        <div id="ws-clients-list"><div class="wsc-empty">Keine Clients verbunden</div></div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(0,212,255,0.4);letter-spacing:2px;margin:10px 0 4px;display:flex;justify-content:space-between;align-items:center;">
+          TRAFFIC
+          <span class="link-dim" onclick="document.getElementById('ws-traffic-log').innerHTML=''">CLR</span>
+        </div>
+        <div class="traffic-log" id="ws-traffic-log"></div>
       </div>
-      <div id="ws-traffic-log" style="font-size:10px;max-height:120px;overflow-y:auto;"></div>
-    </section>
-  </div>
+    </div>
 
-</main>
+  </div>
+</div>
 
 <script src="spacefight-admin.js"></script>
 
@@ -114,7 +125,7 @@
 <div id="confirm-overlay">
   <div class="confirm-box">
     <h3>WALL OF FAME RESET</h3>
-    <p>Alle Kampfdaten werden unwiderruflich geloescht.<br>Wirklich fortfahren?</p>
+    <p>Alle Kampfdaten werden unwiderruflich gelöscht.<br>Wirklich fortfahren?</p>
     <div class="confirm-btns">
       <button class="btn red"  onclick="doReset()">JA, RESET</button>
       <button class="btn cyan" onclick="closeConfirm()">ABBRECHEN</button>
@@ -122,7 +133,7 @@
   </div>
 </div>
 
-<!-- Edit Player Modal -->
+<!-- Edit Player -->
 <div id="edit-overlay">
   <div class="confirm-box">
     <h3>SPIELER BEARBEITEN</h3>
@@ -141,7 +152,7 @@
     </div>
     <div class="confirm-btns">
       <button class="btn cyan" onclick="saveEdit()">SPEICHERN</button>
-      <button class="btn red"  onclick="confirmDeleteFromEdit()">LOESCHEN</button>
+      <button class="btn red"  onclick="confirmDeleteFromEdit()">LÖSCHEN</button>
       <button class="btn"      onclick="closeEdit()">ABBRECHEN</button>
     </div>
   </div>
@@ -150,13 +161,14 @@
 <!-- Delete Confirm -->
 <div id="delete-overlay">
   <div class="confirm-box">
-    <h3>SPIELER LOESCHEN</h3>
-    <p>Alle Daten von <strong id="delete-name"></strong> werden geloescht.<br>Wirklich fortfahren?</p>
+    <h3>SPIELER LÖSCHEN</h3>
+    <p>Alle Daten von <strong id="delete-name"></strong> werden gelöscht.<br>Wirklich fortfahren?</p>
     <div class="confirm-btns">
-      <button class="btn red"  onclick="doDelete()">JA, LOESCHEN</button>
+      <button class="btn red"  onclick="doDelete()">JA, LÖSCHEN</button>
       <button class="btn cyan" onclick="closeDelete()">ABBRECHEN</button>
     </div>
   </div>
 </div>
+
 </body>
 </html>
