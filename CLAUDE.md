@@ -186,7 +186,7 @@ All three overlays connect to alerts service WS via `/alerts/ws`.
 Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as URL param. `POST /alerts/api/claude/summary` handles all AI calls.
 
 ### Sound files
-`services/alerts/public/` requires (not committed — add manually):
+Checked into `services/alerts/public/`:
 `sound_follow.mp3`, `sound_sub.mp3`, `sound_bits.mp3`, `sound_bomb.mp3`, `sound_raid.mp3`, `sound_redeem.mp3`, `sound_hype.mp3`, `sound_outraid.mp3`
 
 OBS browser source: enable **"Control audio via OBS"** for audio to appear in the OBS mixer.
