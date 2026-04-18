@@ -489,6 +489,9 @@
 <audio id="snd-redeem"  src="sound_redeem.mp3"  preload="auto"></audio>
 <audio id="snd-hype"    src="sound_hype.mp3"    preload="auto"></audio>
 <audio id="snd-outraid" src="sound_outraid.mp3" preload="auto"></audio>
+<audio id="snd-rip"     src="sound_rip.mp3"     preload="auto"></audio>
+<audio id="snd-selfie"  src="sound_selfie.mp3"  preload="auto"></audio>
+<audio id="snd-alert"   src="sound_alert.ogg"   preload="auto"></audio>
 
 <script>
 // ─────────────────────────────────────────────
@@ -542,47 +545,61 @@ let isShowing = false;
 // Key = exakter Reward-Name (Groß-/Kleinschreibung egal)
 // ─────────────────────────────────────────────
 const CHANNEL_REWARDS = {
+  'alert!': {
+    label: '🚨 RED ALERT — SIRENE',
+    msg:   (u) => `<span class="highlight">${u}</span> hat Alarmstufe Rot ausgelöst.<br><span class="highlight">Alle Mann auf Gefechtsstationen!</span>`,
+    stat:  null,
+    flash: true,
+    sound: 'snd-alert',
+  },
   'mach ein selfie und poste es sofort': {
     label: 'CREW-BEFEHL',
     msg:   (u) => `<span class="highlight">${u}</span> hat gesprochen.<br>Kamera drauf, Selfie raus – <span class="highlight">sofort.</span>`,
     stat:  null,
     flash: false,
+    sound: 'snd-selfie',
   },
   'mach kamera aus!': {
     label: 'CREW-BEFEHL',
     msg:   (u) => `<span class="highlight">${u}</span> möchte Privatsphäre.<br>Kamera aus. <span class="highlight">Befehl ausgeführt.</span>`,
     stat:  null,
     flash: false,
+    sound: null,
   },
   'paulcontent': {
     label: 'ANFORDERUNG',
     msg:   (u) => `<span class="highlight">${u}</span> fordert <span class="highlight">PAULCONTENT</span>.<br>Die Crew wartet. Paul – dein Einsatz.`,
     stat:  null,
     flash: true,
+    sound: null,
   },
   'rip': {
     label: 'VERLUSTE GEMELDET',
     msg:   (u) => `<span class="highlight">${u}</span> hat RIP gedrückt.<br>Möge der Respawn gnädig sein. <span class="highlight">o7</span>`,
     stat:  null,
     flash: true,
+    sound: 'snd-rip',
   },
   'trink was bitte': {
     label: 'VERSORGUNGSBEFEHL',
     msg:   (u) => `<span class="highlight">${u}</span> befiehlt Flüssigkeitszufuhr.<br><span class="highlight">Trinken. Jetzt. Das ist ein Befehl.</span>`,
     stat:  null,
     flash: false,
+    sound: null,
   },
   'was macht antje': {
     label: 'CREW-NACHFRAGE',
     msg:   (u) => `<span class="highlight">${u}</span> fragt nach Antje.<br>Navigationsoffizierin – <span class="highlight">bitte melden!</span>`,
     stat:  null,
     flash: false,
+    sound: null,
   },
   'zieh mütze aus': {
     label: 'CREW-BEFEHL',
     msg:   (u) => `<span class="highlight">${u}</span> besteht auf Kopffreiheit.<br><span class="highlight">Mütze ab. Respekt zeigen.</span>`,
     stat:  null,
     flash: false,
+    sound: null,
   },
 };
 
@@ -792,7 +809,7 @@ function buildAlert(type, data) {
         avatar:   avatar,
         avatarLarge: false,
         stat:     cfg.stat,
-        sound:    'snd-redeem',
+        sound:    'sound' in cfg ? cfg.sound : 'snd-redeem',
         flash:    cfg.flash,
         duration: 6000,
       };
