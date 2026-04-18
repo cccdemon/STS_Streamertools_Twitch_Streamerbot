@@ -20,8 +20,10 @@ function loadTab(name) {
 }
 
 // ── API Helper ────────────────────────────────────────────
+// Full Caddy-qualified paths: stats page is at /stats/, but
+// current-session participants live in the giveaway service.
 async function apiFetch(path) {
-  const res = await fetch('/api' + path);
+  const res = await fetch(path);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -29,7 +31,7 @@ async function apiFetch(path) {
 // ── Participants ──────────────────────────────────────────
 async function loadParticipants() {
   try {
-    const data = await apiFetch('/participants');
+    const data = await apiFetch('/giveaway/api/participants');
     const p = data.participants || [];
 
     const active  = p.filter(x => !x.banned);
@@ -61,7 +63,7 @@ async function loadParticipants() {
 // ── Winners ───────────────────────────────────────────────
 async function loadWinners() {
   try {
-    const data = await apiFetch('/winners?limit=50');
+    const data = await apiFetch('/stats/api/winners?limit=50');
     if (!data.length) {
       document.getElementById('winners-tbl').innerHTML = '<tr><td colspan="5" class="empty">Noch keine Gewinner</td></tr>';
       return;
@@ -83,7 +85,7 @@ async function loadWinners() {
 // ── Leaderboard ───────────────────────────────────────────
 async function loadLeaderboard() {
   try {
-    const data = await apiFetch('/leaderboard?limit=100');
+    const data = await apiFetch('/stats/api/leaderboard?limit=100');
     if (!data.length) {
       document.getElementById('leaderboard-tbl').innerHTML = '<tr><td colspan="6" class="empty">Noch keine Daten</td></tr>';
       return;
@@ -106,7 +108,7 @@ async function loadLeaderboard() {
 // ── Sessions ──────────────────────────────────────────────
 async function loadSessions() {
   try {
-    const data = await apiFetch('/sessions?limit=20');
+    const data = await apiFetch('/stats/api/sessions?limit=20');
     if (!data.length) {
       document.getElementById('sessions-tbl').innerHTML = '<tr><td colspan="6" class="empty">Noch keine Sessions</td></tr>';
       return;
@@ -118,7 +120,7 @@ async function loadSessions() {
         <td class="dim">${s.closed_at ? fmtDate(s.closed_at) : '<span style="color:var(--green)">OFFEN</span>'}</td>
         <td class="dim">${s.total_participants || 0}</td>
         <td class="num">${s.total_tickets || 0}</td>
-        <td class="${s.winner ? 'gold' : 'dim'}">${s.winner ? esc(s.winner) : '-'}</td>
+        <td class="${s.winner ? 'gold' : 'dim'}">${s.winner ? esc(s.winner_display || s.winner) : '-'}</td>
       </tr>`).join('');
     document.getElementById('sessions-tbl').innerHTML = rows;
   } catch(e) {

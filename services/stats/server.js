@@ -8,6 +8,7 @@
 // REST:
 //   GET /api/sessions
 //   GET /api/leaderboard
+//   GET /api/winners
 //   GET /api/spacefight/leaderboard
 //   GET /api/spacefight/history
 //   GET /api/spacefight/player/:username
@@ -68,7 +69,14 @@ app.get('/health', async (req, res) => {
 app.get('/api/sessions', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '20'), 100);
-    const result = await pg.query('SELECT * FROM sessions ORDER BY opened_at DESC LIMIT $1', [limit]);
+    const result = await pg.query(
+      `SELECT s.*,
+              COALESCE(u.display, s.winner) AS winner_display,
+              s.total_coins AS total_tickets
+       FROM sessions s
+       LEFT JOIN users u ON u.username = s.winner
+       ORDER BY s.opened_at DESC LIMIT $1`, [limit]
+    );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -76,7 +84,29 @@ app.get('/api/sessions', async (req, res) => {
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '50'), 500);
-    const result = await pg.query('SELECT * FROM users ORDER BY total_watch_sec DESC LIMIT $1', [limit]);
+    const result = await pg.query(
+      `SELECT *, FLOOR(total_watch_sec / 7200) AS total_tickets
+       FROM users ORDER BY total_watch_sec DESC LIMIT $1`, [limit]
+    );
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/winners', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || '50'), 500);
+    const result = await pg.query(
+      `SELECT s.id AS session_id,
+              s.keyword,
+              s.closed_at AS won_at,
+              s.winner AS username,
+              COALESCE(u.display, s.winner) AS display,
+              FLOOR(COALESCE(s.winner_coins, 0))::int AS tickets
+       FROM sessions s
+       LEFT JOIN users u ON u.username = s.winner
+       WHERE s.winner IS NOT NULL
+       ORDER BY s.closed_at DESC NULLS LAST LIMIT $1`, [limit]
+    );
     res.json(result.rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
