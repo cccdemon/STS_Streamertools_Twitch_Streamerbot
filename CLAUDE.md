@@ -66,9 +66,13 @@ Streamerbot (WS :9090)
 - `services/giveaway/public/giveaway-shared.js` — Shared lib for giveaway pages
 - `services/giveaway/public/giveaway-admin.js` — Giveaway admin panel logic
 - `services/spacefight/server.js` — Spacefight REST + WS + fight engine
+- `services/spacefight/public/spacefight-shared.js` — Shared lib for spacefight pages
 - `services/alerts/server.js` — Alert overlays REST + WS + Claude AI
+- `services/alerts/public/alerts-shared.js` — Shared lib for alert overlays
+- `services/alerts/public/chat.js` — HUD chat overlay logic
 - `services/stats/server.js` — Read-only stats REST (no Redis, no WS)
 - `services/stats/public/stats.js` — Stats page logic
+- `services/stats/public/stats-shared.js` — Shared lib for stats page
 - `services/admin/server.js` — Aggregated health + static admin pages
 - `services/admin/public/admin-shared.js` — Shared lib: `CC.validate`, nav bar, debug console
 - `caddy/Caddyfile` — Reverse proxy config
@@ -125,16 +129,16 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 |---|---|---|
 | GET | `/stats/api/sessions` | Session history |
 | GET | `/stats/api/leaderboard` | Global leaderboard |
+| GET | `/stats/api/winners` | Past giveaway winners |
 | GET | `/stats/api/spacefight/leaderboard` | Spacefight leaderboard |
 | GET | `/stats/api/spacefight/history` | Fight history |
 | GET | `/stats/api/spacefight/player/:username` | Single player stats |
 
-### Admin/Health
+### Health
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Aggregated health (all services) |
-| GET | `/giveaway/health` | Giveaway service health |
-| POST | `/admin/api/backup/trigger` | Manual backup trigger |
+| GET | `/<service>/health` | Per-service health (bridge, giveaway, spacefight, alerts, stats) |
 
 ## Admin WS Commands
 
