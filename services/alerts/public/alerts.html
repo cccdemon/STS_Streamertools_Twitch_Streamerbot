@@ -857,6 +857,7 @@ function buildAlert(type, data) {
       };
 
     case 'redeem': {
+      dbg(`Reward eingelöst: ${reward} von ${user}`, 'warn');
       const cfg = CHANNEL_REWARDS[reward];
       if (!cfg) {
         return {
@@ -867,7 +868,7 @@ function buildAlert(type, data) {
           avatar,
           avatarLarge: false,
           stat: null,
-          sound: 'snd-redeem',
+          sound: 'snd-alert',
           flash: false,
           duration: 6000,
         };
