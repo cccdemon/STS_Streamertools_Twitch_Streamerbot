@@ -12,22 +12,13 @@ public class CPHInline
 {
     public bool Execute()
     {
-        // ── Config ────────────────────────────────────────────
-        // Change this to your server IP/hostname
-        string apiHost = "192.168.178.34";
-        string url = $"http://{apiHost}/stats/api/leaderboard?limit=3";
-
         // ── Fetch ─────────────────────────────────────────────
-        string json;
-        try
+        // HTTP is done by a "Fetch URL" sub-action BEFORE this code.
+        // URL:  http://192.168.178.34/stats/api/leaderboard?limit=3
+        // Stores response into argument "apiJson".
+        if (!CPH.TryGetArg("apiJson", out string json) || string.IsNullOrWhiteSpace(json))
         {
-            using var client = new System.Net.Http.HttpClient();
-            client.Timeout = System.TimeSpan.FromSeconds(5);
-            json = client.GetStringAsync(url).GetAwaiter().GetResult();
-        }
-        catch (System.Exception ex)
-        {
-            CPH.LogWarn($"[GW_Leaderboard] HTTP error: {ex.Message}");
+            CPH.LogWarn("[GW_Leaderboard] apiJson arg missing — check Fetch URL sub-action");
             return true;
         }
 
