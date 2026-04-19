@@ -16,7 +16,7 @@ const WebSocket = require('ws');
 const express   = require('express');
 const http      = require('http');
 const { Pool }  = require('pg');
-const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr } = require('./watchtime.js');
+const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, TICK_SEC } = require('./watchtime.js');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
 function logErr(tag, ...args) { console.error(`[${tag}]`, ...args); }
@@ -283,10 +283,8 @@ function subscribeToGiveaway() {
 
     switch (msg.event) {
       case 'viewer_tick': {
-        const result = await wte.handleViewerTick(msg.user, sid);
-        if (result) {
-          broadcastAll({ event: 'wt_update', user: msg.user, watchSec: result.watchSec, coins: result.coins });
-        }
+        // Nur Presence markieren – Accumulation macht der 60s-Ticker
+        await wte.handleViewerTick(msg.user, sid);
         break;
       }
       case 'chat_msg': {
@@ -396,8 +394,23 @@ async function main() {
   if (existing) { currentSessionId = existing; log('Session', 'Resuming:', currentSessionId); }
 
   subscribeToGiveaway();
+  startWatchtimeTicker();
 
   server.listen(CFG.port, () => log('Giveaway', `Service on port ${CFG.port}`));
+}
+
+// ── Server-seitiger Watchtime-Ticker (jede Minute) ───────
+function startWatchtimeTicker() {
+  setInterval(async () => {
+    try {
+      const sid = currentSessionId || await redis.get(K.gwSessionId());
+      const updates = await wte.tickPresentUsers(sid);
+      for (const u of updates) {
+        broadcastAll({ event: 'wt_update', user: u.username, watchSec: u.watchSec, coins: u.coins });
+      }
+    } catch(e) { logErr('Tick', e.message); }
+  }, TICK_SEC * 1000);
+  log('Tick', `Watchtime-Ticker started (${TICK_SEC}s interval)`);
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

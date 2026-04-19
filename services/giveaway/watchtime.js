@@ -9,6 +9,8 @@ const SECS_PER_COIN  = 7200;   // 2h = 1 Coin
 const CHAT_BONUS_SEC = 5;       // +5s pro qualifizierender Nachricht
 const CHAT_COOLDOWN  = 10;      // Sekunden zwischen zählenden Nachrichten
 const CHAT_MIN_WORDS = 5;       // Mindestanzahl Wörter
+const TICK_SEC       = 60;      // server-seitiger Tick (jede Minute +60s)
+const PRESENCE_TTL   = 600;     // Presence gilt 10min nach letztem Heartbeat
 
 // Redis Keys (Live-State)
 const K = {
@@ -17,6 +19,7 @@ const K = {
   gwRegistered: (u) => `gw_registered:${u}`,     // 1 wenn registriert
   gwWatchSec:   (u) => `gw_watch:${u}`,           // kumulierte watchSec
   gwChatTime:   (u) => `gw_chat_ts:${u}`,         // letzter Chat-Bonus Timestamp
+  gwPresent:    (u) => `gw_present:${u}`,         // TTL-Key: User ist anwesend
   gwIndex:      () => 'gw_index',                  // SET aller registrierten User
   gwBanned:     (u) => `gw_banned:${u}`,           // 1 wenn gebannt
   gwSessionId:  () => 'gw_session_id',             // aktuelle Session-ID
@@ -58,31 +61,33 @@ class WatchtimeEngine {
   }
 
   // Viewer ist im Chat sichtbar (Present Viewer Trigger)
-  // Gibt {added, watchSec, coins} zurück oder null wenn nicht gezählt
-  async handleViewerTick(username, sessionId) {
+  // Markiert Presence (TTL). Watchtime-Accumulation macht tickPresentUsers.
+  async handleViewerTick(username /* , sessionId */) {
     const u = sanitizeUsername(username);
     if (!u) return null;
+    await this.redis.set(K.gwPresent(u), '1', 'EX', PRESENCE_TTL);
+    return null;
+  }
 
-    // Nur wenn Giveaway offen
+  // Server-seitiger Tick: jede Minute +TICK_SEC für alle anwesenden,
+  // registrierten, nicht gebannten User. Gibt Liste der Updates zurück.
+  async tickPresentUsers(sessionId) {
     const open = await this.redis.get(K.gwOpen());
-    if (open !== 'true') return null;
-
-    // Nur registrierte Teilnehmer
-    const registered = await this.redis.get(K.gwRegistered(u));
-    if (registered !== '1') return null;
-
-    // Nicht gebannte
-    const banned = await this.redis.get(K.gwBanned(u));
-    if (banned === '1') return null;
-
-    // +60s atomic
-    const newSec = await this.redis.incrby(K.gwWatchSec(u), 60);
-    await this.redis.sadd(K.gwIndex(), u);
-
-    // Persistieren
-    await this._logEvent(u, 'tick', 60, sessionId);
-
-    return { added: 60, watchSec: newSec, coins: coinsFromSec(newSec) };
+    if (open !== 'true') return [];
+    const usernames = await this.redis.smembers(K.gwIndex());
+    const updates = [];
+    for (const u of usernames) {
+      const registered = await this.redis.get(K.gwRegistered(u));
+      if (registered !== '1') continue;
+      const banned = await this.redis.get(K.gwBanned(u));
+      if (banned === '1') continue;
+      const present = await this.redis.get(K.gwPresent(u));
+      if (!present) continue;
+      const newSec = await this.redis.incrby(K.gwWatchSec(u), TICK_SEC);
+      await this._logEvent(u, 'tick', TICK_SEC, sessionId);
+      updates.push({ username: u, watchSec: newSec, coins: coinsFromSec(newSec) });
+    }
+    return updates;
   }
 
   // Chat-Nachricht eingegangen
@@ -96,6 +101,9 @@ class WatchtimeEngine {
     if (open !== 'true') return null;
 
     const cleanMsg = sanitizeStr(message, 500).trim();
+
+    // Jede Chat-Nachricht verlängert Presence (Heartbeat)
+    await this.redis.set(K.gwPresent(u), '1', 'EX', PRESENCE_TTL);
 
     // Keyword-Check: Registrierung
     const keyword = await this.redis.get(K.gwKeyword());
@@ -268,6 +276,7 @@ class WatchtimeEngine {
       pipeline.del(K.gwWatchSec(u));
       pipeline.del(K.gwRegistered(u));
       pipeline.del(K.gwChatTime(u));
+      pipeline.del(K.gwPresent(u));
       pipeline.del(K.gwBanned(u));
     }
     pipeline.del(K.gwIndex());
@@ -280,4 +289,4 @@ class WatchtimeEngine {
 }
 
 module.exports = { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, countWords, coinsFromSec,
-                   SECS_PER_COIN, CHAT_BONUS_SEC, CHAT_COOLDOWN, CHAT_MIN_WORDS };
+                   SECS_PER_COIN, CHAT_BONUS_SEC, CHAT_COOLDOWN, CHAT_MIN_WORDS, TICK_SEC, PRESENCE_TTL };
