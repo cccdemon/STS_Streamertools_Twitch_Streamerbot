@@ -1158,7 +1158,7 @@ function connect() {
     dbg('WS verbunden ✓', 'ok');
     wsConnected  = true;
     wsRetryDelay = 1000;
-    ws.send(JSON.stringify({ event: 'cc_identify', role: 'alerts-overlay' }));
+    ws.send(JSON.stringify({ event: 'cc_alert_register', role: 'alerts-overlay' }));
   };
 
   ws.onmessage = handleMessage;
