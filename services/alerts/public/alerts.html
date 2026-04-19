@@ -843,6 +843,7 @@ function buildAlert(type, data) {
       };
 
     case 'alert':
+      dbg(`Alert eingelöst von ${user}`, 'warn');
       return {
         label: '🚨 RED ALERT — SIRENE',
         user,
