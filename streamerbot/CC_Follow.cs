@@ -1,8 +1,8 @@
 // Action: "CC – Follow Alert"
 // Trigger: Twitch → Follow
 //
-// Sendet ein Follow-Event an die API.
-// Die API broadcastet an alle Browser-Overlays (9091): alerts.html zeigt den Alert.
+// Sendet ein Follow-Event direkt an das Alert-Overlay (alerts.html)
+// via cc_alert_session (gesetzt durch cc_alert_register).
 
 using Newtonsoft.Json.Linq;
 

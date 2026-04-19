@@ -1,9 +1,8 @@
 // Action: "CC – Raid Broadcaster"
 // Trigger: Twitch → Raid
 //
-// Wenn ein Raid eingeht, wird das Event an die API gesendet.
-// Die API broadcastet an alle Browser-Overlays (9091):
-// raid-info.html und alerts.html empfangen das Event.
+// Sendet ein Raid-Event an das Alert-Overlay (alerts.html) via cc_alert_session
+// UND an die API (cc_api_session → Bridge → raid-info.html via /alerts/ws).
 
 using System;
 using Newtonsoft.Json.Linq;
@@ -20,6 +19,7 @@ public class CPHInline
         var payload = new JObject
         {
             ["event"]           = "raid",
+            ["alertType"]       = "raid",
             ["user"]            = user,
             ["amount"]          = viewers,
             ["profileImageUrl"] = avatar,

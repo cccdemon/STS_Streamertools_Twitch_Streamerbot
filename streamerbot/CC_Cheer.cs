@@ -1,8 +1,8 @@
 // Action: "CC – Cheer/Bits Alert"
 // Trigger: Twitch → Cheer
 //
-// Sendet ein Cheer-Event an die API.
-// Die API broadcastet an alle Browser-Overlays (9091): alerts.html zeigt den Bits-Alert.
+// Sendet ein Cheer-Event direkt an das Alert-Overlay (alerts.html)
+// via cc_alert_session (gesetzt durch cc_alert_register).
 
 using Newtonsoft.Json.Linq;
 
