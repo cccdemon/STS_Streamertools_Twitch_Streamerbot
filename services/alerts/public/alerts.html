@@ -14,7 +14,6 @@
     overflow: hidden;
   }
 
-  /* ── RED FLASH OVERLAY ── */
   #flash {
     position: fixed;
     inset: 0;
@@ -24,7 +23,6 @@
     transition: background 0.08s ease;
   }
 
-  /* ── ALERT BOX ── */
   #alert {
     position: fixed;
     bottom: 80px;
@@ -43,45 +41,67 @@
     padding: 30px 40px 26px;
   }
 
-  /* Gold corner brackets */
-  .alert-frame::before { top: -2px;    left: -2px;   border-width: 2.5px 0 0 2.5px; }
-  .alert-frame::after  { bottom: -2px; right: -2px;  border-width: 0 2.5px 2.5px 0; }
+  .alert-frame::before { top: -2px; left: -2px; border-width: 2.5px 0 0 2.5px; }
+  .alert-frame::after  { bottom: -2px; right: -2px; border-width: 0 2.5px 2.5px 0; }
   .alert-frame::before, .alert-frame::after {
-    content: ''; position: absolute;
-    width: 24px; height: 24px;
-    border-color: #f0a500; border-style: solid;
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: #f0a500;
+    border-style: solid;
   }
-  .corner-tr { top: -2px;    right: -2px;  border-width: 2.5px 2.5px 0 0; }
-  .corner-bl { bottom: -2px; left: -2px;   border-width: 0 0 2.5px 2.5px; }
+
+  .corner-tr { top: -2px; right: -2px; border-width: 2.5px 2.5px 0 0; }
+  .corner-bl { bottom: -2px; left: -2px; border-width: 0 0 2.5px 2.5px; }
   .corner-tr, .corner-bl {
-    content: ''; position: absolute;
-    width: 24px; height: 24px;
-    border-color: #f0a500; border-style: solid;
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: #f0a500;
+    border-style: solid;
   }
 
   .top-line {
     position: absolute;
-    top: 0; left: 40px; right: 40px; height: 1px;
+    top: 0;
+    left: 40px;
+    right: 40px;
+    height: 1px;
     background: linear-gradient(90deg, transparent, #f0a500, #00d4ff, #f0a500, transparent);
     opacity: 0.7;
   }
+
   .bottom-line {
     position: absolute;
-    bottom: 0; left: 40px; right: 40px; height: 1px;
+    bottom: 0;
+    left: 40px;
+    right: 40px;
+    height: 1px;
     background: linear-gradient(90deg, transparent, #00d4ff, #f0a500, #00d4ff, transparent);
     opacity: 0.5;
   }
 
-  /* Scanlines */
   .alert-frame .scanlines {
-    position: absolute; inset: 0; pointer-events: none; z-index: 2;
-    background: repeating-linear-gradient(0deg, transparent, transparent 3px,
-      rgba(0,212,255,0.012) 3px, rgba(0,212,255,0.012) 4px);
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,212,255,0.012) 3px,
+      rgba(0,212,255,0.012) 4px
+    );
   }
 
-  /* Scan reveal mask */
   .scan-mask {
-    position: absolute; inset: 0; z-index: 5; pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
     background: linear-gradient(
       to bottom,
       transparent var(--sp, 0%),
@@ -91,7 +111,6 @@
     );
   }
 
-  /* ── INNER CONTENT ── */
   .alert-inner {
     position: relative;
     z-index: 10;
@@ -100,34 +119,35 @@
     gap: 28px;
   }
 
-  /* Avatar */
   .avatar-wrap {
     flex-shrink: 0;
     position: relative;
-    display: none; /* shown for sub/bits/bomb */
+    display: none;
   }
   .avatar-wrap.visible { display: block; }
 
   .avatar-wrap img {
-    width: 90px; height: 90px;
+    width: 90px;
+    height: 90px;
     border-radius: 0;
     border: 1.5px solid #00d4ff;
     display: block;
     filter: drop-shadow(0 0 10px rgba(0,212,255,0.5));
   }
-  /* Large avatar for sub bomb */
+
   .avatar-wrap.large img { width: 130px; height: 130px; }
 
-  /* Gold corner on avatar */
   .avatar-wrap::before, .avatar-wrap::after {
-    content: ''; position: absolute;
-    width: 12px; height: 12px;
-    border-color: #f0a500; border-style: solid;
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: #f0a500;
+    border-style: solid;
   }
-  .avatar-wrap::before { top: -1px; left: -1px;   border-width: 2px 0 0 2px; }
+  .avatar-wrap::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
   .avatar-wrap::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
 
-  /* Text block */
   .text-block { flex: 1; min-width: 0; }
 
   .alert-label {
@@ -142,17 +162,18 @@
     align-items: center;
     gap: 10px;
   }
+
   .alert-label::before {
     content: '';
     display: inline-block;
-    width: 8px; height: 8px;
+    width: 8px;
+    height: 8px;
     background: #f0a500;
     box-shadow: 0 0 8px rgba(240,165,0,1);
     transform: rotate(45deg);
     flex-shrink: 0;
   }
 
-  /* User name – Bebas Neue for follow, Orbitron for others */
   .alert-user {
     font-family: 'Bebas Neue', sans-serif;
     font-size: 52px;
@@ -164,6 +185,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   .alert-user.orbitron {
     font-family: 'Orbitron', monospace;
     font-size: 38px;
@@ -178,12 +200,12 @@
     line-height: 1.4;
     text-transform: uppercase;
   }
+
   .alert-msg .highlight {
     color: #f0a500;
     text-shadow: 0 0 8px rgba(240,165,0,0.7);
   }
 
-  /* Stat badge (bits/subs count) */
   .stat-badge {
     flex-shrink: 0;
     border: 1.5px solid #f0a500;
@@ -192,6 +214,7 @@
     display: none;
   }
   .stat-badge.visible { display: block; }
+
   .stat-badge .stat-num {
     font-family: 'Orbitron', monospace;
     font-size: 36px;
@@ -200,6 +223,7 @@
     text-shadow: 0 0 15px rgba(240,165,0,0.9);
     line-height: 1;
   }
+
   .stat-badge .stat-lbl {
     font-family: 'Share Tech Mono', monospace;
     font-size: 11px;
@@ -209,12 +233,13 @@
     margin-top: 4px;
   }
 
-  /* Bottom glow */
   .alert-glow {
     position: absolute;
-    bottom: -30px; left: 50%;
+    bottom: -30px;
+    left: 50%;
     transform: translateX(-50%);
-    width: 500px; height: 60px;
+    width: 500px;
+    height: 60px;
     background: radial-gradient(ellipse, rgba(0,212,255,0.18), transparent 70%);
     filter: blur(8px);
     z-index: -1;
@@ -223,7 +248,6 @@
     transition: opacity 0.5s;
   }
 
-  /* ── SHOUTOUT FULLSCREEN ── */
   #shoutout {
     position: fixed;
     inset: 0;
@@ -236,6 +260,7 @@
     opacity: 0;
     transition: opacity 0.6s ease;
   }
+
   #shoutout.active {
     opacity: 1;
     background: rgba(0,0,0,0.82);
@@ -250,32 +275,68 @@
     text-align: center;
   }
 
-  /* Corner brackets */
-  .so-frame::before { top:-2px; left:-2px;   border-width:3px 0 0 3px; }
+  .so-frame::before { top:-2px; left:-2px; border-width:3px 0 0 3px; }
   .so-frame::after  { bottom:-2px; right:-2px; border-width:0 3px 3px 0; }
   .so-frame::before, .so-frame::after {
-    content:''; position:absolute; width:40px; height:40px;
-    border-color:#f0a500; border-style:solid;
+    content:'';
+    position:absolute;
+    width:40px;
+    height:40px;
+    border-color:#f0a500;
+    border-style:solid;
   }
-  .so-corner-tr { top:-2px; right:-2px;   border:3px solid #f0a500; border-width:3px 3px 0 0; width:40px; height:40px; position:absolute; }
-  .so-corner-bl { bottom:-2px; left:-2px; border:3px solid #f0a500; border-width:0 0 3px 3px; width:40px; height:40px; position:absolute; }
+
+  .so-corner-tr {
+    top:-2px;
+    right:-2px;
+    border:3px solid #f0a500;
+    border-width:3px 3px 0 0;
+    width:40px;
+    height:40px;
+    position:absolute;
+  }
+
+  .so-corner-bl {
+    bottom:-2px;
+    left:-2px;
+    border:3px solid #f0a500;
+    border-width:0 0 3px 3px;
+    width:40px;
+    height:40px;
+    position:absolute;
+  }
 
   .so-top-line {
-    position:absolute; top:0; left:60px; right:60px; height:1px;
+    position:absolute;
+    top:0;
+    left:60px;
+    right:60px;
+    height:1px;
     background: linear-gradient(90deg, transparent, #f0a500, #00d4ff, #f0a500, transparent);
     opacity:0.7;
   }
+
   .so-bottom-line {
-    position:absolute; bottom:0; left:60px; right:60px; height:1px;
+    position:absolute;
+    bottom:0;
+    left:60px;
+    right:60px;
+    height:1px;
     background: linear-gradient(90deg, transparent, #00d4ff, #f0a500, #00d4ff, transparent);
     opacity:0.5;
   }
 
-  /* Scanlines */
   .so-frame .so-scan {
-    position:absolute; inset:0; pointer-events:none;
-    background: repeating-linear-gradient(0deg, transparent, transparent 3px,
-      rgba(0,212,255,0.008) 3px, rgba(0,212,255,0.008) 4px);
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(0,212,255,0.008) 3px,
+      rgba(0,212,255,0.008) 4px
+    );
   }
 
   .so-label {
@@ -289,7 +350,8 @@
   }
 
   .so-avatar {
-    width:220px; height:220px;
+    width:220px;
+    height:220px;
     border-radius:0;
     border:2px solid #00d4ff;
     filter:drop-shadow(0 0 30px rgba(0,212,255,0.6));
@@ -297,16 +359,22 @@
     display:block;
     position:relative;
   }
+
   .so-avatar-wrap {
     position:relative;
     display:inline-block;
     margin-bottom:32px;
   }
-  .so-avatar-wrap::before { top:-3px; left:-3px;   border-width:3px 0 0 3px; }
+
+  .so-avatar-wrap::before { top:-3px; left:-3px; border-width:3px 0 0 3px; }
   .so-avatar-wrap::after  { bottom:-3px; right:-3px; border-width:0 3px 3px 0; }
   .so-avatar-wrap::before, .so-avatar-wrap::after {
-    content:''; position:absolute; width:20px; height:20px;
-    border-color:#f0a500; border-style:solid;
+    content:'';
+    position:absolute;
+    width:20px;
+    height:20px;
+    border-color:#f0a500;
+    border-style:solid;
   }
 
   .so-name {
@@ -338,7 +406,11 @@
     line-height:1.6;
     text-transform:uppercase;
   }
-  .so-msg .highlight { color:#f0a500; text-shadow:0 0 10px rgba(240,165,0,0.7); }
+
+  .so-msg .highlight {
+    color:#f0a500;
+    text-shadow:0 0 10px rgba(240,165,0,0.7);
+  }
 
   .so-url {
     font-family:'Share Tech Mono', monospace;
@@ -349,21 +421,27 @@
     text-transform:lowercase;
   }
 
-  /* Animated side bars */
   .so-bar-left, .so-bar-right {
-    position:absolute; top:60px; bottom:60px; width:2px;
-    background: linear-gradient(to bottom,
-      transparent, rgba(0,212,255,0.6) 30%, rgba(240,165,0,0.8) 50%, rgba(0,212,255,0.6) 70%, transparent);
+    position:absolute;
+    top:60px;
+    bottom:60px;
+    width:2px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(0,212,255,0.6) 30%,
+      rgba(240,165,0,0.8) 50%,
+      rgba(0,212,255,0.6) 70%,
+      transparent
+    );
   }
+
   .so-bar-left  { left:-12px; }
   .so-bar-right { right:-12px; }
-
 </style>
 </head>
 <body>
 
-
-<!-- ── LAST REDEEM TICKER ── -->
 <div id="redeem-ticker" style="
   position:fixed; top:16px; left:16px;
   z-index:9000;
@@ -380,7 +458,6 @@
   <div id="redeem-ticker-line" style="color:rgba(0,212,255,0.7);text-shadow:0 0 6px rgba(0,212,255,0.4);"></div>
 </div>
 
-<!-- ── DEBUG OVERLAY ── -->
 <div id="debug-overlay" style="
   position:fixed; bottom:16px; right:16px;
   z-index:9000;
@@ -400,10 +477,8 @@
   <div id="debug-lines"></div>
 </div>
 
-<!-- Red flash overlay -->
 <div id="flash"></div>
 
-<!-- ── RESUB FULLSCREEN ── -->
 <div id="resub-fs" style="
   position:fixed; inset:0; z-index:190;
   display:flex; align-items:center; justify-content:center;
@@ -428,7 +503,6 @@
   </div>
 </div>
 
-<!-- ── SHOUTOUT FULLSCREEN ── -->
 <div id="shoutout">
   <div class="so-frame">
     <div class="so-corner-tr"></div>
@@ -450,7 +524,6 @@
   </div>
 </div>
 
-<!-- Alert -->
 <div id="alert">
   <div class="alert-glow" id="alertGlow"></div>
   <div class="alert-frame">
@@ -480,7 +553,6 @@
   </div>
 </div>
 
-<!-- Audio elements – replace filenames with your actual files -->
 <audio id="snd-follow"  src="sound_follow.mp3"  preload="auto"></audio>
 <audio id="snd-sub"     src="sound_sub.mp3"     preload="auto"></audio>
 <audio id="snd-bits"    src="sound_bits.mp3"    preload="auto"></audio>
@@ -494,56 +566,48 @@
 <audio id="snd-alert"   src="sound_alert.ogg"   preload="auto"></audio>
 
 <script>
-// ─────────────────────────────────────────────
-// CONFIG – adjust to taste
-// ─────────────────────────────────────────────
-const MILESTONES = [6, 12, 24, 36, 48, 60]; // Monate für Fullscreen-Meilenstein
-const SHOW_MS   = 7000;   // how long alert stays visible
-const SCAN_MS   = 600;    // scan build-up duration ms
-const FLASH_CNT = 4;      // how many red flashes
-const FLASH_ON  = 120;    // ms flash on
-const FLASH_OFF = 180;    // ms flash off
+// Netzwerk-Setup
+const STREAMERBOT_WS_URL = 'ws://192.168.178.39:9090';
+const WEBSERVER_BASE_URL = 'http://192.168.178.34';
 
-// ─────────────────────────────────────────────
-// ELEMENTS
-// ─────────────────────────────────────────────
-const alertEl   = document.getElementById('alert');
-const flashEl   = document.getElementById('flash');
-const scanMask  = document.getElementById('scanMask');
-const alertGlow = document.getElementById('alertGlow');
-const avatarWrap= document.getElementById('avatarWrap');
-const avatarImg = document.getElementById('avatarImg');
-const alertLabel= document.getElementById('alertLabel');
-const alertUser = document.getElementById('alertUser');
-const alertMsg  = document.getElementById('alertMsg');
-const statBadge = document.getElementById('statBadge');
-const statNum   = document.getElementById('statNum');
-const statLbl   = document.getElementById('statLbl');
+// Config
+const MILESTONES = [6, 12, 24, 36, 48, 60];
+const SHOW_MS   = 7000;
+const SCAN_MS   = 600;
+const FLASH_CNT = 4;
+const FLASH_ON  = 120;
+const FLASH_OFF = 180;
 
-let queue     = [];
+// Elements
+const alertEl    = document.getElementById('alert');
+const flashEl    = document.getElementById('flash');
+const scanMask   = document.getElementById('scanMask');
+const alertGlow  = document.getElementById('alertGlow');
+const avatarWrap = document.getElementById('avatarWrap');
+const avatarImg  = document.getElementById('avatarImg');
+const alertLabel = document.getElementById('alertLabel');
+const alertUser  = document.getElementById('alertUser');
+const alertMsg   = document.getElementById('alertMsg');
+const statBadge  = document.getElementById('statBadge');
+const statNum    = document.getElementById('statNum');
+const statLbl    = document.getElementById('statLbl');
+
+let queue = [];
 let isShowing = false;
 
-// OBS browser source: CEF keeps AudioContext suspended until explicitly resumed.
-// Call resume() immediately – works because OBS uses --autoplay-policy=no-user-gesture-required.
+// OBS Browser Source Audio Unlock
 (function unlockObsAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) return;
   const ctx = new Ctx();
   ctx.resume().then(() => ctx.close()).catch(() => {});
-  // Fallback: also unlock on first click (normal browser / test mode)
   document.addEventListener('click', () => {
-    const c = new Ctx(); c.resume().then(() => c.close()).catch(() => {});
+    const c = new Ctx();
+    c.resume().then(() => c.close()).catch(() => {});
   }, { once: true });
 }());
 
-// ─────────────────────────────────────────────
-// ALERT DEFINITIONS
-// ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// CHANNEL POINT REWARDS KONFIGURATION
-// Neue Rewards hier einfach eintragen.
-// Key = exakter Reward-Name (Groß-/Kleinschreibung egal)
-// ─────────────────────────────────────────────
+// Rewards
 const CHANNEL_REWARDS = {
   'alert': {
     label: '🚨 RED ALERT — SIRENE',
@@ -603,55 +667,51 @@ const CHANNEL_REWARDS = {
   },
 };
 
-// ─────────────────────────────────────────────
-// RESUB MONATE-BADGE HELPER
-// ─────────────────────────────────────────────
 function monthsBadge(months) {
   if (!months || months < 2) return null;
   let lbl = months + ' MONATE';
-  if (months >= 12) lbl = Math.floor(months/12) + (months>=24?' JAHRE':' JAHR') + (months%12>0?' '+months%12+'M':'');
+  if (months >= 12) lbl = Math.floor(months / 12) + (months >= 24 ? ' JAHRE' : ' JAHR') + (months % 12 > 0 ? ' ' + (months % 12) + 'M' : '');
   return { num: months, lbl: lbl };
 }
 
 function buildAlert(type, data) {
-  const user    = data.user    || data.userName    || data.displayName || '???';
-  const amount  = data.amount  || data.bits        || data.quantity    || data.viewers || 0;
-  const avatar  = data.avatar  || data.profileImageUrl || '';
-  const tier    = data.tier    || '1000';
-  const months  = parseInt(data.months || data.cumulativeMonths || 0);
+  const user    = data.user || data.userName || data.displayName || '???';
+  const amount  = data.amount || data.bits || data.quantity || data.viewers || 0;
+  const avatar  = data.avatar || data.profileImageUrl || '';
+  const tier    = data.tier || '1000';
+  const months  = parseInt(data.months || data.cumulativeMonths || 0, 10);
   const reward  = (data.reward || data.rewardName || '').toLowerCase().trim();
-  const level   = parseInt(data.level || 1);
+  const level   = parseInt(data.level || 1, 10);
 
-  switch(type) {
-
+  switch (type) {
     case 'follow':
       return {
-        label:    'NEUES CREWMITGLIED',
-        user:     user,
+        label: 'NEUES CREWMITGLIED',
+        user,
         userFont: 'bebas',
-        msg:      `<span class="highlight">${user}</span> hat sich als Crewmitglied der <span class="highlight">Chaos Crew</span> angeschlossen.<br>Du bist jetzt Teil der Lösung!`,
-        avatar:   '',
+        msg: `<span class="highlight">${user}</span> hat sich als Crewmitglied der <span class="highlight">Chaos Crew</span> angeschlossen.<br>Du bist jetzt Teil der Lösung!`,
+        avatar: '',
         avatarLarge: false,
-        stat:     null,
-        sound:    'snd-follow',
-        flash:    false,
+        stat: null,
+        sound: 'snd-follow',
+        flash: false,
         duration: 7000,
       };
 
     case 'sub': {
       const highTier = (tier === '2000' || tier === '3000');
       return {
-        label:    highTier ? 'TIER ' + (tier==='2000'?'2':'3') + ' ABONNEMENT' : 'NEUES ABONNEMENT',
-        user:     user,
+        label: highTier ? 'TIER ' + (tier === '2000' ? '2' : '3') + ' ABONNEMENT' : 'NEUES ABONNEMENT',
+        user,
         userFont: 'orbitron',
-        msg:      highTier
+        msg: highTier
           ? `Danke an <span class="highlight">${user}</span>!<br>Scheiß aufs Tanken, wir kaufen uns einfach ein neues Schiff.`
           : `<span class="highlight">${user}</span> sorgt für die Sicherung der Nachschublinien!<br>Wir können wieder Tanken!`,
-        avatar:   avatar,
+        avatar,
         avatarLarge: false,
-        stat:     null,
-        sound:    'snd-sub',
-        flash:    true,
+        stat: null,
+        sound: 'snd-sub',
+        flash: true,
         duration: 7000,
       };
     }
@@ -661,21 +721,20 @@ function buildAlert(type, data) {
       const badge     = monthsBadge(months);
       const isMilestone = MILESTONES.includes(months);
       const isFullscreen = months >= 12 || isMilestone;
-      // Fullscreen handled in enqueue – return small alert too so sound plays
       return {
-        label:    isMilestone ? '⭐ MEILENSTEIN' : '⟳ TREUER CREWMANN',
-        user:     user,
+        label: isMilestone ? '⭐ MEILENSTEIN' : '⟳ TREUER CREWMANN',
+        user,
         userFont: 'orbitron',
-        msg:      highTier
-          ? `<span class="highlight">${user}</span> bleibt dabei – Tier ${tier==='2000'?'2':'3'}!<br>Scheiß aufs Tanken, wir kaufen uns einfach ein neues Schiff.`
-          : `<span class="highlight">${user}</span> ist weiterhin an Bord.${months>=2?'<br><span class="highlight">'+months+' Monate</span> Dienst für die Chaos Crew.':''}`,
-        avatar:   avatar,
+        msg: highTier
+          ? `<span class="highlight">${user}</span> bleibt dabei – Tier ${tier === '2000' ? '2' : '3'}!<br>Scheiß aufs Tanken, wir kaufen uns einfach ein neues Schiff.`
+          : `<span class="highlight">${user}</span> ist weiterhin an Bord.${months >= 2 ? '<br><span class="highlight">' + months + ' Monate</span> Dienst für die Chaos Crew.' : ''}`,
+        avatar,
         avatarLarge: false,
-        stat:     badge,
-        sound:    isMilestone ? 'snd-bomb' : 'snd-sub',
-        flash:    true,
-        isFullscreen: isFullscreen,
-        isMilestone:  isMilestone,
+        stat: badge,
+        sound: isMilestone ? 'snd-bomb' : 'snd-sub',
+        flash: true,
+        isFullscreen,
+        isMilestone,
         duration: 7000,
       };
     }
@@ -683,15 +742,15 @@ function buildAlert(type, data) {
     case 'bits':
     case 'cheer':
       return {
-        label:    'BITS EINGETROFFEN',
-        user:     user,
+        label: 'BITS EINGETROFFEN',
+        user,
         userFont: 'orbitron',
-        msg:      `<span class="highlight">${user}</span> lässt <span class="highlight">${amount}</span> Bits in der Kaffeekasse.<br>Das hält die Crew wach. <span class="highlight">+15 auf Aufmerksamkeit</span>`,
-        avatar:   avatar,
+        msg: `<span class="highlight">${user}</span> lässt <span class="highlight">${amount}</span> Bits in der Kaffeekasse.<br>Das hält die Crew wach. <span class="highlight">+15 auf Aufmerksamkeit</span>`,
+        avatar,
         avatarLarge: false,
-        stat:     { num: amount, lbl: 'BITS' },
-        sound:    'snd-bits',
-        flash:    true,
+        stat: { num: amount, lbl: 'BITS' },
+        sound: 'snd-bits',
+        flash: true,
         duration: 7000,
       };
 
@@ -699,53 +758,51 @@ function buildAlert(type, data) {
     case 'subbomb':
     case 'giftbomb':
       return {
-        label:    '⚡ SUBBOMBE EINGESCHLAGEN',
-        user:     user,
+        label: '⚡ SUBBOMBE EINGESCHLAGEN',
+        user,
         userFont: 'orbitron',
-        msg:      `<span class="highlight">${user}</span> versorgt die Flotte mit einem<br><span class="highlight">+${amount} auf Stärke</span>`,
-        avatar:   avatar,
+        msg: `<span class="highlight">${user}</span> versorgt die Flotte mit einem<br><span class="highlight">+${amount} auf Stärke</span>`,
+        avatar,
         avatarLarge: true,
-        stat:     { num: '+' + amount, lbl: 'SUBS' },
-        sound:    'snd-bomb',
-        flash:    true,
+        stat: { num: '+' + amount, lbl: 'SUBS' },
+        sound: 'snd-bomb',
+        flash: true,
         duration: 9000,
       };
 
-    case 'raid': {
+    case 'raid':
       return {
-        label:    '🚨 ALARM — EINGEHENDER RAID',
-        user:     user,
+        label: '🚨 ALARM — EINGEHENDER RAID',
+        user,
         userFont: 'orbitron',
-        msg:      `<span class="highlight">${user}</span> führt <span class="highlight">${amount} Piloten</span> in den Angriff!<br>SHIELDS HOCH. ALLE MANN AN DIE GESCHÜTZE. <span class="highlight">JETZT!</span>`,
-        avatar:   avatar,
+        msg: `<span class="highlight">${user}</span> führt <span class="highlight">${amount} Piloten</span> in den Angriff!<br>SHIELDS HOCH. ALLE MANN AN DIE GESCHÜTZE. <span class="highlight">JETZT!</span>`,
+        avatar,
         avatarLarge: true,
-        stat:     { num: amount, lbl: 'RAIDER' },
-        sound:    'snd-raid',
-        flash:    true,
+        stat: { num: amount, lbl: 'RAIDER' },
+        sound: 'snd-raid',
+        flash: true,
         flashCount: 8,
-        flashOn:  80,
+        flashOn: 80,
         flashOff: 100,
         duration: 11000,
       };
-    }
 
-    case 'outraid': {
+    case 'outraid':
       return {
-        label:    '🚀 RAID GESTARTET',
-        user:     user,
+        label: '🚀 RAID GESTARTET',
+        user,
         userFont: 'orbitron',
-        msg:      `Die Chaos Crew verlässt die Station.<br>Kurs: <span class="highlight">${user}</span> – <span class="highlight">Quantum Jump initiiert.</span>`,
-        avatar:   avatar,
+        msg: `Die Chaos Crew verlässt die Station.<br>Kurs: <span class="highlight">${user}</span> – <span class="highlight">Quantum Jump initiiert.</span>`,
+        avatar,
         avatarLarge: false,
-        stat:     { num: amount, lbl: 'PILOTEN' },
-        sound:    'snd-outraid',
-        flash:    false,
+        stat: { num: amount, lbl: 'PILOTEN' },
+        sound: 'snd-outraid',
+        flash: false,
         duration: 7000,
       };
-    }
 
     case 'hypetrain': {
-      const lvlLabels = ['','HYPE TRAIN LEVEL 1','HYPE TRAIN LEVEL 2','HYPE TRAIN LEVEL 3','HYPE TRAIN LEVEL 4','⚡ HYPE TRAIN LEVEL 5 – MAX'];
+      const lvlLabels = ['', 'HYPE TRAIN LEVEL 1', 'HYPE TRAIN LEVEL 2', 'HYPE TRAIN LEVEL 3', 'HYPE TRAIN LEVEL 4', '⚡ HYPE TRAIN LEVEL 5 – MAX'];
       const lvlMsgs = [
         '',
         'Die Triebwerke werden warm.<br><span class="highlight">Hype Train Level 1 erreicht!</span>',
@@ -754,75 +811,75 @@ function buildAlert(type, data) {
         'Wir brechen die Schallmauer!<br><span class="highlight">Hype Train Level 4 – die Crew flippt aus!</span>',
         'MAXIMALE ENERGIE!<br><span class="highlight">Hype Train Level 5 – CHAOS PUR!</span>',
       ];
-      const lv = Math.min(Math.max(level,1),5);
+      const lv = Math.min(Math.max(level, 1), 5);
       return {
-        label:    lvlLabels[lv],
-        user:     '— CHAOS CREW —',
+        label: lvlLabels[lv],
+        user: '— CHAOS CREW —',
         userFont: 'orbitron',
-        msg:      lvlMsgs[lv],
-        avatar:   '',
+        msg: lvlMsgs[lv],
+        avatar: '',
         avatarLarge: false,
-        stat:     { num: 'LVL ' + lv, lbl: 'HYPE TRAIN' },
-        sound:    'snd-hype',
-        flash:    lv >= 3,
+        stat: { num: 'LVL ' + lv, lbl: 'HYPE TRAIN' },
+        sound: 'snd-hype',
+        flash: lv >= 3,
         duration: lv === 5 ? 10000 : 7000,
       };
     }
-    case 'alert':
-      return {
-        label:    '🚨 RED ALERT — SIRENE',
-        user:     user,
-        userFont: 'orbitron',
-        msg:      `<span class="highlight">${user}</span> hat Alarmstufe Rot ausgelöst.<br><span class="highlight">Alle Mann auf Gefechtsstationen!</span>`,
-        avatar:   avatar,
-        avatarLarge: false,
-        stat:     null,
-        sound:    'snd-alert',
-        flash:    true,
-        duration: 6000,
-      };
+
     case 'streamstart':
       return {
-        label:    'MISSION GESTARTET',
-        user:     'CHAOS CREW',
+        label: 'MISSION GESTARTET',
+        user: 'CHAOS CREW',
         userFont: 'orbitron',
-        msg:      `Alle Systeme online. Besatzung – <span class="highlight">Stationen einnehmen.</span><br>Der Stream ist heiß. <span class="highlight">Let's fly.</span>`,
-        avatar:   '',
+        msg: `Alle Systeme online. Besatzung – <span class="highlight">Stationen einnehmen.</span><br>Der Stream ist heiß. <span class="highlight">Let's fly.</span>`,
+        avatar: '',
         avatarLarge: false,
-        stat:     null,
-        sound:    'snd-follow',
-        flash:    false,
+        stat: null,
+        sound: 'snd-follow',
+        flash: false,
         duration: 8000,
       };
 
+    case 'alert':
+      return {
+        label: '🚨 RED ALERT — SIRENE',
+        user,
+        userFont: 'orbitron',
+        msg: `<span class="highlight">${user}</span> hat Alarmstufe Rot ausgelöst.<br><span class="highlight">Alle Mann auf Gefechtsstationen!</span>`,
+        avatar,
+        avatarLarge: false,
+        stat: null,
+        sound: 'snd-alert',
+        flash: true,
+        duration: 6000,
+      };
+
     case 'redeem': {
-      // Look up reward by name
       const cfg = CHANNEL_REWARDS[reward];
       if (!cfg) {
-        // Unknown reward – generic fallback
         return {
-          label:    'CHANNEL REWARD',
-          user:     user,
+          label: 'CHANNEL REWARD',
+          user,
           userFont: 'orbitron',
-          msg:      `<span class="highlight">${user}</span> hat einen Reward eingelöst:<br><span class="highlight">${data.reward || '???'}</span>`,
-          avatar:   avatar,
+          msg: `<span class="highlight">${user}</span> hat einen Reward eingelöst:<br><span class="highlight">${data.reward || '???'}</span>`,
+          avatar,
           avatarLarge: false,
-          stat:     null,
-          sound:    'snd-redeem',
-          flash:    false,
+          stat: null,
+          sound: 'snd-redeem',
+          flash: false,
           duration: 6000,
         };
       }
       return {
-        label:    cfg.label,
-        user:     user,
+        label: cfg.label,
+        user,
         userFont: 'orbitron',
-        msg:      cfg.msg(user),
-        avatar:   avatar,
+        msg: cfg.msg(user),
+        avatar,
         avatarLarge: false,
-        stat:     cfg.stat,
-        sound:    'sound' in cfg ? cfg.sound : 'snd-redeem',
-        flash:    cfg.flash,
+        stat: cfg.stat,
+        sound: ('sound' in cfg ? cfg.sound : 'snd-redeem'),
+        flash: cfg.flash,
         duration: 6000,
       };
     }
@@ -832,44 +889,50 @@ function buildAlert(type, data) {
   }
 }
 
-// ─────────────────────────────────────────────
-// QUEUE
-// ─────────────────────────────────────────────
 function enqueue(type, data) {
-  // Shoutout is fullscreen – bypass normal alert queue
   if (type === 'shoutout') {
     showShoutout(data);
     return;
   }
-  // Resub fullscreen check – runs alongside normal alert (sound still plays)
+
   if (type === 'resub') {
-    const mo = parseInt(data.months || data.cumulativeMonths || 0);
+    const mo = parseInt(data.months || data.cumulativeMonths || 0, 10);
     const isMilestone = MILESTONES.includes(mo);
     if (mo >= 12 || isMilestone) {
       showResubFs(data, isMilestone);
     }
   }
-  // Update last-redeem ticker
+
   if (type === 'redeem') {
     const rName = data.reward || data.rewardName || '???';
-    const rUser = data.user   || data.userName   || '???';
+    const rUser = data.user || data.userName || '???';
     showRedeemTicker(rName, rUser);
   }
+
   const cfg = buildAlert(type, data);
-  if (!cfg) { dbg(`Unbekannter AlertTyp: ${type}`, 'warn'); return; }
+  if (!cfg) {
+    dbg(`Unbekannter AlertTyp: ${type}`, 'warn');
+    return;
+  }
+
   dbg(`Alert eingereiht: ${type} → ${data.user || data.displayName || '?'}`, 'ok');
   queue.push(cfg);
   if (!isShowing) processQueue();
 }
 
 function processQueue() {
-  if (!queue.length) { isShowing = false; dbg('Queue leer', 'info'); return; }
+  if (!queue.length) {
+    isShowing = false;
+    dbg('Queue leer', 'info');
+    return;
+  }
   isShowing = true;
   const next = queue.shift();
   dbg(`showAlert: ${next.label}`, 'info');
+
   try {
     showAlert(next);
-  } catch(e) {
+  } catch (e) {
     dbg(`showAlert ERROR: ${e.message}`, 'err');
     console.error('[showAlert]', e);
     isShowing = false;
@@ -877,17 +940,12 @@ function processQueue() {
   }
 }
 
-// ─────────────────────────────────────────────
-// SHOW ALERT
-// ─────────────────────────────────────────────
 function showAlert(cfg) {
-  // Populate
   alertLabel.textContent = cfg.label;
   alertUser.textContent  = cfg.user.toUpperCase();
   alertUser.className    = 'alert-user' + (cfg.userFont === 'orbitron' ? ' orbitron' : '');
   alertMsg.innerHTML     = cfg.msg;
 
-  // Avatar
   if (cfg.avatar) {
     avatarImg.src = cfg.avatar;
     avatarWrap.className = 'avatar-wrap visible' + (cfg.avatarLarge ? ' large' : '');
@@ -895,30 +953,26 @@ function showAlert(cfg) {
     avatarWrap.className = 'avatar-wrap';
   }
 
-  // Stat badge
   if (cfg.stat) {
-    statNum.textContent  = cfg.stat.num;
-    statLbl.textContent  = cfg.stat.lbl;
-    statBadge.className  = 'stat-badge visible';
+    statNum.textContent = cfg.stat.num;
+    statLbl.textContent = cfg.stat.lbl;
+    statBadge.className = 'stat-badge visible';
   } else {
-    statBadge.className  = 'stat-badge';
+    statBadge.className = 'stat-badge';
   }
 
-  // Reset position
   alertEl.style.transition = 'none';
   alertEl.style.opacity    = '0';
   alertEl.style.transform  = 'translateX(-50%) translateY(40px)';
   scanMask.style.setProperty('--sp', '0%');
   alertGlow.style.opacity  = '0';
 
-  // Sound
   const snd = document.getElementById(cfg.sound);
   if (snd) {
     snd.currentTime = 0;
     snd.play().catch(e => console.warn('[alert] Sound konnte nicht abgespielt werden:', cfg.sound, e.message));
   }
 
-  // Red flash (before reveal) – use per-alert settings if defined
   if (cfg.flash) {
     redFlash(
       cfg.flashCount || FLASH_CNT,
@@ -932,7 +986,6 @@ function showAlert(cfg) {
 }
 
 function revealAlert(cfg) {
-  // setTimeout instead of rAF – works reliably in OBS Browser Sources
   setTimeout(() => {
     alertEl.style.transition = 'opacity 0.25s ease, transform 0.3s ease';
     alertEl.style.opacity    = '1';
@@ -942,7 +995,6 @@ function revealAlert(cfg) {
     dbg('revealAlert: sichtbar', 'ok');
   }, 50);
 
-  // Scan sweep
   let start = null;
   function sweep(ts) {
     if (!start) start = ts;
@@ -952,7 +1004,6 @@ function revealAlert(cfg) {
   }
   setTimeout(() => requestAnimationFrame(sweep), 250);
 
-  // Hide after SHOW_MS
   setTimeout(() => {
     alertEl.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
     alertEl.style.opacity    = '0';
@@ -962,13 +1013,14 @@ function revealAlert(cfg) {
   }, cfg.duration || SHOW_MS);
 }
 
-// ─────────────────────────────────────────────
-// RED FLASH
-// ─────────────────────────────────────────────
 function redFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
   let n = 0;
   function flash() {
-    if (n >= count * 2) { flashEl.style.background = 'rgba(180,0,0,0)'; callback(); return; }
+    if (n >= count * 2) {
+      flashEl.style.background = 'rgba(180,0,0,0)';
+      callback();
+      return;
+    }
     const on = (n % 2 === 0);
     flashEl.style.background = on ? 'rgba(200,0,0,0.45)' : 'rgba(180,0,0,0)';
     n++;
@@ -980,7 +1032,11 @@ function redFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
 function blueFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
   let n = 0;
   function flash() {
-    if (n >= count * 2) { flashEl.style.background = 'rgba(0,0,0,0)'; callback(); return; }
+    if (n >= count * 2) {
+      flashEl.style.background = 'rgba(0,0,0,0)';
+      callback();
+      return;
+    }
     const on = (n % 2 === 0);
     flashEl.style.background = on ? 'rgba(0,180,255,0.35)' : 'rgba(0,0,0,0)';
     n++;
@@ -992,7 +1048,11 @@ function blueFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
 function goldFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
   let n = 0;
   function flash() {
-    if (n >= count * 2) { flashEl.style.background = 'rgba(0,0,0,0)'; callback(); return; }
+    if (n >= count * 2) {
+      flashEl.style.background = 'rgba(0,0,0,0)';
+      callback();
+      return;
+    }
     const on = (n % 2 === 0);
     flashEl.style.background = on ? 'rgba(240,165,0,0.3)' : 'rgba(0,0,0,0)';
     n++;
@@ -1001,40 +1061,36 @@ function goldFlash(count, callback, flashOn = FLASH_ON, flashOff = FLASH_OFF) {
   flash();
 }
 
-// ─────────────────────────────────────────────
-// STREAMERBOT WEBSOCKET – robust persistent connection
-// ─────────────────────────────────────────────
-
-// ── DEBUG OVERLAY ──
+// Debug overlay
 const debugOverlay = document.getElementById('debug-overlay');
 const debugLines   = document.getElementById('debug-lines');
 const MAX_DBG = 10;
-let dbgFadeTimer   = null;
+let dbgFadeTimer = null;
 
 function dbgResetFade() {
-  // Cancel any pending fade, make overlay fully visible
-  if (dbgFadeTimer) { clearTimeout(dbgFadeTimer); dbgFadeTimer = null; }
+  if (dbgFadeTimer) {
+    clearTimeout(dbgFadeTimer);
+    dbgFadeTimer = null;
+  }
   debugOverlay.style.transition = 'opacity 0.3s ease';
   debugOverlay.style.opacity    = '1';
   debugLines.style.display      = 'block';
-  // Remove "Waiting for input" placeholder if present
+
   const ph = document.getElementById('debug-placeholder');
   if (ph) ph.remove();
 
-  // After 15s: fade out, then show placeholder
   dbgFadeTimer = setTimeout(() => {
     debugOverlay.style.transition = 'opacity 1.5s ease';
     debugOverlay.style.opacity    = '0';
     setTimeout(() => {
       debugLines.style.display = 'none';
-      // Show placeholder
-      let ph = document.getElementById('debug-placeholder');
-      if (!ph) {
-        ph = document.createElement('div');
-        ph.id = 'debug-placeholder';
-        ph.style.cssText = 'color:rgba(240,165,0,0.25);letter-spacing:0.3em;font-size:10px;text-transform:uppercase;';
-        ph.textContent = '// Waiting for input';
-        debugOverlay.appendChild(ph);
+      let placeholder = document.getElementById('debug-placeholder');
+      if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.id = 'debug-placeholder';
+        placeholder.style.cssText = 'color:rgba(240,165,0,0.25);letter-spacing:0.3em;font-size:10px;text-transform:uppercase;';
+        placeholder.textContent = '// Waiting for input';
+        debugOverlay.appendChild(placeholder);
       }
       debugOverlay.style.transition = 'opacity 1s ease';
       debugOverlay.style.opacity    = '1';
@@ -1045,7 +1101,7 @@ function dbgResetFade() {
 function dbg(msg, type = 'info') {
   const colors = { info: 'rgba(0,212,255,0.85)', ok: '#4ade80', warn: '#f5c518', err: '#f87171' };
   const prefix = { info: '●', ok: '✓', warn: '⚠', err: '✗' };
-  const time = new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const line = document.createElement('div');
   line.style.cssText = `color:${colors[type]};text-shadow:0 0 6px ${colors[type]}40;`;
   line.textContent = `${time}  ${prefix[type]}  ${msg}`;
@@ -1055,16 +1111,15 @@ function dbg(msg, type = 'info') {
   dbgResetFade();
 }
 
-// Start in "Waiting for input" state immediately
 setTimeout(() => dbgResetFade(), 100);
 
-// ── LAST REDEEM TICKER ──
+// Redeem ticker
 const redeemTicker     = document.getElementById('redeem-ticker');
 const redeemTickerLine = document.getElementById('redeem-ticker-line');
 let redeemFadeTimer    = null;
 
 function showRedeemTicker(reward, user) {
-  const time = new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   redeemTickerLine.textContent = `${time}  ✓  ${reward}  ←  ${user}`;
   redeemTicker.style.opacity = '1';
   if (redeemFadeTimer) clearTimeout(redeemFadeTimer);
@@ -1073,82 +1128,77 @@ function showRedeemTicker(reward, user) {
   }, 15000);
 }
 
-let ws            = null;
-let wsRetryDelay  = 1000;
+// WebSocket zu Streamer.bot Custom Server
+let ws = null;
+let wsRetryDelay = 1000;
 const WS_MAX_DELAY = 10000;
-let wsRetryTimer  = null;
-let wsConnected   = false;
+let wsRetryTimer = null;
+let wsConnected = false;
 
 function wsScheduleRetry() {
-  if (wsRetryTimer) return; // already scheduled
+  if (wsRetryTimer) return;
   wsRetryTimer = setTimeout(() => {
     wsRetryTimer = null;
     connect();
   }, wsRetryDelay);
-  // Exponential backoff
   wsRetryDelay = Math.min(wsRetryDelay * 2, WS_MAX_DELAY);
 }
 
 function wsCleanup() {
   wsConnected = false;
   if (ws) {
-    ws.onopen    = null;
+    ws.onopen = null;
     ws.onmessage = null;
-    ws.onclose   = null;
-    ws.onerror   = null;
-    try { ws.close(); } catch(e) {}
+    ws.onclose = null;
+    ws.onerror = null;
+    try { ws.close(); } catch (e) {}
     ws = null;
   }
 }
 
 function handleMessage(evt) {
-  console.log('RAW WS MSG', evt.textContent);
-  
   try {
-    const msg    = JSON.parse(evt.data);
-    const data   = msg?.data || {};
-    const source = (msg?.event?.source || '').toLowerCase();
-    const type   = (msg?.event?.type   || '').toLowerCase();
+    console.log('RAW WS MSG', evt.data);
 
-    // Smart log summary
+    const msg = JSON.parse(evt.data);
+    const data = msg?.data || {};
+    const source = (msg?.event?.source || '').toLowerCase();
+    const type = (msg?.event?.type || '').toLowerCase();
+
     const logType = msg?.event?.type || msg?.alertType || msg?.request || msg?.status || '?';
     const logUser = data?.displayName || data?.userName || msg?.user || '';
     dbg(`IN: ${logType}${logUser ? ' ← ' + logUser : ''}`, 'info');
 
-    // FORMAT A: Custom WebSocket Server – raw JSON
-    // CPH.WebsocketCustomServerBroadcast → { alertType: "follow", user: "...", ... }
     if (msg?.alertType) {
       enqueue(msg.alertType, msg);
       return;
     }
 
-    // FORMAT B: Normal WS Server – General.Custom envelope
-    // CPH.WebsocketBroadcastJson → { event: { source: "General", type: "Custom" }, data: { alertType: ... } }
     if (source === 'general' && type === 'custom') {
       const alertType = data.alertType || '';
       if (alertType) enqueue(alertType, data);
       return;
     }
 
-    // FORMAT C: Native Twitch subscription events
-    if      (type === 'follow')    enqueue('follow',   data);
-    else if (type === 'sub')       enqueue('sub',      data);
-    else if (type === 'resub')     enqueue('resub',    data);
-    else if (type === 'giftsub')   enqueue('subgift',  data);
-    else if (type === 'giftbomb')  enqueue('subbomb',  data);
-    else if (type === 'cheer')     enqueue('bits',     data);
+    if      (type === 'follow')   enqueue('follow', data);
+    else if (type === 'sub')      enqueue('sub', data);
+    else if (type === 'resub')    enqueue('resub', data);
+    else if (type === 'giftsub')  enqueue('subgift', data);
+    else if (type === 'giftbomb') enqueue('subbomb', data);
+    else if (type === 'cheer')    enqueue('bits', data);
 
-  } catch(e) { /* ignore ping/hello responses */ }
+  } catch (e) {
+    console.warn('[alerts] Unverarbeitete WS-Nachricht:', e.message);
+  }
 }
 
 function connect() {
   wsCleanup();
+  dbg(`WS → ${STREAMERBOT_WS_URL}`, 'info');
 
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  dbg(`WS → ${proto}//${location.host}/alerts/ws`, 'info');
   try {
-    ws = new WebSocket(`${proto}//${location.host}/alerts/ws`);
-  } catch(e) {
+    ws = new WebSocket(STREAMERBOT_WS_URL);
+  } catch (e) {
     console.error('[alerts] WebSocket creation failed', e);
     wsScheduleRetry();
     return;
@@ -1156,9 +1206,11 @@ function connect() {
 
   ws.onopen = () => {
     dbg('WS verbunden ✓', 'ok');
-    wsConnected  = true;
+    wsConnected = true;
     wsRetryDelay = 1000;
-    ws.send(JSON.stringify({ event: 'cc_alert_register', role: 'alerts-overlay' }));
+
+    ws.send(JSON.stringify({ event: 'cc_alert_register' }));
+    dbg('Overlay registriert: cc_alert_register', 'ok');
   };
 
   ws.onmessage = handleMessage;
@@ -1170,33 +1222,28 @@ function connect() {
   };
 
   ws.onerror = () => {
-    // onclose fires right after onerror, reconnect happens there
     dbg('WS Verbindungsfehler', 'err');
   };
 }
 
-// Reconnect immediately when tab becomes visible again (OBS scene switch)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !wsConnected) {
     dbg('Szene aktiv – reconnect', 'info');
-    if (wsRetryTimer) { clearTimeout(wsRetryTimer); wsRetryTimer = null; }
+    if (wsRetryTimer) {
+      clearTimeout(wsRetryTimer);
+      wsRetryTimer = null;
+    }
     connect();
   }
 });
 
-// ─────────────────────────────────────────────
-// URL TEST PARAMS
-// ?test=follow&user=TestUser
-// ?test=sub&user=TestUser&tier=1000
-// ?test=bits&user=TestUser&amount=250
-// ?test=subbomb&user=TestUser&amount=5
-// ─────────────────────────────────────────────
+// URL tests
 const p = new URLSearchParams(window.location.search);
 if (p.get('test')) {
   setTimeout(() => enqueue(p.get('test'), {
-    user:       p.get('user')   || 'TestPilot',
+    user:       p.get('user') || 'TestPilot',
     amount:     p.get('amount') || 100,
-    tier:       p.get('tier')   || '1000',
+    tier:       p.get('tier') || '1000',
     avatar:     p.get('avatar') || '',
     reward:     p.get('reward') || '',
     rewardName: p.get('reward') || '',
@@ -1205,9 +1252,7 @@ if (p.get('test')) {
   }), 800);
 }
 
-// ─────────────────────────────────────────────
-// SHOUTOUT
-// ─────────────────────────────────────────────
+// Shoutout
 const soEl     = document.getElementById('shoutout');
 const soLabel  = document.getElementById('soLabel');
 const soAvatar = document.getElementById('soAvatar');
@@ -1218,20 +1263,19 @@ const soUrl    = document.getElementById('soUrl');
 let soTimer    = null;
 
 function showShoutout(data) {
-  const user   = data.user   || data.userName || '???';
+  const user   = data.user || data.userName || '???';
   const avatar = data.avatar || data.profileImageUrl || '';
-  const game   = data.game   || data.lastGame || '';
-  const dur    = parseInt(data.duration || 12000);
+  const game   = data.game || data.lastGame || '';
+  const dur    = parseInt(data.duration || 12000, 10);
 
-  soLabel.textContent  = '// SHOUTOUT //';
-  soName.textContent   = user.toUpperCase();
-  soGame.textContent   = game ? '▶  ZULETZT GESEHEN IN: ' + game.toUpperCase() : '';
-  soAvatar.src         = avatar;
+  soLabel.textContent = '// SHOUTOUT //';
+  soName.textContent = user.toUpperCase();
+  soGame.textContent = game ? '▶  ZULETZT GESEHEN IN: ' + game.toUpperCase() : '';
+  soAvatar.src = avatar;
   soAvatar.style.display = avatar ? 'block' : 'none';
-  soMsg.innerHTML      = `Schaut bei <span class="highlight">${user}</span> vorbei!<br>Die Chaos Crew empfiehlt diesen Kanal. <span class="highlight">o7</span>`;
-  soUrl.textContent    = 'twitch.tv/' + user.toLowerCase();
+  soMsg.innerHTML = `Schaut bei <span class="highlight">${user}</span> vorbei!<br>Die Chaos Crew empfiehlt diesen Kanal. <span class="highlight">o7</span>`;
+  soUrl.textContent = 'twitch.tv/' + user.toLowerCase();
 
-  // Blue flash then reveal
   blueFlash(3, () => {
     soEl.classList.add('active');
     dbg(`Shoutout: ${user}`, 'ok');
@@ -1249,21 +1293,14 @@ function showShoutout(data) {
   }, dur);
 }
 
-
-
-// ─────────────────────────────────────────────
-// FULLSCREEN RESUB / MILESTONE
-// Milestones: 6 months (gold flash)
-// Fullscreen resub: 12+ months (blue flash)
-// ─────────────────────────────────────────────
-
-const resubFsEl     = document.getElementById('resub-fs');
-const rfsLabel      = document.getElementById('rfsLabel');
-const rfsAvatar     = document.getElementById('rfsAvatar');
-const rfsName       = document.getElementById('rfsName');
-const rfsBadge      = document.getElementById('rfsBadge');
-const rfsMsg        = document.getElementById('rfsMsg');
-let resubFsTimer    = null;
+// Resub fullscreen
+const resubFsEl  = document.getElementById('resub-fs');
+const rfsLabel   = document.getElementById('rfsLabel');
+const rfsAvatar  = document.getElementById('rfsAvatar');
+const rfsName    = document.getElementById('rfsName');
+const rfsBadge   = document.getElementById('rfsBadge');
+const rfsMsg     = document.getElementById('rfsMsg');
+let resubFsTimer = null;
 
 function milestoneLabel(months) {
   if (months >= 12 && months % 12 === 0) {
@@ -1282,24 +1319,23 @@ function milestoneMsg(user, months) {
 }
 
 function resubMsg(user, months) {
-  const m = months;
-  if (m >= 24) return `<span class="highlight">${user}</span> ist seit über 2 Jahren dabei.<br>Loyaler Pilot. <span class="highlight">Die Crew vergisst das nicht.</span>`;
-  if (m >= 12) return `<span class="highlight">${user}</span> – über ein Jahr an Bord.<br><span class="highlight">Treue wie Titanpanzerung.</span>`;
-  return `<span class="highlight">${user}</span> verlängert den Dienst.<br><span class="highlight">${m} Monate</span> für die Chaos Crew.`;
+  if (months >= 24) return `<span class="highlight">${user}</span> ist seit über 2 Jahren dabei.<br>Loyaler Pilot. <span class="highlight">Die Crew vergisst das nicht.</span>`;
+  if (months >= 12) return `<span class="highlight">${user}</span> – über ein Jahr an Bord.<br><span class="highlight">Treue wie Titanpanzerung.</span>`;
+  return `<span class="highlight">${user}</span> verlängert den Dienst.<br><span class="highlight">${months} Monate</span> für die Chaos Crew.`;
 }
 
 function showResubFs(data, isMilestone) {
   const user   = data.user || data.userName || data.displayName || '???';
   const avatar = data.avatar || data.profileImageUrl || '';
-  const months = parseInt(data.months || data.cumulativeMonths || 0);
+  const months = parseInt(data.months || data.cumulativeMonths || 0, 10);
   const dur    = isMilestone ? 13000 : 11000;
 
-  rfsLabel.textContent  = isMilestone ? '⭐ MEILENSTEIN ERREICHT' : '⟳ TREUER CREWMANN';
-  rfsName.textContent   = user.toUpperCase();
-  rfsBadge.textContent  = milestoneLabel(months);
-  rfsAvatar.src         = avatar;
+  rfsLabel.textContent = isMilestone ? '⭐ MEILENSTEIN ERREICHT' : '⟳ TREUER CREWMANN';
+  rfsName.textContent = user.toUpperCase();
+  rfsBadge.textContent = milestoneLabel(months);
+  rfsAvatar.src = avatar;
   rfsAvatar.style.display = avatar ? 'block' : 'none';
-  rfsMsg.innerHTML      = isMilestone ? milestoneMsg(user, months) : resubMsg(user, months);
+  rfsMsg.innerHTML = isMilestone ? milestoneMsg(user, months) : resubMsg(user, months);
 
   const flashFn = isMilestone ? goldFlash : blueFlash;
   const flashCount = isMilestone ? 6 : 3;
@@ -1307,21 +1343,19 @@ function showResubFs(data, isMilestone) {
   flashFn(flashCount, () => {
     resubFsEl.style.background = 'rgba(0,0,0,0.82)';
     resubFsEl.style.opacity    = '1';
-    dbg(`${isMilestone?'Milestone':'Resub-FS'}: ${user} (${months}mo)`, 'ok');
+    dbg(`${isMilestone ? 'Milestone' : 'Resub-FS'}: ${user} (${months}mo)`, 'ok');
   });
 
   if (resubFsTimer) clearTimeout(resubFsTimer);
   resubFsTimer = setTimeout(() => {
     resubFsEl.style.transition = 'opacity 0.8s ease, background 0.8s ease';
-    resubFsEl.style.opacity    = '0';
+    resubFsEl.style.opacity = '0';
     setTimeout(() => {
       resubFsEl.style.background = 'rgba(0,0,0,0)';
       resubFsEl.style.transition = '';
     }, 900);
   }, dur);
 }
-
-
 
 connect();
 </script>
