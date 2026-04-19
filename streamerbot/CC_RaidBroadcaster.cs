@@ -26,16 +26,30 @@ public class CPHInline
             ["game"]            = game
         };
 
-        // An API senden → broadcastet an alle Browser-Overlays
+        // ── Chatnachricht senden ──
+        string msg = $"🚀 Raid incoming! {user} bringt {viewers} Viewer mit!";
+        if (!string.IsNullOrEmpty(game))
+            msg += $" (zuletzt: {game})";
+        CPH.SendMessage(msg);
+
+        // An Alert-Overlay (alerts.html, direkt an Streamerbot angebunden)
+        string alertSession = CPH.GetGlobalVar<string>("cc_alert_session", false);
+        if (!string.IsNullOrEmpty(alertSession))
+        {
+            CPH.WebsocketCustomServerBroadcast(payload.ToString(), alertSession, 0);
+            CPH.LogInfo($"[CC Raid] {user} mit {viewers} Viewern → Alert-Overlay broadcast");
+        }
+        else
+        {
+            CPH.LogWarn("[CC Raid] Keine registrierte Alert-Session gefunden.");
+        }
+
+        // An API (Bridge → Redis → raid-info.html via /alerts/ws)
         string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
         if (!string.IsNullOrEmpty(apiSession))
         {
             CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
-            CPH.LogInfo($"[CC Raid] {user} mit {viewers} Viewern → API broadcast");
-        }
-        else
-        {
-            CPH.LogInfo("[CC Raid] WARNUNG: cc_api_session nicht gesetzt!");
+            CPH.LogInfo($"[CC Raid] {user} → API broadcast");
         }
 
         return true;

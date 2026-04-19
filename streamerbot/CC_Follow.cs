@@ -19,15 +19,15 @@ public class CPHInline
             ["user"]      = user
         };
 
-        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
-        if (!string.IsNullOrEmpty(apiSession))
+        string alertSession = CPH.GetGlobalVar<string>("cc_alert_session", false);
+        if (!string.IsNullOrEmpty(alertSession))
         {
-            CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
-            CPH.LogInfo($"[CC Follow] {user} → API broadcast");
+            CPH.WebsocketCustomServerBroadcast(payload.ToString(), alertSession, 0);
+            CPH.LogInfo($"[CC Follow] {user} → Alert-Overlay broadcast");
         }
         else
         {
-            CPH.LogInfo("[CC Follow] WARNUNG: cc_api_session nicht gesetzt!");
+            CPH.LogWarn("[CC Follow] Keine registrierte Alert-Session gefunden.");
         }
 
         return true;
