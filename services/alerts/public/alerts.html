@@ -1102,6 +1102,8 @@ function wsCleanup() {
 }
 
 function handleMessage(evt) {
+  console.log('RAW WS MSG', evt.textContent);
+  
   try {
     const msg    = JSON.parse(evt.data);
     const data   = msg?.data || {};
@@ -1192,10 +1194,14 @@ document.addEventListener('visibilitychange', () => {
 const p = new URLSearchParams(window.location.search);
 if (p.get('test')) {
   setTimeout(() => enqueue(p.get('test'), {
-    user:    p.get('user')   || 'TestPilot',
-    amount:  p.get('amount') || 100,
-    tier:    p.get('tier')   || '1000',
-    avatar:  p.get('avatar') || '',
+    user:       p.get('user')   || 'TestPilot',
+    amount:     p.get('amount') || 100,
+    tier:       p.get('tier')   || '1000',
+    avatar:     p.get('avatar') || '',
+    reward:     p.get('reward') || '',
+    rewardName: p.get('reward') || '',
+    months:     p.get('months') || '',
+    level:      p.get('level') || '',
   }), 800);
 }
 
