@@ -191,9 +191,12 @@ Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as URL param. `POS
 
 ### Sound files
 Checked into `services/alerts/public/`:
-`sound_follow.mp3`, `sound_sub.mp3`, `sound_bits.mp3`, `sound_bomb.mp3`, `sound_raid.mp3`, `sound_redeem.mp3`, `sound_hype.mp3`, `sound_outraid.mp3`
+`sound_follow.mp3`, `sound_sub.mp3`, `sound_bits.mp3`, `sound_bomb.mp3`, `sound_raid.mp3`, `sound_redeem.mp3`, `sound_hype.mp3`, `sound_outraid.mp3`, `sound_alert.ogg`, `sound_battle.mp3`, `sound_rip.mp3`, `sound_selfie.mp3`
 
 OBS browser source: enable **"Control audio via OBS"** for audio to appear in the OBS mixer.
+
+### Channel Point Rewards
+Per-reward overlay config lives in the `CHANNEL_REWARDS` map in `alerts.html` — keyed by lowercased reward title. Each entry: `{ label, msg(user), stat, flash, sound }`. Add new rewards by extending this map; no server changes needed.
 
 ## Streamerbot C# Actions (`streamerbot/`)
 All broadcasters send to `cc_api_session` (set by `CC_ApiRegister.cs`) via `CPH.WebsocketCustomServerBroadcast`.
