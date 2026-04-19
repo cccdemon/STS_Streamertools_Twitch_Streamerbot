@@ -254,17 +254,6 @@ function subscribeToSpacefight() {
       case 'fight_cmd': {
         const gameActive = await redis.get(SF_GAME_ACTIVE) === 'true';
         if (!gameActive) break;
-        const live = await redis.get(SF_LIVE) === 'true';
-        if (!live) {
-          const a = msg.attacker || '';
-          if (a) {
-            redisPub.publish('ch:chat_reply', JSON.stringify({
-              event: 'chat_reply',
-              message: `@${a} Es gibt noch kein Schlachtfeld — du bist zu spät. 🛸`,
-            }));
-          }
-          break;
-        }
         broadcastAll(msg);
         break;
       }
