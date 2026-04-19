@@ -1190,6 +1190,7 @@ function handleMessage(evt) {
     else if (type === 'giftsub')  enqueue('subgift', data);
     else if (type === 'giftbomb') enqueue('subbomb', data);
     else if (type === 'cheer')    enqueue('bits', data);
+    else if (type === 'redeem')    enqueue('redeem', data);
 
   } catch (e) {
     console.warn('[alerts] Unverarbeitete WS-Nachricht:', e.message);
