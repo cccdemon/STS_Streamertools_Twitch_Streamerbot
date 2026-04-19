@@ -545,7 +545,7 @@ let isShowing = false;
 // Key = exakter Reward-Name (Groß-/Kleinschreibung egal)
 // ─────────────────────────────────────────────
 const CHANNEL_REWARDS = {
-  'alert!': {
+  'alert': {
     label: '🚨 RED ALERT — SIRENE',
     msg:   (u) => `<span class="highlight">${u}</span> hat Alarmstufe Rot ausgelöst.<br><span class="highlight">Alle Mann auf Gefechtsstationen!</span>`,
     stat:  null,
@@ -768,7 +768,19 @@ function buildAlert(type, data) {
         duration: lv === 5 ? 10000 : 7000,
       };
     }
-
+    case 'alert':
+      return {
+        label:    '🚨 RED ALERT — SIRENE',
+        user:     user,
+        userFont: 'orbitron',
+        msg:      `<span class="highlight">${user}</span> hat Alarmstufe Rot ausgelöst.<br><span class="highlight">Alle Mann auf Gefechtsstationen!</span>`,
+        avatar:   avatar,
+        avatarLarge: false,
+        stat:     null,
+        sound:    'snd-alert',
+        flash:    true,
+        duration: 6000,
+      };
     case 'streamstart':
       return {
         label:    'MISSION GESTARTET',
