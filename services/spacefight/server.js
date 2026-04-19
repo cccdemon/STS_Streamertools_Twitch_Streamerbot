@@ -253,7 +253,19 @@ function subscribeToSpacefight() {
     switch (msg.event) {
       case 'fight_cmd': {
         const gameActive = await redis.get(SF_GAME_ACTIVE) === 'true';
-        if (gameActive) broadcastAll(msg);
+        if (!gameActive) break;
+        const live = await redis.get(SF_LIVE) === 'true';
+        if (!live) {
+          const a = msg.attacker || '';
+          if (a) {
+            redisPub.publish('ch:chat_reply', JSON.stringify({
+              event: 'chat_reply',
+              message: `@${a} Es gibt noch kein Schlachtfeld — du bist zu spät. 🛸`,
+            }));
+          }
+          break;
+        }
+        broadcastAll(msg);
         break;
       }
       case 'spacefight_challenge': {
@@ -273,10 +285,10 @@ function subscribeToSpacefight() {
         const a = msg.attacker || '';
         const d = msg.defender || '';
         let reply = '';
-        if (reason === 'not_in_chat')          reply = `@${a} ${d} ist gerade nicht im Chat aktiv.`;
+        if (reason === 'not_in_chat')          reply = `@${a} Zielerfassung fehlgeschlagen — ${d} ist nicht verfügbar, das war nur ein Radarecho. 📡`;
         else if (reason === 'challenge_timeout') reply = `@${a} ${d} hat nicht reagiert. Challenge abgelaufen.`;
         else if (reason === 'challenge_declined') reply = `@${a} ${d} hat den Kampf abgelehnt.`;
-        else if (reason === 'stream_offline')   reply = `@${a} Kämpfe sind nur während des Streams möglich.`;
+        else if (reason === 'stream_offline')   reply = `@${a} Es gibt noch kein Schlachtfeld oder du bist zu spät. 🛸`;
         if (reply) redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', message: reply }));
         broadcastAll(msg);
         break;
