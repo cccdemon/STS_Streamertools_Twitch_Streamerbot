@@ -343,14 +343,23 @@ function connect() {
 }
 
 // ─────────────────────────────────────────────
+// TWITCH USER LOOKUP
+// ─────────────────────────────────────────────
+async function fetchTwitchUser(login) {
+  const res = await fetch(`/alerts/api/twitch/user/${encodeURIComponent(login)}`);
+  if (!res.ok) throw new Error(`API HTTP ${res.status}`);
+  return await res.json();
+}
+
+// ─────────────────────────────────────────────
 // HANDLE RAID
 // ─────────────────────────────────────────────
 async function handleRaid(data) {
   const user    = data.user    || 'Unbekannt';
   const viewers = data.amount  || '0';
-  const avatar  = data.profileImageUrl || '';
+  let   avatar  = data.profileImageUrl || '';
   const game    = data.game    || '';
-  const bio     = data.bio     || '';
+  let   bio     = data.bio     || '';
 
   dbg(`Raid von ${user} mit ${viewers} Viewern`);
 
@@ -366,13 +375,20 @@ async function handleRaid(data) {
   elGame.textContent    = game || '—';
   elUrl.textContent     = `twitch.tv/${user.toLowerCase()}`;
 
-  // Avatar: URL aus Streamerbot oder Twitch-Fallback
-  if (avatar) {
-    elAvatar.src = avatar;
-  } else {
-    // Generisches Chaos-Crew Placeholder
-    elAvatar.src = 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png';
+  // Twitch-Fallback für Avatar und Bio
+  if (!avatar || !bio) {
+    try {
+      const tw = await fetchTwitchUser(user.toLowerCase());
+      if (!avatar && tw.profile_image_url) avatar = tw.profile_image_url;
+      if (!bio    && tw.description)        bio    = tw.description;
+      dbg(avatar ? 'Twitch User ✓' : 'Twitch User leer');
+    } catch (err) {
+      dbg(`Twitch User Fehler: ${err.message}`);
+    }
   }
+
+  // Avatar setzen
+  elAvatar.src = avatar || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png';
   elAvatar.style.display = 'block';
 
   // Show panel
@@ -412,7 +428,7 @@ function typeWriter(text, el, delay = 30) {
 // ─────────────────────────────────────────────
 async function fetchSummary(user, game, bio) {
   try {
-    const res = await fetch('/api/claude/summary', {
+    const res = await fetch('/alerts/api/claude/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'raid', user, game, bio }),

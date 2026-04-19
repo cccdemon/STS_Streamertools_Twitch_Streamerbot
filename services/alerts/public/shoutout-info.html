@@ -325,7 +325,7 @@ function dbg(msg) {
 }
 
 async function fetchTwitchUser(login) {
-  const res = await fetch(`/api/twitch/user/${encodeURIComponent(login)}`);
+  const res = await fetch(`/alerts/api/twitch/user/${encodeURIComponent(login)}`);
   if (!res.ok) throw new Error(`API HTTP ${res.status}`);
   return await res.json();
 }
@@ -432,7 +432,7 @@ async function handleShoutout(data) {
 // ── CLAUDE API (via server) ──
 async function fetchSummary(user, game, bio) {
   try {
-    const res = await fetch('/api/claude/summary', {
+    const res = await fetch('/alerts/api/claude/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'shoutout', user, game, bio }),
@@ -453,7 +453,7 @@ function buildFallback(user, game, bio) {
 }
 
 function sendChat(message) {
-  fetch('/api/chat/send', {
+  fetch('/alerts/api/chat/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
