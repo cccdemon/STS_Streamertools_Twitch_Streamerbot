@@ -375,27 +375,27 @@ async function handleRaid(data) {
   elGame.textContent    = game || '—';
   elUrl.textContent     = `twitch.tv/${user.toLowerCase()}`;
 
+  // Avatar mit Default vorab setzen
+  elAvatar.src = avatar || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png';
+  elAvatar.style.display = 'block';
+
+  // Panel sofort zeigen – Netzwerk-Fetches dürfen das Einblenden nicht blockieren
+  panel.classList.add('active');
+  elLoading.classList.add('visible');
+
   // Twitch-Fallback für Avatar und Bio
   if (!avatar || !bio) {
     try {
       const tw = await fetchTwitchUser(user.toLowerCase());
-      if (!avatar && tw.profile_image_url) avatar = tw.profile_image_url;
-      if (!bio    && tw.description)        bio    = tw.description;
+      if (!avatar && tw.profile_image_url) { avatar = tw.profile_image_url; elAvatar.src = avatar; }
+      if (!bio    && tw.description)       { bio    = tw.description; }
       dbg(avatar ? 'Twitch User ✓' : 'Twitch User leer');
     } catch (err) {
       dbg(`Twitch User Fehler: ${err.message}`);
     }
   }
 
-  // Avatar setzen
-  elAvatar.src = avatar || 'https://static-cdn.jtvnw.net/user-default-pictures-uv/ebe4cd89-b4f4-4cd9-adac-2f30151b4209-profile_image-300x300.png';
-  elAvatar.style.display = 'block';
-
-  // Show panel
-  panel.classList.add('active');
-
   // Fetch AI summary
-  elLoading.classList.add('visible');
   const summary = await fetchSummary(user, game, bio);
   elLoading.classList.remove('visible');
 

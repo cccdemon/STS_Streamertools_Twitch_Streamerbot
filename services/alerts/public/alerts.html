@@ -598,14 +598,39 @@ let isShowing = false;
 // OBS Browser Source Audio Unlock
 (function unlockObsAudio() {
   const Ctx = window.AudioContext || window.webkitAudioContext;
-  if (!Ctx) return;
-  const ctx = new Ctx();
-  ctx.resume().then(() => ctx.close()).catch(() => {});
-  document.addEventListener('click', () => {
-    const c = new Ctx();
-    c.resume().then(() => c.close()).catch(() => {});
-  }, { once: true });
+  if (Ctx) {
+    const ctx = new Ctx();
+    ctx.resume().then(() => ctx.close()).catch(() => {});
+  }
+  document.querySelectorAll('audio').forEach(el => {
+    const prev = el.volume;
+    el.muted = true;
+    el.volume = 0;
+    el.play().then(() => {
+      el.pause();
+      el.currentTime = 0;
+      el.muted = false;
+      el.volume = prev || 1;
+    }).catch(() => {
+      el.muted = false;
+      el.volume = prev || 1;
+    });
+  });
 }());
+
+function playSound(id) {
+  if (!id) return;
+  const tpl = document.getElementById(id);
+  if (!tpl) {
+    dbg(`Sound fehlt: ${id}`, 'err');
+    return;
+  }
+  const a = new Audio(tpl.currentSrc || tpl.src);
+  a.volume = tpl.volume;
+  a.play().catch(err => {
+    dbg(`Sound fail: ${id} (${err.name})`, 'err');
+  });
+}
 
 // Rewards
 const CHANNEL_REWARDS = {
@@ -971,11 +996,7 @@ function showAlert(cfg) {
   scanMask.style.setProperty('--sp', '0%');
   alertGlow.style.opacity  = '0';
 
-  const snd = document.getElementById(cfg.sound);
-  if (snd) {
-    snd.currentTime = 0;
-    snd.play().catch(e => console.warn('[alert] Sound konnte nicht abgespielt werden:', cfg.sound, e.message));
-  }
+  playSound(cfg.sound);
 
   if (cfg.flash) {
     redFlash(
