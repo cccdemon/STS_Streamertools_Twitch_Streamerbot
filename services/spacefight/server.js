@@ -228,6 +228,21 @@ async function saveSpacefightResult(result) {
     const row = await pg.query('SELECT wins FROM spacefight_stats WHERE username=$1', [winner]);
     await redis.zadd(SF_INDEX, row.rows[0]?.wins || 0, winner);
     log('SF', `${winner} defeated ${loser}`);
+
+    const w = result.winner || winner;
+    const l = result.loser  || loser;
+    const lines = [
+      `@${w} hat @${l} desintegriert. 💥`,
+      `@${w} hat @${l} ins All gepustet. 🛸`,
+      `@${w} hat @${l} pulverisiert. ☄️`,
+      `@${w} hat @${l} aus dem Orbit gefegt. 🚀`,
+      `@${w} hat @${l} in Sternenstaub verwandelt. ✨`,
+      `@${w} hat @${l} zerlegt. 🔧`,
+      `@${w} hat den Reaktor von @${l} überladen. ⚡`,
+      `@${w} hat @${l} ins schwarze Loch geschossen. 🕳️`,
+    ];
+    const reply = lines[Math.floor(Math.random() * lines.length)];
+    redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', message: reply }));
   } catch(e) {
     await client.query('ROLLBACK');
     logErr('SF', 'Save error:', e.message);
