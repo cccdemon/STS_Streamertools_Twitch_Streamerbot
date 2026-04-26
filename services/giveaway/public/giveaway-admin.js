@@ -86,6 +86,7 @@ function handle(msg) {
         participants[key] = {
           display:  p.username || key,
           watchSec: parseInt(p.watchSec) || 0,
+          msgs:     parseInt(p.msgs) || 0,
           coins:    parseDec(p.coins),
           banned:   !!p.banned
         };
@@ -309,6 +310,7 @@ function updateStats() {
   const active = Object.values(participants).filter(p=>!p.banned);
   document.getElementById('s-total').textContent   = active.length;
   document.getElementById('s-tickets').textContent = active.reduce((s,p)=>s+(parseFloat(p.coins)||0),0).toFixed(4).replace(/\.?0+$/,'');
+  document.getElementById('s-msgs').textContent    = active.reduce((s,p)=>s+(parseInt(p.msgs)||0),0);
 }
 
 function broadcastOverlay(winner=null) {

@@ -53,7 +53,7 @@ async function loadParticipants() {
         <td style="font-weight:600;">${esc(x.username)}</td>
         <td class="num">${coins.toFixed(2)}</td>
         <td class="dim">${fmtTime(parseInt(x.watchSec)||0)}</td>
-        <td class="dim">-</td>
+        <td class="dim">${parseInt(x.msgs)||0}</td>
         <td class="dim" style="font-size:11px;">${total > 0 ? ((coins/total)*100).toFixed(1)+'%' : '0%'}</td>
       </tr>`;
     }).join('');

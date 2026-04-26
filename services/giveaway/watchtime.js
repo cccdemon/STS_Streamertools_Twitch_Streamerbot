@@ -22,6 +22,7 @@ const K = {
   gwPresent:    (u) => `gw_present:${u}`,         // TTL-Key: User ist anwesend
   gwIndex:      () => 'gw_index',                  // SET aller registrierten User
   gwBanned:     (u) => `gw_banned:${u}`,           // 1 wenn gebannt
+  gwMsgs:       (u) => `gw_msgs:${u}`,             // Chat-Nachrichten Zähler (Session)
   gwSessionId:  () => 'gw_session_id',             // aktuelle Session-ID
   // Spacefight
   sfStats:      (u) => `sf:stats:${u}`,
@@ -108,7 +109,9 @@ class WatchtimeEngine {
     // Keyword-Check: Registrierung
     const keyword = await this.redis.get(K.gwKeyword());
     if (keyword && cleanMsg.toLowerCase() === keyword.toLowerCase()) {
-      return await this._handleRegistration(u, username, sessionId);
+      const reg = await this._handleRegistration(u, username, sessionId);
+      await this.redis.incr(K.gwMsgs(u));
+      return reg;
     }
 
     // Nur registrierte Teilnehmer bekommen Chat-Bonus
@@ -117,6 +120,9 @@ class WatchtimeEngine {
 
     const banned = await this.redis.get(K.gwBanned(u));
     if (banned === '1') return null;
+
+    // Jede Chat-Nachricht (registriert + nicht gebannt) wird gezählt
+    await this.redis.incr(K.gwMsgs(u));
 
     // Mindestens 5 Wörter
     if (countWords(cleanMsg) < CHAT_MIN_WORDS) return null;
@@ -168,9 +174,10 @@ class WatchtimeEngine {
   async getUserState(username) {
     const u = sanitizeUsername(username);
     const watchSec   = parseInt(await this.redis.get(K.gwWatchSec(u)) || '0');
+    const msgs       = parseInt(await this.redis.get(K.gwMsgs(u)) || '0');
     const registered = await this.redis.get(K.gwRegistered(u)) === '1';
     const banned     = await this.redis.get(K.gwBanned(u)) === '1';
-    return { username: u, watchSec, coins: coinsFromSec(watchSec), registered, banned };
+    return { username: u, watchSec, msgs, coins: coinsFromSec(watchSec), registered, banned };
   }
 
   // Alle aktiven Teilnehmer abrufen
@@ -179,9 +186,10 @@ class WatchtimeEngine {
     const result = [];
     for (const u of usernames) {
       const watchSec   = parseInt(await this.redis.get(K.gwWatchSec(u)) || '0');
+      const msgs       = parseInt(await this.redis.get(K.gwMsgs(u)) || '0');
       const registered = await this.redis.get(K.gwRegistered(u)) === '1';
       const banned     = await this.redis.get(K.gwBanned(u)) === '1';
-      result.push({ username: u, watchSec, coins: coinsFromSec(watchSec), registered, banned });
+      result.push({ username: u, watchSec, msgs, coins: coinsFromSec(watchSec), registered, banned });
     }
     return result.sort((a, b) => b.coins - a.coins);
   }
@@ -230,13 +238,14 @@ class WatchtimeEngine {
       await client.query('BEGIN');
       for (const p of participants) {
         await client.query(`
-          INSERT INTO session_participants (session_id, username, display, watch_sec, coins, banned)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO session_participants (session_id, username, display, watch_sec, msgs, coins, banned)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
           ON CONFLICT (session_id, username) DO UPDATE SET
             watch_sec = EXCLUDED.watch_sec,
+            msgs      = EXCLUDED.msgs,
             coins     = EXCLUDED.coins,
             banned    = EXCLUDED.banned
-        `, [sessionId, p.username, p.username, p.watchSec, p.coins, p.banned]);
+        `, [sessionId, p.username, p.username, p.watchSec, p.msgs || 0, p.coins, p.banned]);
       }
       const active = participants.filter(p => !p.banned);
       const totalCoins = active.reduce((s, p) => s + p.coins, 0);
@@ -252,11 +261,12 @@ class WatchtimeEngine {
       for (const p of participants) {
         await client.query(`
           INSERT INTO users (username, display, total_watch_sec, total_msgs, last_seen)
-          VALUES ($1, $2, $3, 0, NOW())
+          VALUES ($1, $2, $3, $4, NOW())
           ON CONFLICT (username) DO UPDATE SET
             total_watch_sec = users.total_watch_sec + $3,
+            total_msgs      = users.total_msgs + $4,
             last_seen = NOW()
-        `, [p.username, p.username, p.watchSec]);
+        `, [p.username, p.username, p.watchSec, p.msgs || 0]);
       }
       await client.query('COMMIT');
       console.log(`[WTE] Session ${sessionId} closed, ${participants.length} participants`);
@@ -278,6 +288,7 @@ class WatchtimeEngine {
       pipeline.del(K.gwChatTime(u));
       pipeline.del(K.gwPresent(u));
       pipeline.del(K.gwBanned(u));
+      pipeline.del(K.gwMsgs(u));
     }
     pipeline.del(K.gwIndex());
     pipeline.set(K.gwOpen(), 'false');
