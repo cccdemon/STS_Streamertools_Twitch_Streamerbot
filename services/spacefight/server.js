@@ -213,10 +213,11 @@ async function saveSpacefightResult(result) {
       'INSERT INTO spacefight_results (winner, loser, ship_w, ship_l) VALUES ($1,$2,$3,$4)',
       [winner, loser, sanitizeStr(result.ship_w || '', 30), sanitizeStr(result.ship_l || '', 30)]
     );
-    await client.query(`
+    const winnerRow = await client.query(`
       INSERT INTO spacefight_stats (username, display, wins, losses, last_fight)
       VALUES ($1,$2,1,0,NOW())
       ON CONFLICT (username) DO UPDATE SET wins = spacefight_stats.wins + 1, last_fight = NOW()
+      RETURNING wins
     `, [winner, result.winner || winner]);
     await client.query(`
       INSERT INTO spacefight_stats (username, display, wins, losses, last_fight)
@@ -225,8 +226,7 @@ async function saveSpacefightResult(result) {
     `, [loser, result.loser || loser]);
     await client.query('COMMIT');
 
-    const row = await pg.query('SELECT wins FROM spacefight_stats WHERE username=$1', [winner]);
-    await redis.zadd(SF_INDEX, row.rows[0]?.wins || 0, winner);
+    await redis.zadd(SF_INDEX, winnerRow.rows[0]?.wins || 0, winner);
     log('SF', `${winner} defeated ${loser}`);
 
     const w = result.winner || winner;
