@@ -215,10 +215,23 @@ Bridge receives the event and routes it to the correct Redis channel.
 | `CC_AdBreakStart.cs` | CC – Ad Break Start | Ad Break Start | Sends ad notice to chat |
 | `CC_AdBreakEnd.cs` | CC – Ad Break End | Ad Break End | Sends ad-end notice to chat |
 | `CC_FirstChatter.cs` | CC – First Chatter | Chat Message | Sends first_chatter event to API |
+| `CC_Sub.cs` | CC – Sub | Twitch Sub | Sends sub event |
+| `CC_Resub.cs` | CC – Resub | Twitch Resub | Sends resub event |
+| `CC_SubGift.cs` | CC – SubGift | Twitch SubGift | Sends subgift event |
+| `CC_SubBomb.cs` | CC – SubBomb | Twitch CommunityGiftSub | Sends subbomb event |
+| `CC_Redeem.cs` | CC – Redeem | Channel Point Redeem | Sends redeem event (alerts overlay maps via `CHANNEL_REWARDS`) |
 | `GW_A_ViewerTick.cs` | GW – Viewer Tick | Twitch Present Viewer | Sends viewer_tick to bridge |
 | `GW_B_ChatMessage.cs` | GW – Chat Message | Twitch Chat Message | Sends chat_msg to bridge |
 | `GW_TimeInfo.cs` | GW – Time Info | Command `!time` / `!coin` | Sends time_cmd to bridge |
 | `GW_Leaderboard.cs` | GW – Leaderboard | Command `!top` | Queries stats API, posts top 3 to chat |
+| `SF_FightCmd.cs` | SF – Fight Cmd | Command `!fight` | Sends fight_cmd to bridge |
+| `SF_ChallengeAccept.cs` | SF – Challenge Accept | Command `!ja` | Accepts pending spacefight challenge |
+| `SF_ChallengeDecline.cs` | SF – Challenge Decline | Command `!nein` | Declines pending spacefight challenge |
+| `SF_ChatTracker.cs` | SF – Chat Tracker | Twitch Chat Message | Tracks active chatters for fight matchmaking |
+| `SF_StreamOnline.cs` | SF – Stream Online | Stream Online | Sends stream_online → enables fights |
+| `SF_StreamOffline.cs` | SF – Stream Offline | Stream Offline | Sends stream_offline → disables fights |
+
+> Known issue (commits `e81f770`, `bec98cc`): each sub variant has its own action — should be consolidated.
 
 ## Data Storage
 - **Redis (ephemeral)**: giveaway open/closed, current keyword, banned users, watchsec/msgs per user, spacefight live/active flags, first chatter toggle, session ID, Twitch user cache
@@ -230,6 +243,7 @@ Bridge receives the event and routes it to the correct Redis channel.
 ```bash
 npm start              # production start
 npm run dev            # start with --watch (auto-restart on change)
+npm test               # node --test tests/*.test.js (uses Redis DB 1)
 ```
 
 Browser tests: open `/admin/tests/test-runner.html` in a browser.

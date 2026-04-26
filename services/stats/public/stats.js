@@ -35,9 +35,9 @@ async function loadParticipants() {
     const p = data.participants || [];
 
     const active  = p.filter(x => !x.banned);
-    const total   = active.reduce((s,x) => s + (parseInt(x.tickets)||0), 0);
+    const total   = active.reduce((s,x) => s + (parseFloat(x.coins)||0), 0);
     document.getElementById('ps-total').textContent   = active.length;
-    document.getElementById('ps-tickets').textContent = total;
+    document.getElementById('ps-tickets').textContent = total.toFixed(2).replace(/\.?0+$/,'');
     document.getElementById('ps-session').textContent = data.session || '-';
 
     if (!p.length) {
@@ -45,15 +45,18 @@ async function loadParticipants() {
       return;
     }
 
-    const rows = p.map((x, i) => `
+    const rows = p.map((x, i) => {
+      const coins = parseFloat(x.coins) || 0;
+      return `
       <tr class="${x.banned ? 'opacity-40' : ''}">
         <td class="dim">${i+1}</td>
-        <td style="font-weight:600;">${esc(x.display)}</td>
-        <td class="num">${x.tickets}</td>
-        <td class="dim">${fmtTime(x.watch_sec)}</td>
-        <td class="dim">${x.msgs}</td>
-        <td class="dim" style="font-size:11px;">${total > 0 ? ((x.tickets/total)*100).toFixed(1)+'%' : '0%'}</td>
-      </tr>`).join('');
+        <td style="font-weight:600;">${esc(x.username)}</td>
+        <td class="num">${coins.toFixed(2)}</td>
+        <td class="dim">${fmtTime(parseInt(x.watchSec)||0)}</td>
+        <td class="dim">-</td>
+        <td class="dim" style="font-size:11px;">${total > 0 ? ((coins/total)*100).toFixed(1)+'%' : '0%'}</td>
+      </tr>`;
+    }).join('');
     document.getElementById('participants-tbl').innerHTML = rows;
   } catch(e) {
     document.getElementById('participants-tbl').innerHTML = `<tr><td colspan="6" class="empty">Fehler: ${esc(e.message)}</td></tr>`;
