@@ -287,6 +287,28 @@ function subscribeToGiveaway() {
         await wte.handleViewerTick(msg.user, sid);
         break;
       }
+      case 'stream_online': {
+        try {
+          const r = await pg.query('TRUNCATE TABLE debug_log');
+          log('Debug', 'debug_log truncated on stream_online');
+          broadcastAll({ event: 'cc_debug', source: 'GW_Service', stage: 'truncate', user: null, info: 'debug_log cleared (stream_online)', ts: Date.now() });
+        } catch(e) { logErr('Debug', 'TRUNCATE failed:', e.message); }
+        break;
+      }
+      case 'cc_debug': {
+        const source = sanitizeStr(msg.source, 50);
+        const stage  = sanitizeStr(msg.stage, 50);
+        const user   = msg.user ? sanitizeUsername(msg.user) : null;
+        const info   = msg.info ? sanitizeStr(msg.info, 500) : null;
+        try {
+          await pg.query(
+            `INSERT INTO debug_log (source, stage, username, info) VALUES ($1, $2, $3, $4)`,
+            [source, stage, user, info]
+          );
+        } catch(e) { logErr('Debug', 'PG insert failed:', e.message); }
+        broadcastAll({ event: 'cc_debug', source, stage, user, info, ts: Date.now() });
+        break;
+      }
       case 'chat_msg': {
         const result = await wte.handleChatMessage(msg.user, msg.message, sid);
         if (result && result.isNew) {

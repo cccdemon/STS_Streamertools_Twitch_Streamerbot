@@ -20,6 +20,7 @@ const K = {
   gwWatchSec:   (u) => `gw_watch:${u}`,           // kumulierte watchSec
   gwChatTime:   (u) => `gw_chat_ts:${u}`,         // letzter Chat-Bonus Timestamp
   gwPresent:    (u) => `gw_present:${u}`,         // TTL-Key: User ist anwesend
+  gwLastTick:   (u) => `gw_last_tick:${u}`,       // letzter viewer_tick Timestamp (24h TTL)
   gwIndex:      () => 'gw_index',                  // SET aller registrierten User
   gwBanned:     (u) => `gw_banned:${u}`,           // 1 wenn gebannt
   gwMsgs:       (u) => `gw_msgs:${u}`,             // Chat-Nachrichten Zähler (Session)
@@ -66,6 +67,16 @@ class WatchtimeEngine {
   async handleViewerTick(username /* , sessionId */) {
     const u = sanitizeUsername(username);
     if (!u) return null;
+    const now = Math.floor(Date.now() / 1000);
+    const prev = await this.redis.get(K.gwLastTick(u));
+    if (prev) {
+      const gap = now - parseInt(prev);
+      // Streamerbot Present Viewer feuert ~alle 5min. Lücke > 6min = mind. ein Tick verfehlt
+      if (gap > 360) {
+        console.log(`[WTE] viewer_tick gap ${u}: ${gap}s seit letztem Tick`);
+      }
+    }
+    await this.redis.set(K.gwLastTick(u), String(now), 'EX', 86400);
     await this.redis.set(K.gwPresent(u), '1', 'EX', PRESENCE_TTL);
     return null;
   }
@@ -77,16 +88,25 @@ class WatchtimeEngine {
     if (open !== 'true') return [];
     const usernames = await this.redis.smembers(K.gwIndex());
     const updates = [];
+    const stale = [];
+    const now = Math.floor(Date.now() / 1000);
     for (const u of usernames) {
       const registered = await this.redis.get(K.gwRegistered(u));
       if (registered !== '1') continue;
       const banned = await this.redis.get(K.gwBanned(u));
       if (banned === '1') continue;
       const present = await this.redis.get(K.gwPresent(u));
-      if (!present) continue;
+      if (!present) {
+        const lastTick = await this.redis.get(K.gwLastTick(u));
+        if (lastTick) stale.push(`${u}(${now - parseInt(lastTick)}s)`);
+        continue;
+      }
       const newSec = await this.redis.incrby(K.gwWatchSec(u), TICK_SEC);
       await this._logEvent(u, 'tick', TICK_SEC, sessionId);
       updates.push({ username: u, watchSec: newSec, coins: coinsFromSec(newSec) });
+    }
+    if (stale.length > 0) {
+      console.log(`[WTE] ${stale.length} stale user(s) – kein viewer_tick: ${stale.join(', ')}`);
     }
     return updates;
   }
@@ -287,6 +307,7 @@ class WatchtimeEngine {
       pipeline.del(K.gwRegistered(u));
       pipeline.del(K.gwChatTime(u));
       pipeline.del(K.gwPresent(u));
+      pipeline.del(K.gwLastTick(u));
       pipeline.del(K.gwBanned(u));
       pipeline.del(K.gwMsgs(u));
     }

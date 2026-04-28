@@ -61,6 +61,20 @@ CREATE INDEX IF NOT EXISTS idx_wt_username ON watchtime_events(username);
 CREATE INDEX IF NOT EXISTS idx_wt_session  ON watchtime_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_wt_ts       ON watchtime_events(ts);
 
+-- ── Debug Log ─────────────────────────────────────────────
+-- Stage-level events from Streamerbot actions / services.
+-- Used to diagnose missing/dropped events.
+CREATE TABLE IF NOT EXISTS debug_log (
+    id          BIGSERIAL PRIMARY KEY,
+    source      TEXT        NOT NULL,
+    stage       TEXT        NOT NULL,
+    username    TEXT,
+    info        TEXT,
+    ts          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_debug_ts     ON debug_log(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_debug_source ON debug_log(source);
+
 -- ── Spacefight History ────────────────────────────────────
 CREATE TABLE IF NOT EXISTS spacefight_results (
     id          BIGSERIAL PRIMARY KEY,

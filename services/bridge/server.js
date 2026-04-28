@@ -75,7 +75,7 @@ const ROUTES = {
   spacefight_challenge:  ['ch:spacefight'],
   spacefight_result:     ['ch:spacefight'],
   spacefight_rejected:   ['ch:spacefight'],
-  stream_online:         ['ch:spacefight'],
+  stream_online:         ['ch:spacefight', 'ch:giveaway'],
   stream_offline:        ['ch:spacefight'],
   follow:                ['ch:alerts'],
   cheer:                 ['ch:alerts'],
@@ -85,6 +85,7 @@ const ROUTES = {
   clip_created:          ['ch:chat'],
   ad_break_start:        ['ch:chat'],
   ad_break_end:          ['ch:chat'],
+  cc_debug:              ['ch:giveaway'],
 };
 
 // ── Streamerbot WS Client ─────────────────────────────────
