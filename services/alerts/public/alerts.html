@@ -477,6 +477,27 @@
   <div id="debug-lines"></div>
 </div>
 
+<div id="gw-join-overlay" style="
+  position:fixed; bottom:16px; left:16px;
+  z-index:9000;
+  font-family:'Orbitron',monospace;
+  font-size:11px;
+  line-height:1.7;
+  color:rgba(0,212,255,0.9);
+  text-shadow:0 0 8px rgba(0,212,255,0.5);
+  pointer-events:none;
+  width:420px;
+  max-width:420px;
+  text-align:left;
+  word-break:break-all;
+  overflow:hidden;
+  opacity:0;
+  transition: opacity 0.4s ease;
+">
+  <div style="font-size:10px;letter-spacing:0.3em;color:rgba(240,165,0,0.6);margin-bottom:4px;text-transform:uppercase">// Giveaway Joins</div>
+  <div id="gw-join-lines"></div>
+</div>
+
 <div id="flash"></div>
 
 <div id="resub-fs" style="
@@ -569,6 +590,7 @@
 // Netzwerk-Setup
 const STREAMERBOT_WS_URL = 'ws://192.168.178.39:9090';
 const WEBSERVER_BASE_URL = 'http://192.168.178.34';
+const GIVEAWAY_WS_URL    = WEBSERVER_BASE_URL.replace(/^http/, 'ws') + '/giveaway/ws';
 
 // Config
 const MILESTONES = [6, 12, 24, 36, 48, 60];
@@ -1253,13 +1275,21 @@ function connect() {
 }
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !wsConnected) {
+  if (document.visibilityState !== 'visible') return;
+  if (!wsConnected) {
     dbg('Szene aktiv – reconnect', 'info');
     if (wsRetryTimer) {
       clearTimeout(wsRetryTimer);
       wsRetryTimer = null;
     }
     connect();
+  }
+  if (!gwConnected) {
+    if (gwRetryTimer) {
+      clearTimeout(gwRetryTimer);
+      gwRetryTimer = null;
+    }
+    gwConnect();
   }
 });
 
@@ -1384,6 +1414,97 @@ function showResubFs(data, isMilestone) {
 }
 
 connect();
+
+// ── Giveaway Join Liste ──────────────────────────────────
+const gwJoinOverlay = document.getElementById('gw-join-overlay');
+const gwJoinLines   = document.getElementById('gw-join-lines');
+const GW_JOIN_MAX   = 12;
+const GW_JOIN_FADE_MS = 60000;
+let gwJoinFadeTimer = null;
+const gwJoinSeen = new Set();
+
+function gwAddJoin(user) {
+  if (!user) return;
+  const u = String(user).toLowerCase();
+  if (gwJoinSeen.has(u)) return;
+  gwJoinSeen.add(u);
+
+  const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const line = document.createElement('div');
+  line.style.cssText = 'color:rgba(0,212,255,0.9);text-shadow:0 0 6px rgba(0,212,255,0.4);';
+  line.innerHTML = `${time}  <span style="color:#4ade80;text-shadow:0 0 6px rgba(74,222,128,0.4)">✓</span>  <span style="color:#f0a500;text-shadow:0 0 6px rgba(240,165,0,0.5)">${user}</span> ist eingetragen`;
+  gwJoinLines.insertBefore(line, gwJoinLines.firstChild);
+  while (gwJoinLines.children.length > GW_JOIN_MAX) {
+    gwJoinLines.removeChild(gwJoinLines.lastChild);
+  }
+
+  gwJoinOverlay.style.opacity = '1';
+  if (gwJoinFadeTimer) clearTimeout(gwJoinFadeTimer);
+  gwJoinFadeTimer = setTimeout(() => {
+    gwJoinOverlay.style.opacity = '0';
+  }, GW_JOIN_FADE_MS);
+
+  dbg(`GW Join: ${user}`, 'ok');
+}
+
+// ── WebSocket zum Giveaway-Service ───────────────────────
+let gwWs = null;
+let gwRetryDelay = 1000;
+let gwRetryTimer = null;
+let gwConnected  = false;
+
+function gwScheduleRetry() {
+  if (gwRetryTimer) return;
+  gwRetryTimer = setTimeout(() => {
+    gwRetryTimer = null;
+    gwConnect();
+  }, gwRetryDelay);
+  gwRetryDelay = Math.min(gwRetryDelay * 2, WS_MAX_DELAY);
+}
+
+function gwConnect() {
+  if (gwWs) {
+    try { gwWs.close(); } catch (e) {}
+    gwWs = null;
+  }
+  dbg(`GW-WS → ${GIVEAWAY_WS_URL}`, 'info');
+
+  try {
+    gwWs = new WebSocket(GIVEAWAY_WS_URL);
+  } catch (e) {
+    gwScheduleRetry();
+    return;
+  }
+
+  gwWs.onopen = () => {
+    dbg('GW-WS verbunden ✓', 'ok');
+    gwConnected = true;
+    gwRetryDelay = 1000;
+    gwWs.send(JSON.stringify({ event: 'cc_identify', role: 'alerts-overlay' }));
+  };
+
+  gwWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      if (msg && msg.event === 'gw_join' && msg.user) {
+        gwAddJoin(msg.user);
+      }
+    } catch (e) {}
+  };
+
+  gwWs.onclose = (evt) => {
+    dbg(`GW-WS getrennt (${evt.code}) – reconnect...`, 'warn');
+    gwConnected = false;
+    gwWs = null;
+    gwScheduleRetry();
+  };
+
+  gwWs.onerror = () => {
+    dbg('GW-WS Verbindungsfehler', 'err');
+  };
+}
+
+gwConnect();
 </script>
 </body>
 </html>
