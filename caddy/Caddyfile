@@ -58,8 +58,11 @@
     }
 
     # ── Root redirect → admin dashboard ──────────────────
+    # 302 so the browser actually navigates to /admin/ — otherwise
+    # relative asset paths (chaos-crew-admin.css etc.) resolve to /
+    # which has no handler and the page renders unstyled.
     @root path /
-    rewrite @root /admin/
+    redir @root /admin/ 302
 
     header {
         Access-Control-Allow-Origin *

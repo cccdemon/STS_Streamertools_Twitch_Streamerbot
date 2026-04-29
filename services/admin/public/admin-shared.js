@@ -196,10 +196,10 @@
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
     { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'gold' },
     { sep: true },
-    { href: '/giveaway/giveaway-overlay.html', label: 'GW OVERLAY', group: 'obs', obs: true },
-    { href: '/giveaway/giveaway-join.html',  label: 'JOIN ANIM',    group: 'obs', obs: true },
-    { href: '/alerts/chat.html',             label: 'HUD CHAT',     group: 'obs', obs: true },
-    { href: '/spacefight/spacefight.html',   label: 'RAUMKAMPF',    group: 'obs', obs: true },
+    { href: '/giveaway/giveaway-overlay.html',      label: 'GW OVERLAY', group: 'obs', obs: true },
+    { href: '/giveaway/giveaway-join.html?test=1',  label: 'JOIN ANIM',  group: 'obs', obs: true },
+    { href: '/alerts/chat.html?channel=justcallmedeimos', label: 'HUD CHAT', group: 'obs', obs: true },
+    { href: '/spacefight/spacefight.html?test=1',   label: 'RAUMKAMPF',  group: 'obs', obs: true },
   ];
 
   var currentPage = window.location.pathname.replace(/^\/+/, '');
