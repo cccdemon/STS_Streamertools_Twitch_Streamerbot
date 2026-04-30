@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SC Bodycam Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root { --cyan:#00d4ff; --text:#c8dce8; }
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-family:'Bebas Neue',sans-serif;}
+
+#scale-root{
+position:absolute;top:50%;left:50%;
+width:1920px;height:1080px;
+transform:translate(-50%,-50%) scale(var(--s,1));
+}
+
+#noise-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:1;transition:opacity .3s}
+#noise-canvas.hidden{opacity:0}
+
+#scanlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.25) 2px,rgba(0,0,0,.25) 4px);z-index:2;transition:opacity .3s}
+#scanlines.hidden{opacity:0}
+
+#vignette{position:absolute;inset:0;background:radial-gradient(ellipse,transparent 30%,rgba(0,0,0,.85));z-index:3;opacity:1;transition:.3s}
+#vignette.hidden{opacity:0}
+
+#hud{position:absolute;inset:0;z-index:10}
+
+.corner{position:absolute;width:48px;height:48px;opacity:0;animation:cIn .25s .2s forwards}
+.corner::before,.corner::after{content:'';position:absolute;background:var(--cyan)}
+.corner::before{width:100%;height:2px}
+.corner::after{width:2px;height:100%}
+.corner.tl{top:40px;left:40px}
+.corner.tr{top:40px;right:40px;transform:scaleX(-1)}
+.corner.bl{bottom:40px;left:40px;transform:scaleY(-1)}
+.corner.br{bottom:40px;right:40px;transform:scale(-1,-1)}
+@keyframes cIn{to{opacity:1}}
+
+#signal{position:absolute;top:48px;left:100px;display:flex;gap:3px;opacity:0;animation:fade .3s .3s forwards}
+.bar{width:5px;background:var(--cyan)}
+.bar:nth-child(1){height:8px}
+.bar:nth-child(2){height:14px}
+.bar:nth-child(3){height:20px}
+.bar:nth-child(4){height:26px}
+.bar.static{background:#f0a500}
+#signal-label{font-size:13px;margin-left:7px;color:var(--cyan)}
+#signal-label.static{color:#f0a500}
+
+#bodycam-label{
+position:absolute;top:44px;left:50%;
+transform:translateX(-50%);
+font-size:14px;letter-spacing:6px;
+color:var(--cyan);
+opacity:0;animation:fade .3s .3s forwards
+}
+
+#hud-data{position:absolute;bottom:48px;right:60px;opacity:0;animation:fade .3s .4s forwards}
+.hud-row{font-size:13px;color:rgba(200,220,232,.4)}
+.hud-row span{color:var(--cyan)}
+
+#conn-wrap{
+position:absolute;top:50%;left:50%;
+transform:translate(-50%,-50%);
+opacity:0;
+animation:fade .3s .2s forwards,fadeOut .3s 1.7s forwards
+}
+
+#conn-text{font-size:60px;color:var(--cyan)}
+#progress-track{width:400px;height:2px;background:rgba(0,212,255,.1)}
+#progress-fill{height:100%;width:0;background:var(--cyan);animation:progress 1.4s .2s forwards}
+
+@keyframes progress{to{width:100%}}
+@keyframes fade{to{opacity:1}}
+@keyframes fadeOut{to{opacity:0}}
+
+#name-block{
+position:absolute;bottom:90px;left:60px;
+opacity:0;animation:fade .3s .5s forwards
+}
+
+#player-name{font-size:72px;color:var(--text)}
+#player-name span{color:var(--cyan)}
+
+#accent-line{
+height:2px;width:0;background:var(--cyan);
+animation:line .4s .6s forwards
+}
+
+@keyframes line{to{width:300px}}
+
+#switching-to{font-size:14px;color:rgba(200,220,232,.5)}
+
+</style>
+</head>
+<body>
+
+<div id="scale-root">
+
+<canvas id="noise-canvas"></canvas>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<div id="hud">
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<div id="signal">
+<div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+<span id="signal-label">LINK</span>
+</div>
+
+<div id="bodycam-label">BODYCAM FEED</div>
+
+<div id="hud-data">
+<div class="hud-row">STATUS <span>ACTIVE</span></div>
+</div>
+
+<div id="name-block">
+<div id="switching-to">SWITCHING TO</div>
+<div id="player-name"></div>
+<div id="accent-line"></div>
+</div>
+</div>
+
+<div id="conn-wrap">
+<div id="conn-text">CONNECTING</div>
+<div id="progress-track"><div id="progress-fill"></div></div>
+</div>
+
+</div>
+
+<script>
+function fit(){
+const s=Math.min(window.innerWidth/1920,window.innerHeight/1080);
+document.getElementById('scale-root').style.setProperty('--s',s);
+}
+fit();window.addEventListener('resize',fit);
+
+function setPlayer(){
+const p=new URLSearchParams(location.search).get('player')||'Jazzz';
+const mid=Math.floor(p.length/2)||1;
+document.getElementById('player-name').innerHTML=
+p.slice(0,mid)+"<span>"+p.slice(mid)+"</span>";
+}
+setPlayer();
+
+const c=document.getElementById('noise-canvas');
+const ctx=c.getContext('2d');
+c.width=1920;c.height=1080;
+
+let run=true;
+function noise(){
+if(!run)return;
+const d=ctx.createImageData(1920,1080);
+for(let i=0;i<d.data.length;i+=4){
+const v=Math.random()*255;
+d.data[i]=v;
+d.data[i+1]=v;
+d.data[i+2]=v;
+d.data[i+3]=255;
+}
+ctx.putImageData(d,0,0);
+requestAnimationFrame(noise);
+}
+noise();
+
+setTimeout(()=>{
+run=false;
+c.classList.add('hidden');
+document.getElementById('scanlines').classList.add('hidden');
+document.getElementById('vignette').classList.add('hidden');
+document.getElementById('switching-to').style.display='none';
+document.querySelectorAll('.bar').forEach(b=>b.classList.add('static'));
+document.getElementById('signal-label').classList.add('static');
+},2000);
+</script>
+
+</body>
+</html>

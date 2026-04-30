@@ -1,0 +1,13 @@
+{
+  "name": "cc-gamescenes",
+  "version": "1.0.0",
+  "description": "Chaos Crew – Game scene overlays (bodycam, scene transitions)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev":   "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

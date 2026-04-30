@@ -40,6 +40,13 @@
         reverse_proxy admin:3005
     }
 
+    # ── Game Scenes ───────────────────────────────────────
+    # Static OBS overlays for in-game scene transitions (sc-bodycam.html, etc.)
+    handle /gamescenes/* {
+        uri strip_prefix /gamescenes
+        reverse_proxy gamescenes:3006
+    }
+
     # ── Bridge health (internal use only) ─────────────────
     handle /bridge/* {
         uri strip_prefix /bridge

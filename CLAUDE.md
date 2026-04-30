@@ -19,6 +19,7 @@ Dockerized microservices stack: Bridge + Giveaway + Spacefight + Alerts + Stats 
 | `alerts` | cc-alerts | 3003 | Follow/cheer/raid/shoutout overlays, Claude AI, WS |
 | `stats` | cc-stats | 3004 | Read-only aggregated stats from PostgreSQL, no WS |
 | `admin` | cc-admin | 3005 | Shared admin pages, aggregated health check, no WS |
+| `gamescenes` | cc-gamescenes | 3006 | Static OBS scene-transition overlays, no WS |
 | Caddy | cc-web | 80/443 | Reverse proxy, path-based routing to services |
 | Redis | cc-redis | 6379 | Ephemeral state (DB 0 = prod, DB 1 = tests) |
 | PostgreSQL | cc-postgres | 5432 | Persistent data |
@@ -34,6 +35,7 @@ All traffic goes through Caddy on port 80. Path prefix is stripped before proxyi
 | `/alerts/*` | alerts:3003 | REST + WS (`/alerts/ws`), HUD chat overlay |
 | `/stats/*` | stats:3004 | REST only |
 | `/admin/*` | admin:3005 | Static admin pages |
+| `/gamescenes/*` | gamescenes:3006 | Static scene overlays (e.g. `/gamescenes/sc-bodycam-jerichoramirez.html`) |
 | `/bridge/*` | bridge:3000 | Health only |
 | `/health` | admin:3005 | Aggregated health |
 | `/redis-ui/*` | redis-ui:8081 | Redis Commander |
@@ -97,6 +99,7 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 | Alert bar | `/alerts/alerts.html` |
 | Raid info | `/alerts/raid-info.html` |
 | Shoutout info | `/alerts/shoutout-info.html` |
+| Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
 
 ## REST API Endpoints
 
@@ -236,6 +239,22 @@ Bridge receives the event and routes it to the correct Redis channel.
 ## Data Storage
 - **Redis (ephemeral)**: giveaway open/closed, current keyword, banned users, watchsec/msgs per user, spacefight live/active flags, first chatter toggle, session ID, Twitch user cache
 - **PostgreSQL (persistent)**: `sessions`, `users` (giveaway winners, ticket counts), `spacefight_stats` (wins/losses), `spacefight_results` (fight history)
+
+## Known Issues (as of 2026-04-29)
+
+### Security — no auth on admin surfaces
+- WS admin commands (`gw_cmd`, `sf_cmd`) are accepted from any client reaching `/giveaway/ws` or `/spacefight/ws`. No authentication exists yet.
+- `POST /alerts/api/chat/send` and `POST /alerts/api/claude/summary` are public through Caddy — no token required.
+- **Planned fix**: `ADMIN_TOKEN` env var; WS `{ event: "cc_auth", token }` handshake before `handleAdminCmd`/`handleSfCmd`; `x-admin-token` header on mutation REST endpoints.
+
+### Routing bugs
+- `caddy/Caddyfile.ssl` proxies `/api/*` and `/health` to a nonexistent `api:3000` service. The non-SSL `caddy/Caddyfile` is correct — use it as the reference.
+- Spacefight public JS (`spacefight.js`, `spacefight-admin.js`) fetches root-relative `/api/spacefight/...` paths, which 404 through Caddy. Should be `/spacefight/api/spacefight/...`.
+
+### Data integrity
+- `spacefight_result` is handled by both the service WS handler and the Redis pub/sub subscriber — a result arriving on both paths is saved twice. No dedup key exists.
+- `closeGiveaway()` in `watchtime.js` increments lifetime `total_watch_sec`/`total_msgs` every call. Calling `gw_close` or `gw_reset` more than once for the same session double-counts totals. No `closed_at` guard.
+- `gw_draw_winner` runs `UPDATE users SET times_won = times_won + 1` without upserting first — winners added only via `gw_add_ticket` (Redis-only) are never written to PostgreSQL and the increment silently no-ops.
 
 ## Development
 

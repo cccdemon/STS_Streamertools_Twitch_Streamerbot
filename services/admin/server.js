@@ -21,6 +21,7 @@ const CFG = {
     spacefight: process.env.SPACEFIGHT_URL || 'http://spacefight:3002',
     alerts:     process.env.ALERTS_URL     || 'http://alerts:3003',
     stats:      process.env.STATS_URL      || 'http://stats:3004',
+    gamescenes: process.env.GAMESCENES_URL || 'http://gamescenes:3006',
   },
 };
 

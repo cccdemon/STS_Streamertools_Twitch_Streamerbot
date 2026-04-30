@@ -231,18 +231,20 @@ services:
     container_name: cc-admin
     restart: unless-stopped
     environment:
-      PORT:           "3005"
-      BRIDGE_URL:     "http://bridge:3000"
-      GIVEAWAY_URL:   "http://giveaway:3001"
-      SPACEFIGHT_URL: "http://spacefight:3002"
-      ALERTS_URL:     "http://alerts:3003"
-      STATS_URL:      "http://stats:3004"
+      PORT:            "3005"
+      BRIDGE_URL:      "http://bridge:3000"
+      GIVEAWAY_URL:    "http://giveaway:3001"
+      SPACEFIGHT_URL:  "http://spacefight:3002"
+      ALERTS_URL:      "http://alerts:3003"
+      STATS_URL:       "http://stats:3004"
+      GAMESCENES_URL:  "http://gamescenes:3006"
       TZ: Europe/Berlin
     depends_on:
       - giveaway
       - spacefight
       - alerts
       - stats
+      - gamescenes
     networks:
       - chaos-crew
     healthcheck:
@@ -251,6 +253,28 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  # ── Game Scenes ───────────────────────────────────────────
+  # Static OBS overlays for in-game scene transitions (bodycam, etc.)
+  gamescenes:
+    build:
+      context: ./services/gamescenes
+    container_name: cc-gamescenes
+    restart: unless-stopped
+    environment:
+      PORT: "3006"
+      TZ: Europe/Berlin
+    networks:
+      - chaos-crew
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -278,6 +302,7 @@ services:
       - alerts
       - stats
       - admin
+      - gamescenes
     networks:
       - chaos-crew
     logging:
