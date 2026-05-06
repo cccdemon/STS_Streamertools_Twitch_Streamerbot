@@ -15,7 +15,7 @@ Dockerized microservices stack: Bridge + Giveaway + Spacefight + Alerts + Stats 
 |---|---|---|---|
 | `bridge` | cc-bridge | 3000 | Streamerbot WS client → Redis pub/sub fan-out |
 | `giveaway` | cc-giveaway | 3001 | Watchtime engine, coin calc, winner draw, WS admin |
-| `spacefight` | cc-spacefight | 3002 | Fight engine, leaderboard, WS admin |
+| `spacefight` | cc-spacefight | 3002 | Fight engine, leaderboard, WS admin, pixel-ship arena overlay |
 | `alerts` | cc-alerts | 3003 | Follow/cheer/raid/shoutout overlays, Claude AI, WS |
 | `stats` | cc-stats | 3004 | Read-only aggregated stats from PostgreSQL, no WS |
 | `admin` | cc-admin | 3005 | Shared admin pages, aggregated health check, no WS |
@@ -68,7 +68,9 @@ Streamerbot (WS :9090)
 - `services/giveaway/public/giveaway-shared.js` — Shared lib for giveaway pages
 - `services/giveaway/public/giveaway-admin.js` — Giveaway admin panel logic
 - `services/spacefight/server.js` — Spacefight REST + WS + fight engine
+- `services/spacefight/public/spacefight.js` — Pixel-ship arena renderer (canvas particles + DOM ships, sprite sheets, RAF loop)
 - `services/spacefight/public/spacefight-shared.js` — Shared lib for spacefight pages
+- `services/spacefight/public/assets/ships/` — Per-ship-class sprite sheets (PNG, 32×32 × 12 frames); contract in folder README
 - `services/alerts/server.js` — Alert overlays REST + WS + Claude AI
 - `services/alerts/public/alerts-shared.js` — Shared lib for alert overlays
 - `services/alerts/public/chat.js` — HUD chat overlay logic
@@ -181,6 +183,22 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 - All services use `log(tag, ...args)` / `logErr(tag, ...args)` helpers — never raw `console.log`
 - `sanitizeUsername(s)` — lowercase, alphanumeric + underscore, max 25 chars — must be consistent C# ↔ JS
 
+## Spacefight Overlay (`services/spacefight/`)
+The OBS overlay (`/spacefight/spacefight.html`, 640×200, transparent) is a pixel-ship arena, not a text fight card. Both pilots are flying pixel-art ships that drift, fire projectiles, recoil on hit, and explode on death. Combat outcome still comes from the existing 5-round `runFight` engine in `spacefight.js` — only the renderer changed; the fight queue, cooldown, WS protocol, REST API, and admin commands are untouched.
+
+| Layer | Tech | Purpose |
+|---|---|---|
+| Background | Canvas `#sf-canvas` | Parallax starfield (3 depths) |
+| Ships | DOM `<div class="ship">` with sprite-sheet `background-position` | GPU-translated; name label + HP bar are sibling DOM elements |
+| Particles | Same canvas as background | Projectiles, muzzle flashes, impact sparks, explosion sparks, screen shake |
+
+A single `requestAnimationFrame` loop drives starfield motion, ship state interpolation (spring easing toward target position), sprite frame animation, and canvas particles. Round events (`hit_a/hit_d/miss_a/miss_d/kill_a/kill_d`) fire on `setTimeout` schedule and mutate ship state; the loop interpolates between them.
+
+### Sprite sheets
+Per-ship PNGs live in `services/spacefight/public/assets/ships/<slug>.png`. Slug is the lowercased ship class with non-alphanumerics → `-` (e.g. `ORIGIN 300I` → `origin-300i.png`). Sheet format: 12 frames × 32×32 px, horizontal strip — idle 0–3, thrust 4–6, hit 7, explosion 8–11. Sheets render at 2× scale (64×64 displayed) with `image-rendering: pixelated`. Missing or failed-to-load sheets fall back to a procedural placeholder colored from the class-name hash, so the overlay never breaks. Full contract: `services/spacefight/public/assets/ships/README.md`.
+
+Defender ships are mirrored at render time via `transform: scaleX(-1)` — ship the right-facing variant only.
+
 ## Alert Overlays (`services/alerts/`)
 All three overlays connect to alerts service WS via `/alerts/ws`.
 
@@ -240,7 +258,7 @@ Bridge receives the event and routes it to the correct Redis channel.
 - **Redis (ephemeral)**: giveaway open/closed, current keyword, banned users, watchsec/msgs per user, spacefight live/active flags, first chatter toggle, session ID, Twitch user cache
 - **PostgreSQL (persistent)**: `sessions`, `users` (giveaway winners, ticket counts), `spacefight_stats` (wins/losses), `spacefight_results` (fight history)
 
-## Known Issues (as of 2026-04-29)
+## Known Issues (as of 2026-05-06)
 
 ### Security — no auth on admin surfaces
 - WS admin commands (`gw_cmd`, `sf_cmd`) are accepted from any client reaching `/giveaway/ws` or `/spacefight/ws`. No authentication exists yet.
