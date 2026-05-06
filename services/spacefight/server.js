@@ -180,7 +180,6 @@ async function handleSfCmd(send, msg) {
       const u = sanitizeUsername(msg.user);
       if (!u) break;
       await pg.query('DELETE FROM spacefight_stats WHERE username=$1', [u]);
-      await pg.query('DELETE FROM spacefight_results WHERE winner=$1 OR loser=$1', [u]);
       await redis.zrem(SF_INDEX, u);
       send({ event: 'sf_ack', type: 'player_deleted', user: u });
       log('SF', 'Player deleted:', u);
@@ -219,14 +218,16 @@ async function saveSpacefightResult(result) {
       ON CONFLICT (username) DO UPDATE SET wins = spacefight_stats.wins + 1, last_fight = NOW()
       RETURNING wins
     `, [winner, result.winner || winner]);
-    await client.query(`
+    const loserRow = await client.query(`
       INSERT INTO spacefight_stats (username, display, wins, losses, last_fight)
       VALUES ($1,$2,0,1,NOW())
       ON CONFLICT (username) DO UPDATE SET losses = spacefight_stats.losses + 1, last_fight = NOW()
+      RETURNING wins
     `, [loser, result.loser || loser]);
     await client.query('COMMIT');
 
     await redis.zadd(SF_INDEX, winnerRow.rows[0]?.wins || 0, winner);
+    await redis.zadd(SF_INDEX, loserRow.rows[0]?.wins  || 0, loser);
     log('SF', `${winner} defeated ${loser}`);
 
     const w = result.winner || winner;
@@ -356,7 +357,10 @@ app.get('/api/spacefight/history', async (req, res) => {
 app.get('/api/spacefight/player/:username', async (req, res) => {
   try {
     const u = sanitizeUsername(req.params.username);
-    const result = await pg.query('SELECT * FROM spacefight_stats WHERE username=$1', [u]);
+    const result = await pg.query(
+      `SELECT *, CASE WHEN wins+losses > 0 THEN ROUND(wins::numeric/(wins+losses)*100) ELSE 0 END AS ratio
+       FROM spacefight_stats WHERE username=$1`, [u]
+    );
     if (!result.rows.length) return res.status(404).json({ error: 'not found' });
     const rank = await redis.zrevrank(SF_INDEX, u);
     res.json({ ...result.rows[0], rank: rank !== null ? rank + 1 : null });
