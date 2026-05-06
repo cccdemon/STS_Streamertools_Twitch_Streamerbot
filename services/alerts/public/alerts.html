@@ -588,7 +588,8 @@
 
 <script>
 // Netzwerk-Setup — derived from location so the overlay works on any host.
-// Streamer.bot lives on the streamer's LAN box; override via ?sb=ws://host:port if needed.
+// Streamer.bot runs on its own dedicated server (192.168.178.39:9090), separate
+// from the webserver LXC; override via ?sb=ws://host:port if it ever moves.
 const STREAMERBOT_WS_URL = new URLSearchParams(location.search).get('sb') || 'ws://192.168.178.39:9090';
 const WEBSERVER_BASE_URL = location.protocol + '//' + location.host;
 const GIVEAWAY_WS_URL    = WEBSERVER_BASE_URL.replace(/^http/, 'ws') + '/giveaway/ws';
