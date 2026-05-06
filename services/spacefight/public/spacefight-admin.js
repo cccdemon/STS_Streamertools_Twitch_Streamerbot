@@ -146,7 +146,7 @@ function updateToggleButtons() {
 // ── Leaderboard ──────────────────────────────────────────
 function loadLeaderboard() {
   var limit = CC.validate.sanitizeInt(CFG.wofLimit, 5, 50, 10);
-  fetch('/api/spacefight/leaderboard?limit=' + limit)
+  fetch('api/spacefight/leaderboard?limit=' + limit)
     .then(function(r){ return r.json(); })
     .then(renderLeaderboard)
     .catch(function(){
@@ -182,7 +182,7 @@ function renderLeaderboard(data) {
 
 // ── History ──────────────────────────────────────────────
 function loadHistory() {
-  fetch('/api/spacefight/history?limit=20')
+  fetch('api/spacefight/history?limit=20')
     .then(function(r){ return r.json(); })
     .then(renderHistory)
     .catch(function(){
@@ -219,7 +219,7 @@ function searchPlayer() {
 
 function searchPlayerByName(username) {
   document.getElementById('player-search').value = username;
-  fetch('/api/spacefight/player/' + encodeURIComponent(username))
+  fetch('api/spacefight/player/' + encodeURIComponent(username))
     .then(function(r){ return r.json(); })
     .then(function(p) {
       if (!p || p.error) {

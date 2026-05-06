@@ -153,31 +153,19 @@ function runFight(aName, dName) {
 
   showFight(aName, dName, shipA, shipD, rounds, winner, loser, function() {
     if (ws && ws.readyState === 1) ws.send(JSON.stringify(result));
-    saveResult(result);
-  });
-}
-
-// ── API – Ergebnis speichern ──────────────────────────────
-function saveResult(result) {
-  fetch('/api/spacefight', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(result)
-  }).catch(function(e) {
-    console.warn('[SF] API save error:', e.message);
   });
 }
 
 // ── API – Wall of Fame laden ──────────────────────────────
 function loadWoF(cb) {
-  fetch('/api/spacefight/leaderboard?limit=10')
+  fetch('api/spacefight/leaderboard?limit=10')
     .then(function(r){ return r.json(); })
     .then(cb)
     .catch(function(){ cb([]); });
 }
 
 function loadPlayerRank(username, cb) {
-  fetch('/api/spacefight/player/' + encodeURIComponent(username.toLowerCase()))
+  fetch('api/spacefight/player/' + encodeURIComponent(username.toLowerCase()))
     .then(function(r){ return r.json(); })
     .then(cb)
     .catch(function(){ cb(null); });
