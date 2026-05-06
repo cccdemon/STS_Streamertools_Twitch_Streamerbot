@@ -249,13 +249,16 @@ class WatchtimeEngine {
   // Giveaway schließen – Snapshot in PG speichern
   async closeGiveaway(sessionId) {
     await this.redis.set(K.gwOpen(), 'false');
+    if (!sessionId) return;
 
     const participants = await this.getAllParticipants();
-    if (!sessionId || participants.length === 0) return;
+    const active = participants.filter(p => !p.banned);
+    const totalCoins = active.reduce((s, p) => s + p.coins, 0);
 
     const client = await this.pg.connect();
     try {
       await client.query('BEGIN');
+
       for (const p of participants) {
         await client.query(`
           INSERT INTO session_participants (session_id, username, display, watch_sec, msgs, coins, banned)
@@ -267,27 +270,29 @@ class WatchtimeEngine {
             banned    = EXCLUDED.banned
         `, [sessionId, p.username, p.username, p.watchSec, p.msgs || 0, p.coins, p.banned]);
       }
-      const active = participants.filter(p => !p.banned);
-      const totalCoins = active.reduce((s, p) => s + p.coins, 0);
-      await client.query(`
+
+      // closed_at guard prevents double-counting lifetime stats on repeat close
+      const upd = await client.query(`
         UPDATE sessions SET
           total_participants = $1,
           total_coins = $2,
           closed_at = NOW()
-        WHERE id = $3
+        WHERE id = $3 AND closed_at IS NULL
       `, [active.length, Math.round(totalCoins * 10000) / 10000, sessionId]);
 
-      // Lifetime-Stats aktualisieren
-      for (const p of participants) {
-        await client.query(`
-          INSERT INTO users (username, display, total_watch_sec, total_msgs, last_seen)
-          VALUES ($1, $2, $3, $4, NOW())
-          ON CONFLICT (username) DO UPDATE SET
-            total_watch_sec = users.total_watch_sec + $3,
-            total_msgs      = users.total_msgs + $4,
-            last_seen = NOW()
-        `, [p.username, p.username, p.watchSec, p.msgs || 0]);
+      if (upd.rowCount > 0) {
+        for (const p of participants) {
+          await client.query(`
+            INSERT INTO users (username, display, total_watch_sec, total_msgs, last_seen)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (username) DO UPDATE SET
+              total_watch_sec = users.total_watch_sec + $3,
+              total_msgs      = users.total_msgs + $4,
+              last_seen = NOW()
+          `, [p.username, p.username, p.watchSec, p.msgs || 0]);
+        }
       }
+
       await client.query('COMMIT');
       console.log(`[WTE] Session ${sessionId} closed, ${participants.length} participants`);
     } catch(e) {
@@ -295,6 +300,7 @@ class WatchtimeEngine {
       console.error('[WTE] closeGiveaway error:', e.message);
     } finally {
       client.release();
+      await this.redis.del(K.gwSessionId());
     }
   }
 
