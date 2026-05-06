@@ -75,6 +75,7 @@
         Access-Control-Allow-Origin *
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         X-Frame-Options SAMEORIGIN
+        Cache-Control "no-cache, must-revalidate"
         -Server
     }
 

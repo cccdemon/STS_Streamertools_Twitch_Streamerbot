@@ -77,6 +77,7 @@
         Access-Control-Allow-Methods "GET, POST, OPTIONS"
         X-Frame-Options SAMEORIGIN
         Strict-Transport-Security "max-age=31536000"
+        Cache-Control "no-cache, must-revalidate"
         -Server
     }
 
