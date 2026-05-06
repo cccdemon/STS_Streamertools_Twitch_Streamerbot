@@ -238,170 +238,114 @@ html, body { background:transparent; width:640px; height:200px; overflow:hidden;
 #arena {
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 0 8px 8px;
-  gap: 6px;
-}
-
-/* ── Fight Card ──────────────────────────────────────────── */
-.fight-card {
-  background: rgba(4,6,10,0.94);
-  border: 1px solid rgba(0,212,255,0.2);
-  border-left: 2px solid var(--cyan);
-  padding: 10px 16px;
-  position: relative;
   overflow: hidden;
-  transform: translateY(120%);
-  opacity: 0;
 }
 
-.fight-card::before {
-  content: '';
-  position: absolute;
-  top: 0; right: 0;
-  width: 8px; height: 8px;
-  border-top: 1px solid rgba(0,212,255,0.5);
-  border-right: 1px solid rgba(0,212,255,0.5);
-}
-
-.fight-card::after {
-  content: '';
+/* ── Arena Canvas (starfield + projectiles + explosions) ── */
+#sf-canvas {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg, transparent, transparent 3px,
-    rgba(0,212,255,0.012) 3px, rgba(0,212,255,0.012) 4px
-  );
+  width: 640px;
+  height: 200px;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.sf-arena-fade {
+  position: absolute;
+  inset: 0;
+  background: rgba(4,6,10,0);
+  pointer-events: none;
+  transition: background 0.35s ease-in;
+}
+.sf-arena-fade.exit { background: rgba(4,6,10,0.95); }
+
+/* ── Ship (DOM, GPU-translated) ──────────────────────────── */
+.ship {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  left: 0;
+  top: 0;
+  transform: translate3d(0,0,0);
+  will-change: transform, opacity;
   pointer-events: none;
 }
 
-.fight-card.enter { animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) forwards; }
-.fight-card.exit  { animation: slideDown 0.35s ease-in forwards; }
+.ship.dead { opacity: 0; transition: opacity 0.4s ease-out; }
 
-@keyframes slideUp   { from{transform:translateY(120%);opacity:0;} to{transform:translateY(0);opacity:1;} }
-@keyframes slideDown { from{transform:translateY(0);opacity:1;}   to{transform:translateY(120%);opacity:0;} }
-
-/* ── Combatants Row ──────────────────────────────────────── */
-.combatants {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
+.ship-sprite {
+  position: absolute;
+  left: 0; top: 0;
+  width: 64px;
+  height: 64px;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 0 6px rgba(0,212,255,0.0));
+  transition: filter 0.15s linear;
 }
 
-.pilot {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 200px;
-}
+.ship.attacker .ship-sprite { transform: scaleX(1); }
+.ship.defender .ship-sprite { transform: scaleX(-1); }
 
-.pilot-name {
+.ship.attacker .ship-sprite { filter: drop-shadow(0 0 4px rgba(0,212,255,0.45)); }
+.ship.defender .ship-sprite { filter: drop-shadow(0 0 4px rgba(240,165,0,0.4)); }
+
+.ship.hit .ship-sprite { filter: brightness(2.5) drop-shadow(0 0 8px #fff) saturate(0.4); }
+
+/* ── Ship label (name + class) ───────────────────────────── */
+.ship-label {
+  position: absolute;
+  left: 50%;
+  top: -22px;
+  transform: translateX(-50%);
   font-family: 'Rajdhani', sans-serif;
   font-weight: 700;
-  font-size: 20px;
+  font-size: 14px;
   letter-spacing: 1px;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: center;
+  line-height: 1;
 }
 
-.pilot.attacker .pilot-name { color: var(--cyan); text-shadow: 0 0 10px rgba(0,212,255,0.4); }
-.pilot.defender .pilot-name { color: var(--gold); text-shadow: 0 0 10px rgba(240,165,0,0.3); text-align:right; }
+.ship.attacker .ship-label { color: var(--cyan); text-shadow: 0 0 6px rgba(0,212,255,0.55); }
+.ship.defender .ship-label { color: var(--gold); text-shadow: 0 0 6px rgba(240,165,0,0.5); }
 
-.pilot-ship {
+.ship-class {
+  display: block;
+  margin-top: 1px;
   font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  color: rgba(200,220,232,0.4);
+  font-size: 8px;
   letter-spacing: 1px;
+  color: rgba(200,220,232,0.55);
+  text-shadow: none;
 }
 
-.pilot.defender .pilot-ship { text-align: right; }
-
-.vs-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
+/* ── Ship HP bar (under sprite) ──────────────────────────── */
+.ship-hp-wrap {
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 60px;
+  height: 4px;
+  transform: translateX(-50%);
+  background: rgba(200,220,232,0.12);
+  border: 1px solid rgba(200,220,232,0.18);
 }
 
-.vs-text {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 18px;
-  color: rgba(200,220,232,0.3);
-  letter-spacing: 2px;
-}
-
-.vs-icon { font-size: 22px; }
-
-/* ── HP Bars ─────────────────────────────────────────────── */
-.hp-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.hp-bar-wrap {
-  flex: 1;
-  height: 6px;
-  background: rgba(200,220,232,0.08);
-  position: relative;
-  overflow: hidden;
-}
-
-.hp-bar {
+.ship-hp {
   height: 100%;
   width: 100%;
-  transition: width 0.4s ease-out;
-}
-
-.hp-bar.attacker { background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.4)); }
-.hp-bar.defender { background: linear-gradient(90deg, rgba(240,165,0,0.4), var(--gold)); }
-
-.hp-bar-wrap.reversed { direction: rtl; }
-
-.hp-label {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 9px;
-  color: rgba(200,220,232,0.3);
-  letter-spacing: 1px;
-  min-width: 24px;
-  text-align: center;
-}
-
-/* ── Combat Log ──────────────────────────────────────────── */
-.combat-log {
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 11px;
-  color: rgba(200,220,232,0.6);
-  letter-spacing: 0.5px;
-  min-height: 16px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.combat-log .hit-a  { color: var(--cyan); }
-.combat-log .hit-d  { color: var(--gold); }
-.combat-log .winner { font-size: 13px; letter-spacing: 1px; }
-.combat-log .winner.cyan { color: var(--cyan); text-shadow: 0 0 10px rgba(0,212,255,0.5); }
-.combat-log .winner.gold { color: var(--gold); text-shadow: 0 0 10px rgba(240,165,0,0.4); }
-
-/* ── Drain Bar ───────────────────────────────────────────── */
-.drain-bar {
-  position: absolute;
-  bottom: 0; left: 0;
-  height: 2px;
-  width: 100%;
   transform-origin: left center;
-  background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.1));
+  transition: width 0.35s ease-out, background 0.2s linear;
 }
 
-.drain-bar.running { animation: drain linear forwards; }
-@keyframes drain { from{transform:scaleX(1);} to{transform:scaleX(0);} }
+.ship.attacker .ship-hp { background: linear-gradient(90deg, var(--cyan), rgba(0,212,255,0.5)); }
+.ship.defender .ship-hp { background: linear-gradient(90deg, rgba(240,165,0,0.5), var(--gold)); }
+
+.ship-hp.low { filter: brightness(0.85) hue-rotate(-20deg); }
 
 /* ── Wall of Fame ────────────────────────────────────────── */
 #wof {

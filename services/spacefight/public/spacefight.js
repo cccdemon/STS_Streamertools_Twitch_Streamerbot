@@ -40,26 +40,6 @@ var SHIPS = [
   { name: 'AURORA',        power: 1 },
 ];
 
-var EVENTS_HIT = [
-  '{A} feuert Railgun auf {D}! -{DMG} HP',
-  '{A} trifft mit Laser-Salve! -{DMG} HP',
-  '{A} umgeht Schilde von {D}! -{DMG} HP',
-  '{A} zielt auf Triebwerk! -{DMG} HP',
-  '{A} dreht auf und feuert! -{DMG} HP',
-];
-var EVENTS_MISS = [
-  '{D} weicht aus! Verfehlt.',
-  '{D} aktiviert ECM! Gestoert.',
-  'Schuss geht ins Leere.',
-  '{D} dreht hinter Mond!',
-];
-var EVENTS_WIN = [
-  '{W} GEWINNT! {L} treibt antriebslos.',
-  'SIEG: {W}! {L} kaputt.',
-  '{W} vernichtet {L}! GG.',
-  '{W} secured the kill! {L} down.',
-];
-
 // ── WebSocket ─────────────────────────────────────────────
 function connect() {
   if (TEST_MODE) return;
@@ -266,94 +246,544 @@ function toggleWoF() {
   else showWoF(null);
 }
 
-// ── Render ────────────────────────────────────────────────
-function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
-  var arena = document.getElementById('arena');
-  var card  = document.createElement('div');
-  card.className = 'fight-card';
-  card.innerHTML =
-    '<div class="combatants">' +
-      '<div class="pilot attacker"><div class="pilot-name">' + esc(aName.toUpperCase()) + '</div>' +
-        '<div class="pilot-ship">' + esc(shipA.name) + '</div></div>' +
-      '<div class="vs-block"><div class="vs-icon">&#x2694;</div><div class="vs-text">VS</div></div>' +
-      '<div class="pilot defender"><div class="pilot-name">' + esc(dName.toUpperCase()) + '</div>' +
-        '<div class="pilot-ship">' + esc(shipD.name) + '</div></div>' +
-    '</div>' +
-    '<div class="hp-row">' +
-      '<span class="hp-label fc-hp-a-lbl">100</span>' +
-      '<div class="hp-bar-wrap"><div class="hp-bar attacker fc-hp-a" style="width:100%"></div></div>' +
-      '<span class="hp-label" style="color:rgba(200,220,232,0.2)">HP</span>' +
-      '<div class="hp-bar-wrap reversed"><div class="hp-bar defender fc-hp-d" style="width:100%"></div></div>' +
-      '<span class="hp-label fc-hp-d-lbl">100</span>' +
-    '</div>' +
-    '<div class="combat-log fc-clog">KAMPF BEGINNT...</div>' +
-    '<div class="drain-bar fc-drain-bar"></div>';
+// ── Arena Renderer (pixel-ship combat) ────────────────────
+// Layered scene drawn each frame in a single RAF loop:
+//   Canvas: starfield (3 parallax layers) + projectiles + explosion sparks + screen shake
+//   DOM:    ship sprites (GPU-translated <img>), name labels, HP bars
+// Ship sprites loaded from public/assets/ships/<slug>.png as a horizontal
+// 12-frame sheet (32x32 per frame). Missing sheets fall back to a procedural
+// placeholder so the overlay never breaks.
 
-  arena.appendChild(card);
+var ARENA_W = 640, ARENA_H = 200;
+var SHIP_FRAME = 32, SHIP_SCALE = 2, SHIP_DISPLAY = SHIP_FRAME * SHIP_SCALE; // 64
+var FRAMES_IDLE   = [0,1,2,3];
+var FRAMES_THRUST = [4,5,6];
+var FRAME_HIT     = 7;
+var FRAMES_DEAD   = [8,9,10,11];
+var FRAME_IDLE_MS = 120, FRAME_DEAD_MS = 80;
 
-  requestAnimationFrame(function() { requestAnimationFrame(function() {
-    card.classList.add('enter');
-    var delay = 500;
-    rounds.forEach(function(r, i) {
-      setTimeout(function() {
-        updateHP(card, r.hp_a, r.hp_d);
-        updateLog(card, r, aName, dName, winner, loser, i === rounds.length - 1);
-      }, delay);
-      delay += 900;
+var spriteCache = {}; // shipName(lower) -> { ready, image, frames, isPlaceholder }
+
+function shipSlug(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function loadSpriteSheet(shipName) {
+  var key = shipSlug(shipName);
+  if (spriteCache[key]) return spriteCache[key];
+  var entry = { ready: false, image: null, frames: 12, isPlaceholder: false };
+  spriteCache[key] = entry;
+  var img = new Image();
+  img.onload = function() {
+    entry.image = img;
+    entry.frames = Math.max(1, Math.floor(img.width / SHIP_FRAME));
+    entry.ready = true;
+  };
+  img.onerror = function() {
+    entry.image = makePlaceholderSheet(shipName);
+    entry.frames = 12;
+    entry.isPlaceholder = true;
+    entry.ready = true;
+  };
+  img.src = 'assets/ships/' + key + '.png';
+  return entry;
+}
+
+function makePlaceholderSheet(shipName) {
+  // Procedural pixel-ship: deterministic chevron silhouette colored from a
+  // hash of the ship name so each class is visually distinct on day 1.
+  var h = 0, s = String(shipName);
+  for (var i = 0; i < s.length; i++) { h = ((h<<5)-h + s.charCodeAt(i))|0; }
+  var hue = (h >>> 0) % 360;
+  var hull   = 'hsl(' + hue + ',70%,55%)';
+  var hullDk = 'hsl(' + hue + ',60%,32%)';
+  var glow   = 'hsl(' + ((hue+30)%360) + ',95%,68%)';
+  var thrust = 'hsl(' + ((hue+180)%360) + ',95%,60%)';
+
+  var c = document.createElement('canvas');
+  c.width = SHIP_FRAME * 12; c.height = SHIP_FRAME;
+  var ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  function drawShip(fx, jitter, thrustOn, hitFlash, deadStage) {
+    var ox = fx * SHIP_FRAME;
+    if (deadStage > 0) {
+      // explosion frames: expanding ring of pixels
+      var cx = ox + 16, cy = 16;
+      var rings = deadStage; // 1..4
+      ctx.fillStyle = 'hsl(' + (40 - rings*8) + ',95%,' + (62 - rings*8) + '%)';
+      for (var a = 0; a < 24; a++) {
+        var ang = (a/24) * Math.PI * 2;
+        var rad = rings * 3 + (a % 2);
+        var px = Math.round(cx + Math.cos(ang)*rad);
+        var py = Math.round(cy + Math.sin(ang)*rad);
+        if (px >= ox && px < ox+SHIP_FRAME && py >= 0 && py < SHIP_FRAME) {
+          ctx.fillRect(px, py, 2, 2);
+        }
+      }
+      if (rings <= 2) {
+        ctx.fillStyle = 'hsl(50,95%,80%)';
+        ctx.fillRect(cx-2, cy-2, 4, 4);
+      }
+      return;
+    }
+    // body: chevron pointing right
+    ctx.fillStyle = hullDk;
+    ctx.fillRect(ox+6, 12+jitter, 18, 8);
+    ctx.fillStyle = hull;
+    ctx.fillRect(ox+8, 13+jitter, 14, 6);
+    // nose
+    ctx.fillStyle = hull;
+    ctx.fillRect(ox+22, 14+jitter, 4, 4);
+    ctx.fillRect(ox+26, 15+jitter, 2, 2);
+    // wings
+    ctx.fillStyle = hullDk;
+    ctx.fillRect(ox+10, 8+jitter,  6, 4);
+    ctx.fillRect(ox+10, 20+jitter, 6, 4);
+    // cockpit
+    ctx.fillStyle = glow;
+    ctx.fillRect(ox+14, 14+jitter, 3, 3);
+    // thruster
+    if (thrustOn) {
+      ctx.fillStyle = thrust;
+      ctx.fillRect(ox+2, 14+jitter, 5, 4);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(ox+4, 15+jitter, 2, 2);
+    } else {
+      ctx.fillStyle = thrust;
+      ctx.fillRect(ox+5, 15+jitter, 2, 2);
+    }
+    if (hitFlash) {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(ox+6, 12+jitter, 18, 8);
+    }
+  }
+
+  // 0..3 idle (subtle thruster jitter)
+  drawShip(0, 0, false, false, 0);
+  drawShip(1, 0, true,  false, 0);
+  drawShip(2, 0, false, false, 0);
+  drawShip(3, 0, true,  false, 0);
+  // 4..6 thrust forward
+  drawShip(4, 0, true, false, 0);
+  drawShip(5, 0, true, false, 0);
+  drawShip(6, 0, true, false, 0);
+  // 7 hit flash
+  drawShip(7, 0, false, true, 0);
+  // 8..11 explosion
+  drawShip(8,  0, false, false, 1);
+  drawShip(9,  0, false, false, 2);
+  drawShip(10, 0, false, false, 3);
+  drawShip(11, 0, false, false, 4);
+  return c;
+}
+
+// ── Render state ─────────────────────────────────────────
+var arenaState = null;
+
+function newShipState(side, displayName, shipName, homeX, homeY) {
+  return {
+    side: side, // 'attacker' | 'defender'
+    name: displayName,
+    shipName: shipName,
+    sprite: loadSpriteSheet(shipName),
+    x: homeX + (side === 'attacker' ? -ARENA_W : ARENA_W) * 0.6, // start off-screen
+    y: homeY,
+    homeX: homeX, homeY: homeY,
+    targetX: homeX, targetY: homeY,
+    bobPhase: Math.random() * Math.PI * 2,
+    rot: 0,
+    hp: 100, hpDisplay: 100,
+    mode: 'idle', modeUntil: 0,
+    frame: 0, frameTimer: 0,
+    el: null, hpEl: null
+  };
+}
+
+function buildShipDom(arena, ship) {
+  var d = document.createElement('div');
+  d.className = 'ship ' + ship.side;
+  var label = '<div class="ship-label">' + esc(ship.name.toUpperCase()) +
+              '<span class="ship-class">' + esc(ship.shipName) + '</span></div>';
+  var spriteEl = '<div class="ship-sprite"></div>';
+  var hp = '<div class="ship-hp-wrap"><div class="ship-hp"></div></div>';
+  d.innerHTML = label + spriteEl + hp;
+  arena.appendChild(d);
+  ship.el      = d;
+  ship.spriteEl = d.querySelector('.ship-sprite');
+  ship.hpEl    = d.querySelector('.ship-hp');
+  return d;
+}
+
+function spawnProjectile(state, fromShip, toShip, willHit) {
+  var startX = fromShip.x + (fromShip.side === 'attacker' ? 22 : -22);
+  var startY = fromShip.y;
+  var travelMs = 320;
+  var endX = toShip.x + (toShip.side === 'attacker' ? 22 : -22);
+  var endY = toShip.y;
+  if (!willHit) {
+    // miss: aim past the target
+    endY += (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random()*8);
+    endX += (fromShip.side === 'attacker' ? 80 : -80);
+    travelMs = 480;
+  }
+  state.projectiles.push({
+    x: startX, y: startY,
+    vx: (endX - startX) / travelMs,
+    vy: (endY - startY) / travelMs,
+    color: fromShip.side === 'attacker' ? '#00d4ff' : '#f0a500',
+    life: travelMs + 200, age: 0, trail: []
+  });
+  // muzzle flash
+  state.flashes.push({ x: startX, y: startY, color: fromShip.side==='attacker'?'#9af3ff':'#ffd680', life: 110, age: 0 });
+}
+
+function spawnImpact(state, ship, dmg) {
+  var n = Math.min(28, 10 + Math.floor(dmg * 0.6));
+  for (var i = 0; i < n; i++) {
+    var ang = Math.random() * Math.PI * 2;
+    var spd = 0.04 + Math.random() * 0.14;
+    state.sparks.push({
+      x: ship.x, y: ship.y,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd,
+      life: 380 + Math.random()*220, age: 0,
+      color: ship.side === 'attacker' ? '#9af3ff' : '#ffd680'
     });
-
-    var db = card.querySelector('.fc-drain-bar');
-    if (db) { db.style.animationDuration = (delay+1000)+'ms'; db.classList.add('running'); }
-
-    setTimeout(function() {
-      card.classList.remove('enter');
-      card.classList.add('exit');
-      setTimeout(function() {
-        if (card.parentNode) card.parentNode.removeChild(card);
-        if (typeof onDone === 'function') onDone();
-        setTimeout(function() { showWoF(winner); }, 500);
-        nextFight();
-      }, 380);
-    }, delay + 1200);
-  }); });
+  }
+  state.shake = Math.min(6, state.shake + 1.2 + dmg * 0.06);
 }
 
-function updateHP(card, hpA, hpD) {
-  var bA = card.querySelector('.fc-hp-a');
-  var bD = card.querySelector('.fc-hp-d');
-  if (bA) bA.style.width = Math.max(0,hpA)+'%';
-  if (bD) bD.style.width = Math.max(0,hpD)+'%';
-  var lA = card.querySelector('.fc-hp-a-lbl');
-  var lD = card.querySelector('.fc-hp-d-lbl');
-  if (lA) lA.textContent = Math.max(0,hpA);
-  if (lD) lD.textContent = Math.max(0,hpD);
+function spawnExplosion(state, ship) {
+  for (var i = 0; i < 36; i++) {
+    var ang = Math.random() * Math.PI * 2;
+    var spd = 0.05 + Math.random() * 0.22;
+    state.sparks.push({
+      x: ship.x, y: ship.y,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 0.02,
+      life: 600 + Math.random()*400, age: 0,
+      color: i < 12 ? '#fff8c0' : (i < 24 ? '#ffae3a' : '#ff5530')
+    });
+  }
+  state.shake = 6;
 }
 
-function updateLog(card, round, aName, dName, winner, loser, isFinal) {
-  var log = card.querySelector('.fc-clog');
-  if (!log) return;
+function initStarfield() {
+  var stars = [];
+  for (var i = 0; i < 80; i++) {
+    var depth = i % 3; // 0 = far, 2 = near
+    stars.push({
+      x: Math.random() * ARENA_W,
+      y: Math.random() * ARENA_H,
+      depth: depth,
+      v: 8 + depth * 22, // px/sec
+      size: depth === 2 ? 2 : 1,
+      alpha: 0.25 + depth * 0.25
+    });
+  }
+  return stars;
+}
+
+function arenaTick(state, dt) {
+  // ─ stars ─
+  var s = state.stars;
+  for (var i = 0; i < s.length; i++) {
+    s[i].x -= s[i].v * dt / 1000;
+    if (s[i].x < -2) { s[i].x = ARENA_W + 2; s[i].y = Math.random() * ARENA_H; }
+  }
+
+  // ─ ships ─
+  var now = state.now;
+  [state.shipA, state.shipD].forEach(function(ship) {
+    // mode timeout
+    if (ship.modeUntil && now > ship.modeUntil && ship.mode !== 'dead') {
+      ship.mode = 'idle'; ship.modeUntil = 0;
+    }
+    // ease toward target
+    var k = (ship.mode === 'thrust') ? 0.22 : 0.08;
+    ship.x += (ship.targetX - ship.x) * k;
+    ship.y += (ship.targetY - ship.y) * k;
+    // idle bob
+    ship.bobPhase += dt * 0.003;
+    var bob = Math.sin(ship.bobPhase) * 3;
+    ship.drawY = ship.y + bob;
+    ship.drawX = ship.x;
+    // frame advance
+    ship.frameTimer += dt;
+    var frames, frameMs;
+    if (ship.mode === 'dead')      { frames = FRAMES_DEAD;   frameMs = FRAME_DEAD_MS; }
+    else if (ship.mode === 'thrust'){ frames = FRAMES_THRUST; frameMs = FRAME_IDLE_MS; }
+    else if (ship.mode === 'hit')   { frames = [FRAME_HIT];   frameMs = 200; }
+    else                            { frames = FRAMES_IDLE;   frameMs = FRAME_IDLE_MS; }
+    while (ship.frameTimer >= frameMs) {
+      ship.frameTimer -= frameMs;
+      ship.frameIdx = (ship.frameIdx + 1) % frames.length;
+    }
+    if (ship.mode === 'dead' && ship.frameIdx >= frames.length - 1) {
+      ship.frameIdx = frames.length - 1; // hold last frame
+    }
+    ship.frame = frames[ship.frameIdx];
+  });
+
+  // ─ projectiles ─
+  for (var p = state.projectiles.length - 1; p >= 0; p--) {
+    var pr = state.projectiles[p];
+    pr.age += dt;
+    pr.x += pr.vx * dt;
+    pr.y += pr.vy * dt;
+    pr.trail.push({ x: pr.x, y: pr.y });
+    if (pr.trail.length > 6) pr.trail.shift();
+    if (pr.age > pr.life) state.projectiles.splice(p, 1);
+  }
+
+  // ─ flashes / sparks ─
+  for (var f = state.flashes.length - 1; f >= 0; f--) {
+    state.flashes[f].age += dt;
+    if (state.flashes[f].age > state.flashes[f].life) state.flashes.splice(f, 1);
+  }
+  for (var k2 = state.sparks.length - 1; k2 >= 0; k2--) {
+    var sp = state.sparks[k2];
+    sp.age += dt;
+    sp.x += sp.vx * dt;
+    sp.y += sp.vy * dt;
+    sp.vy += 0.00006 * dt; // light gravity
+    if (sp.age > sp.life) state.sparks.splice(k2, 1);
+  }
+
+  // ─ shake decay ─
+  state.shake *= Math.pow(0.86, dt / 16);
+  if (state.shake < 0.05) state.shake = 0;
+}
+
+function arenaDraw(state) {
+  var ctx = state.ctx;
+  ctx.clearRect(0, 0, ARENA_W, ARENA_H);
+
+  var sx = (Math.random() - 0.5) * state.shake;
+  var sy = (Math.random() - 0.5) * state.shake;
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // stars
+  var s = state.stars;
+  for (var i = 0; i < s.length; i++) {
+    ctx.fillStyle = 'rgba(200,220,232,' + s[i].alpha + ')';
+    ctx.fillRect(s[i].x | 0, s[i].y | 0, s[i].size, s[i].size);
+  }
+
+  // projectile trails + heads
+  var pr = state.projectiles;
+  for (var p = 0; p < pr.length; p++) {
+    var P = pr[p];
+    for (var t = 0; t < P.trail.length; t++) {
+      var a = (t + 1) / P.trail.length;
+      ctx.globalAlpha = a * 0.6;
+      ctx.fillStyle = P.color;
+      ctx.fillRect(P.trail[t].x | 0, P.trail[t].y | 0, 2, 2);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect((P.x | 0) - 1, (P.y | 0) - 1, 3, 3);
+    ctx.fillStyle = P.color;
+    ctx.fillRect((P.x | 0) - 2, (P.y | 0), 5, 1);
+  }
+
+  // muzzle flashes
+  for (var f = 0; f < state.flashes.length; f++) {
+    var F = state.flashes[f];
+    var t2 = 1 - F.age / F.life;
+    ctx.globalAlpha = Math.max(0, t2);
+    ctx.fillStyle = F.color;
+    var r = 2 + t2 * 4;
+    ctx.fillRect((F.x|0) - r, (F.y|0) - r, r*2, r*2);
+  }
+
+  // sparks
+  for (var k2 = 0; k2 < state.sparks.length; k2++) {
+    var SP = state.sparks[k2];
+    var lt = 1 - SP.age / SP.life;
+    if (lt <= 0) continue;
+    ctx.globalAlpha = lt;
+    ctx.fillStyle = SP.color;
+    ctx.fillRect(SP.x | 0, SP.y | 0, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // sync DOM ships
+  [state.shipA, state.shipD].forEach(function(ship) {
+    if (!ship.el) return;
+    var tx = Math.round(ship.drawX - SHIP_DISPLAY/2 + sx);
+    var ty = Math.round(ship.drawY - SHIP_DISPLAY/2 + sy);
+    ship.el.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
+    // sprite frame: crop the sheet via background-position
+    if (ship.sprite && ship.sprite.ready && ship.spriteEl) {
+      if (!ship.spriteSrc) {
+        var img = ship.sprite.image;
+        var sheetW = img.width || (SHIP_FRAME * (ship.sprite.frames || 12));
+        ship.spriteSrc = (img instanceof HTMLCanvasElement) ? img.toDataURL() : img.src;
+        ship.spriteEl.style.backgroundImage = 'url(' + ship.spriteSrc + ')';
+        ship.spriteEl.style.backgroundSize  = (sheetW * SHIP_SCALE) + 'px ' + (SHIP_FRAME * SHIP_SCALE) + 'px';
+      }
+      var maxFrame = (ship.sprite.frames || 12) - 1;
+      var fr = Math.min(ship.frame, maxFrame);
+      ship.spriteEl.style.backgroundPosition = '-' + (fr * SHIP_DISPLAY) + 'px 0';
+    }
+    // hit-flash class
+    if (ship.mode === 'hit') ship.el.classList.add('hit');
+    else                     ship.el.classList.remove('hit');
+    if (ship.mode === 'dead') ship.el.classList.add('dead');
+    // hp bar
+    if (ship.hpEl) {
+      ship.hpDisplay += (ship.hp - ship.hpDisplay) * 0.18;
+      ship.hpEl.style.width = Math.max(0, ship.hpDisplay) + '%';
+      if (ship.hpDisplay < 30) ship.hpEl.classList.add('low');
+    }
+  });
+}
+
+function startArenaLoop(state) {
+  var last = performance.now();
+  function frame(now) {
+    if (state.stopped) return;
+    var dt = Math.min(50, now - last);
+    last = now;
+    state.now = now;
+    arenaTick(state, dt);
+    arenaDraw(state);
+    state.raf = requestAnimationFrame(frame);
+  }
+  state.raf = requestAnimationFrame(frame);
+}
+
+// ── showFight (consumes existing rounds array) ───────────
+function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
+  var arena  = document.getElementById('arena');
+  var canvas = document.getElementById('sf-canvas');
+  if (!canvas || !arena) { if (onDone) onDone(); nextFight(); return; }
+
+  var state = {
+    ctx: canvas.getContext('2d'),
+    stars: initStarfield(),
+    shipA: newShipState('attacker', aName, shipA.name, 140, 100),
+    shipD: newShipState('defender', dName, shipD.name, 500, 100),
+    projectiles: [],
+    flashes: [],
+    sparks: [],
+    shake: 0,
+    stopped: false,
+    raf: 0,
+    now: performance.now()
+  };
+  state.shipA.frameIdx = 0;
+  state.shipD.frameIdx = 0;
+  state.ctx.imageSmoothingEnabled = false;
+
+  // build DOM ships
+  buildShipDom(arena, state.shipA);
+  buildShipDom(arena, state.shipD);
+
+  // fade overlay (only used at exit)
+  var fade = document.createElement('div');
+  fade.className = 'sf-arena-fade';
+  arena.appendChild(fade);
+
+  // arena state shared
+  arenaState = state;
+  startArenaLoop(state);
+
+  // schedule round events
+  var introMs = 600;
+  var roundMs = 900;
+  var timeouts = [];
+  rounds.forEach(function(r, i) {
+    var at = introMs + i * roundMs;
+    var isFinal = i === rounds.length - 1;
+    timeouts.push(setTimeout(function() { runRound(state, r, isFinal, aName, dName, winner, loser); }, at));
+  });
+
+  var endAt = introMs + rounds.length * roundMs + 400;
+  timeouts.push(setTimeout(function() {
+    fade.classList.add('exit');
+  }, endAt));
+
+  timeouts.push(setTimeout(function() {
+    state.stopped = true;
+    if (state.raf) cancelAnimationFrame(state.raf);
+    // clean DOM
+    if (state.shipA.el && state.shipA.el.parentNode) state.shipA.el.parentNode.removeChild(state.shipA.el);
+    if (state.shipD.el && state.shipD.el.parentNode) state.shipD.el.parentNode.removeChild(state.shipD.el);
+    if (fade.parentNode) fade.parentNode.removeChild(fade);
+    state.ctx.clearRect(0, 0, ARENA_W, ARENA_H);
+    arenaState = null;
+    if (typeof onDone === 'function') onDone();
+    setTimeout(function() { showWoF(winner); }, 500);
+    nextFight();
+  }, endAt + 600));
+}
+
+function runRound(state, round, isFinal, aName, dName, winner, loser) {
+  var shipA = state.shipA, shipD = state.shipD;
   if (isFinal) {
-    var tpl = EVENTS_WIN[Math.floor(Math.random()*EVENTS_WIN.length)];
-    var isAWin = winner === aName;
-    log.innerHTML = '<span class="winner '+(isAWin?'cyan':'gold')+'">'+
-      tpl.replace('{W}',esc(winner.toUpperCase())).replace('{L}',esc(loser.toUpperCase()))+'</span>';
+    var winA = winner === aName;
+    var winShip  = winA ? shipA : shipD;
+    var loseShip = winA ? shipD : shipA;
+    loseShip.mode = 'dead';
+    loseShip.modeUntil = state.now + 5000;
+    loseShip.frameIdx = 0;
+    loseShip.hp = 0;
+    spawnExplosion(state, loseShip);
+    // winner flexes: thrust + slight forward push
+    winShip.mode = 'thrust';
+    winShip.modeUntil = state.now + 600;
+    winShip.targetX = winShip.homeX + (winShip.side === 'attacker' ? 30 : -30);
+    setTimeout(function() {
+      winShip.targetX = winShip.homeX;
+      winShip.mode = 'idle';
+    }, 600);
     return;
   }
-  var tpl, text;
-  if (round.type === 'hit_a') {
-    tpl  = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
-    text = '<span class="hit-a">'+esc(tpl.replace('{A}',aName.toUpperCase()).replace('{D}',dName.toUpperCase()).replace('{DMG}',round.dmg))+'</span>';
-  } else if (round.type === 'hit_d') {
-    tpl  = EVENTS_HIT[Math.floor(Math.random()*EVENTS_HIT.length)];
-    text = '<span class="hit-d">'+esc(tpl.replace('{A}',dName.toUpperCase()).replace('{D}',aName.toUpperCase()).replace('{DMG}',round.dmg))+'</span>';
-  } else if (round.type === 'miss_a') {
-    tpl  = EVENTS_MISS[Math.floor(Math.random()*EVENTS_MISS.length)];
-    text = esc(tpl.replace('{A}',aName.toUpperCase()).replace('{D}',dName.toUpperCase()));
-  } else {
-    tpl  = EVENTS_MISS[Math.floor(Math.random()*EVENTS_MISS.length)];
-    text = esc(tpl.replace('{A}',dName.toUpperCase()).replace('{D}',aName.toUpperCase()));
-  }
-  log.innerHTML = text;
+
+  var attackerSide = (round.type === 'hit_a' || round.type === 'miss_a') ? 'attacker' : 'defender';
+  var willHit      = (round.type === 'hit_a' || round.type === 'hit_d');
+  var shooter = attackerSide === 'attacker' ? shipA : shipD;
+  var target  = attackerSide === 'attacker' ? shipD : shipA;
+
+  // shooter thrusts forward briefly
+  shooter.mode = 'thrust';
+  shooter.modeUntil = state.now + 260;
+  shooter.frameIdx = 0;
+  shooter.targetX = shooter.homeX + (shooter.side === 'attacker' ? 22 : -22);
+  setTimeout(function() {
+    shooter.targetX = shooter.homeX;
+  }, 260);
+
+  spawnProjectile(state, shooter, target, willHit);
+
+  // schedule impact / dodge after projectile travel (~320ms hit, ~480ms miss)
+  var travelMs = willHit ? 320 : 480;
+  setTimeout(function() {
+    if (willHit) {
+      target.mode = 'hit';
+      target.modeUntil = state.now + 200;
+      target.frameIdx = 0;
+      // recoil: small kick away from shooter
+      var kick = 18;
+      var dir  = target.side === 'attacker' ? -1 : 1;
+      target.targetX = target.homeX + dir * kick;
+      setTimeout(function() { target.targetX = target.homeX; }, 220);
+      // HP drop using authoritative round.hp values
+      shipA.hp = Math.max(0, round.hp_a);
+      shipD.hp = Math.max(0, round.hp_d);
+      spawnImpact(state, target, round.dmg);
+    } else {
+      // miss: target swerves vertically
+      var swerve = (Math.random() < 0.5 ? -1 : 1) * 16;
+      target.targetY = target.homeY + swerve;
+      setTimeout(function() { target.targetY = target.homeY; }, 280);
+    }
+  }, travelMs);
 }
 
 function esc(s) {
