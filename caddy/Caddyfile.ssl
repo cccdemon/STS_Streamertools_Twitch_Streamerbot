@@ -5,25 +5,72 @@
 
 {$DOMAIN} {
 
-    root * /srv/web
-
-    @root path /
-    rewrite @root /index.html
-
-    file_server
-
-    handle /api/* {
-        reverse_proxy api:3000
+    # ── Giveaway Service ──────────────────────────────────
+    # REST + WebSocket (/giveaway/ws)
+    handle /giveaway/* {
+        uri strip_prefix /giveaway
+        reverse_proxy giveaway:3001
     }
 
+    # ── Spacefight Service ────────────────────────────────
+    # REST + WebSocket (/spacefight/ws)
+    handle /spacefight/* {
+        uri strip_prefix /spacefight
+        reverse_proxy spacefight:3002
+    }
+
+    # ── Alert Service ─────────────────────────────────────
+    # REST + WebSocket (/alerts/ws)
+    # Also serves HUD chat overlay
+    handle /alerts/* {
+        uri strip_prefix /alerts
+        reverse_proxy alerts:3003
+    }
+
+    # ── Stats Service ─────────────────────────────────────
+    # REST only (leaderboards, session history)
+    handle /stats/* {
+        uri strip_prefix /stats
+        reverse_proxy stats:3004
+    }
+
+    # ── Admin Dashboard ───────────────────────────────────
+    # Aggregated health + shared tools
+    handle /admin/* {
+        uri strip_prefix /admin
+        reverse_proxy admin:3005
+    }
+
+    # ── Game Scenes ───────────────────────────────────────
+    # Static OBS overlays for in-game scene transitions (sc-bodycam.html, etc.)
+    handle /gamescenes/* {
+        uri strip_prefix /gamescenes
+        reverse_proxy gamescenes:3006
+    }
+
+    # ── Bridge health (internal use only) ─────────────────
+    handle /bridge/* {
+        uri strip_prefix /bridge
+        reverse_proxy bridge:3000
+    }
+
+    # ── Aggregated health ─────────────────────────────────
     handle /health {
-        reverse_proxy api:3000
+        reverse_proxy admin:3005
     }
 
+    # ── Redis UI ──────────────────────────────────────────
     handle /redis-ui/* {
         uri strip_prefix /redis-ui
         reverse_proxy redis-ui:8081
     }
+
+    # ── Root redirect → admin dashboard ──────────────────
+    # 302 so the browser actually navigates to /admin/ — otherwise
+    # relative asset paths (chaos-crew-admin.css etc.) resolve to /
+    # which has no handler and the page renders unstyled.
+    @root path /
+    redir @root /admin/ 302
 
     header {
         Access-Control-Allow-Origin *
