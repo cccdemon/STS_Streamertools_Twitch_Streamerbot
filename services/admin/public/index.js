@@ -48,3 +48,16 @@ function fetchHealth() {
 
 fetchHealth();
 setInterval(fetchHealth, 30000);
+
+// ── Twitch Chat Embed ──────────────────────────────────
+// `parent` must list every hostname the embed is loaded from.
+// We pass location.hostname so the embed works on the LXC IP, a
+// domain, or localhost without code changes.
+(function() {
+  var ifr = document.getElementById('twitchChat');
+  if (!ifr) return;
+  var host = location.hostname || 'localhost';
+  ifr.src = 'https://www.twitch.tv/embed/justcallmedeimos/chat'
+          + '?parent=' + encodeURIComponent(host)
+          + '&darkpopout';
+})();
