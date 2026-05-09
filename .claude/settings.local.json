@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ':*)",
+      "Bash(\"/c/Program Files/PuTTY/plink.exe\" -ssh -l root -pw \"ihjenpw124!\" 192.168.178.34 \"cd /opt/streamertools && git pull && docker compose up -d --build 2>&1\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(sed -i 's/console\\\\.log\\('\\\\''\\\\[Session\\\\] Created:'\\\\'', currentSessionId\\)/log\\('\\\\''Session'\\\\'', '\\\\''Created:'\\\\'', currentSessionId\\)/g' api/server.js)",
+      "Bash(sed -i 's/console\\\\.log\\('\\\\''\\\\[GW\\\\] Opened, keyword:'\\\\'', keyword\\)/log\\('\\\\''GW'\\\\'', '\\\\''Opened, keyword:'\\\\'', keyword\\)/g' api/server.js)",
+      "Bash(sed -i 's/console\\\\.log\\('\\\\''\\\\[GW\\\\] Closed'\\\\''\\)/log\\('\\\\''GW'\\\\'', '\\\\''Closed'\\\\''\\)/g' api/server.js)",
+      "Bash(sed -i 's/console\\\\.log\\('\\\\''\\\\[SF\\\\] Game activated by admin'\\\\''\\)/log\\('\\\\''SF'\\\\'', '\\\\''Game activated by admin'\\\\''\\)/g' api/server.js)",
+      "Bash(sed -i 's/console\\\\.log\\('\\\\''\\\\[SF\\\\] Game deactivated by admin'\\\\''\\)/log\\('\\\\''SF'\\\\'', '\\\\''Game deactivated by admin'\\\\''\\)/g' api/server.js)",
+      "Bash(\"/c/Program Files/PuTTY/plink.exe\" -ssh -l root -pw \"ihjenpw124!\" 192.168.178.34 \"cd /opt/streamertools && git pull && docker compose up -d --build 2>&1 | tail -20\")",
+      "Bash(\"/c/Program Files/PuTTY/plink.exe\" -ssh -l root -pw \"ihjenpw124!\" 192.168.178.34 \"docker logs cc-api --tail=10 2>&1\")",
+      "Bash(cp web/chaos-crew-admin.css services/giveaway/public/)",
+      "Bash(cp web/chaos-crew-overlay.css services/giveaway/public/)",
+      "Bash(cp web/chaos-crew-admin.css services/spacefight/public/)",
+      "Bash(cp web/chaos-crew-overlay.css services/spacefight/public/)",
+      "Bash(cp web/chaos-crew-overlay.css services/alerts/public/)",
+      "Bash(cp services/admin/public/admin-shared.js services/giveaway/public/giveaway-shared.js)",
+      "Bash(cp services/admin/public/admin-shared.js services/spacefight/public/spacefight-shared.js)",
+      "Bash(cp services/admin/public/admin-shared.js services/alerts/public/alerts-shared.js)",
+      "Bash(cp services/admin/public/admin-shared.js services/stats/public/stats-shared.js)",
+      "Bash(\"/c/Program Files/PuTTY/plink.exe\" -ssh -l root -pw \"ihjenpw124!\" 192.168.178.34 \"cd /opt/streamertools && git fetch origin && git status\")",
+      "Bash(node -c services/stats/server.js)",
+      "Bash(node -c services/stats/public/stats.js)",
+      "Bash(git push *)",
+      "Bash(plink -batch -ssh -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && git status --short && git pull && docker-compose up -d --build alerts\")",
+      "Bash(plink -batch -ssh -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && docker compose up -d --build alerts\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && git status --short && git pull && docker-compose up -d --build spacefight\")",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && docker compose up -d --build spacefight\")",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"curl -s http://localhost/spacefight/health\")",
+      "Bash(git log *)",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && git pull\")",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && git pull && docker-compose up -d --build\")",
+      "Bash(plink -ssh -batch -pw 'ihjenpw124!' -P 22 root@192.168.178.34 \"cd /opt/streamertools && docker compose up -d --build\")",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git merge *)"
+    ]
+  }
+}
