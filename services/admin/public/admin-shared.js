@@ -102,6 +102,7 @@
 
   var ALLOWED_CMDS = [
     'gw_open', 'gw_close', 'gw_reset',
+    'gw_draw_winner',
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
     'gw_set_keyword', 'gw_get_keyword',
