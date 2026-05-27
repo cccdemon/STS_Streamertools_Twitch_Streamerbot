@@ -94,9 +94,10 @@
 
   var ALLOWED_EVENTS = [
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
+    'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
     'spacefight_result', 'chat_msg', 'viewer_tick',
-    'sf_cmd', 'sf_status_request',
-    'cc_identify',
+    'sf_cmd', 'sf_status_request', 'sf_status',
+    'cc_identify', 'cc_first_chatter_status',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
