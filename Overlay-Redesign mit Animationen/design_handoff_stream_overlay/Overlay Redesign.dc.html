@@ -3,13 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chaos Crew – Alert Overlay</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:1920px; height:1080px; background:transparent; overflow:hidden; }
 
-  /* ── Keyframes ───────────────────────────────────── */
+  /* ── Keyframes ─────────────────────────────────────── */
   @keyframes ccAlertIn {
     0%   { opacity:0; transform:translateY(54px) scaleX(0.92); filter:blur(5px) brightness(1.7); }
     55%  { opacity:1; transform:translateY(-7px) scaleX(1.008); filter:blur(0) brightness(1.04); }
@@ -106,7 +110,7 @@
   @keyframes ccLatestOut { 0% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-10px); } }
   @keyframes ccScanSweep { 0% { transform:translateY(-100%); } 100% { transform:translateY(300%); } }
 
-  /* ── Animation utility classes ───────────────────── */
+  /* ── Animation utility classes ─────────────────────── */
   .cc-decrypt { animation:ccDecrypt 0.85s ease-out forwards; }
   .cc-glitch  { animation:ccGlitch 0.55s ease-out forwards; }
 
@@ -144,15 +148,14 @@
   .cc-demo-btn.green { border-color:rgba(0,255,136,0.5); color:#00ff88; }
   .cc-demo-btn.green:hover { background:rgba(0,255,136,0.1); }
 </style>
-</head>
-<body>
+</helmet>
 
 <div id="cc-ov" style="position:relative; width:1920px; height:1080px; overflow:hidden; font-family:'Share Tech Mono',monospace;">
 
   <!-- Demo backdrop (only visible in demo mode; transparent in OBS) -->
   <div id="cc-demo-bg" style="position:absolute; inset:0; z-index:0; display:none; background:radial-gradient(ellipse at 50% 40%, #0c1622 0%, #060a10 60%, #03050a 100%);">
     <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(0,212,255,0.025) 38px,rgba(0,212,255,0.025) 39px),repeating-linear-gradient(90deg,transparent,transparent 38px,rgba(0,212,255,0.025) 38px,rgba(0,212,255,0.025) 39px);"></div>
-    <div style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:6px; color:rgba(0,212,255,0.25); text-transform:uppercase;">// OBS BROWSER SOURCE — VORSCHAU MIT HINTERGRUND (LIVE TRANSPARENT)</div>
+    <div style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:6px; color:rgba(0,212,255,0.25); text-transform:uppercase;">// OBS BROWSER SOURCE \u2014 VORSCHAU MIT HINTERGRUND (LIVE TRANSPARENT)</div>
   </div>
 
   <!-- Canvas particle layer -->
@@ -161,7 +164,7 @@
   <!-- Screen flash -->
   <div id="cc-flash" style="position:absolute; inset:0; background:transparent; pointer-events:none; z-index:100; transition:background 0.08s;"></div>
 
-  <!-- ──── ALERT ──── -->
+  <!-- ════ ALERT ════ -->
   <div id="cc-alert" style="position:absolute; bottom:84px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:150; width:920px;">
     <div id="cc-alert-anim" style="position:relative; opacity:0;">
       <div id="cc-frame" style="position:relative; background:rgba(0,0,0,0.88); border:1.5px solid rgba(0,212,255,0.45); padding:28px 40px 24px;">
@@ -199,7 +202,7 @@
     </div>
   </div>
 
-  <!-- ──── SHOUTOUT (cinematic split) ──── -->
+  <!-- ════ SHOUTOUT (cinematic split) ════ -->
   <div id="cc-so" style="position:absolute; inset:0; z-index:200; pointer-events:none; opacity:0;">
     <div id="cc-so-bg" style="position:absolute; inset:0; background:rgba(0,0,0,0); transition:background 0.5s ease;"></div>
     <div id="cc-so-beam" style="position:absolute; top:0; bottom:0; right:101%; width:4px; background:linear-gradient(to bottom,transparent,rgba(0,212,255,0.95) 50%,transparent); box-shadow:0 0 40px 18px rgba(0,212,255,0.5); opacity:0; pointer-events:none;"></div>
@@ -252,7 +255,7 @@
     </div>
   </div>
 
-  <!-- ──── RESUB FULLSCREEN ──── -->
+  <!-- ════ RESUB FULLSCREEN ════ -->
   <div id="cc-rfs" style="position:absolute; inset:0; z-index:190; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0); pointer-events:none; opacity:0; transition:opacity 0.6s ease;">
     <div id="cc-rfs-frame" style="position:relative; width:920px; padding:60px 70px; background:rgba(0,0,0,0.9); border:1.5px solid rgba(0,212,255,0.4); text-align:center;">
       <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
@@ -279,13 +282,13 @@
     </div>
   </div>
 
-  <!-- ──── DEBUG ──── -->
+  <!-- ════ DEBUG ════ -->
   <div id="cc-dbg" style="position:absolute; bottom:16px; right:16px; z-index:9000; font-family:'Orbitron',monospace; font-size:10px; line-height:1.7; color:rgba(0,212,255,0.85); text-shadow:0 0 8px rgba(0,212,255,0.5); pointer-events:none; width:420px; text-align:right; word-break:break-all; overflow:hidden;">
     <div style="font-size:10px; letter-spacing:0.3em; color:rgba(240,165,0,0.5); margin-bottom:4px; text-transform:uppercase;">// Alert Debug</div>
     <div id="cc-dbg-lines"></div>
   </div>
 
-  <!-- ──── LATEST WIDGET (top-left, persistent, cycling) ──── -->
+  <!-- ════ LATEST WIDGET (top-left, persistent, cycling) ════ -->
   <div id="cc-latest" style="position:absolute; top:26px; right:26px; z-index:159; width:354px; background:rgba(4,6,10,0.94); border:1px solid rgba(0,212,255,0.18); border-left:2px solid #00d4ff; padding:13px 16px 14px; pointer-events:none; opacity:0;">
     <div id="cc-latest-tick" style="position:absolute; top:0; right:0; width:11px; height:11px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
     <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.012) 3px,rgba(0,212,255,0.012) 4px);"></div>
@@ -296,14 +299,14 @@
       </div>
       <div style="flex:1; min-width:0;">
         <div id="cc-latest-lbl" style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(0,212,255,0.6); text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:6px;"><span style="opacity:0.5;">//</span><span id="cc-latest-lbltxt">LETZTER FOLLOWER</span></div>
-        <div id="cc-latest-name" style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:23px; line-height:1; letter-spacing:1px; color:#00d4ff; text-shadow:0 0 10px rgba(0,212,255,0.4); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
+        <div id="cc-latest-name" style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:23px; line-height:1; letter-spacing:1px; color:#00d4ff; text-shadow:0 0 10px rgba(0,212,255,0.4); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\u2014</div>
         <div id="cc-latest-sub" style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1.5px; color:rgba(200,220,232,0.45); margin-top:3px; min-height:13px;"></div>
       </div>
     </div>
     <div id="cc-latest-dots" style="display:flex; gap:5px; margin-top:11px; position:relative;"></div>
   </div>
 
-  <!-- ──── COMPACT ALERTS (top-right, minor events) ──── -->
+  <!-- ════ COMPACT ALERTS (top-right, minor events) ════ -->
   <div id="cc-compact" style="position:absolute; top:26px; right:26px; z-index:160; width:440px; pointer-events:none; opacity:0;">
     <div id="cc-compact-card" style="position:relative; background:rgba(0,0,0,0.9); border:1px solid rgba(0,212,255,0.4); border-left:3px solid #00d4ff; padding:15px 18px 16px;">
       <div id="cc-compact-ctr" style="position:absolute; top:0; right:0; width:12px; height:12px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
@@ -323,25 +326,24 @@
     </div>
   </div>
 
-  <!-- ──── GW JOIN ──── -->
+  <!-- ════ GW JOIN ════ -->
   <div id="cc-gwjoin" style="position:absolute; bottom:16px; left:16px; z-index:9000; font-family:'Orbitron',monospace; font-size:11px; line-height:1.7; color:rgba(0,212,255,0.9); text-shadow:0 0 8px rgba(0,212,255,0.5); pointer-events:none; width:420px; text-align:left; word-break:break-all; overflow:hidden; opacity:0; transition:opacity 0.4s;">
     <div style="font-size:10px; letter-spacing:0.3em; color:rgba(240,165,0,0.6); margin-bottom:4px; text-transform:uppercase;">// Giveaway Joins</div>
     <div id="cc-gwjoin-lines"></div>
   </div>
 
-  <!-- ──── DEMO PANEL ──── -->
+  <!-- ════ DEMO PANEL ════ -->
   <div id="cc-demo" style="position:absolute; top:50%; left:20px; transform:translateY(-50%); z-index:8000; background:rgba(4,6,10,0.96); border:1px solid rgba(0,212,255,0.3); padding:14px; display:flex; flex-direction:column; gap:10px; width:236px; opacity:0; pointer-events:none; transition:opacity 0.3s;">
     <div style="position:absolute; top:0; right:0; width:10px; height:10px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
-    <div style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(0,212,255,0.55); text-transform:uppercase; border-bottom:1px solid rgba(0,212,255,0.15); padding-bottom:9px;">// DEMO – EVENTS TESTEN</div>
+    <div style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(0,212,255,0.55); text-transform:uppercase; border-bottom:1px solid rgba(0,212,255,0.15); padding-bottom:9px;">// DEMO — EVENTS TESTEN</div>
     <div id="cc-demo-btns" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;"></div>
   </div>
 
 </div>
-
-<script>
-"use strict";
-class CCOverlay {
-  init() {
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 1920, &quot;height&quot;: 1080}}">
+class Component extends DCLogic {
+  componentDidMount() {
     this.MILESTONES = [6, 12, 24, 36, 48, 60];
     this.SHOW_MS = 7000;
     this.FLASH_ON = 120;
@@ -387,11 +389,9 @@ class CCOverlay {
     this.COMPACT_TYPES = new Set(['redeem', 'alert', 'outraid', 'streamstart']);
 
     const p = new URLSearchParams(location.search);
-    // Default = clean production overlay (transparent, no panel, connects WS, sound on).
-    // Demo panel + preview backdrop + teaser only with ?demo=1.
-    const demo = p.get('demo') === '1';
-    this.demoMode = demo;
-    this.muted = demo; // im Demo/Review stumm; im Live-Betrieb hörbar
+    const isObs = p.has('sb') || p.get('live') === '1';
+    this.demoMode = !isObs;
+    this.muted = this.demoMode; // im Demo/Review standardmäßig stumm; im OBS-Betrieb hörbar
 
     this.ctx = this.els.canvas.getContext('2d');
     this.reaperImgs = [];
@@ -402,8 +402,8 @@ class CCOverlay {
     this.buildDemoPanel();
     this.initLatest();
 
-    // ?demo=1 → demo panel; otherwise live (connect to Streamerbot + giveaway WS)
-    if (demo) {
+    // In DC preview / no streamer.bot → show demo panel
+    if (!isObs) {
       this.showDemo();
     } else {
       this.connect();
@@ -417,12 +417,13 @@ class CCOverlay {
         tier: p.get('tier') || '1000', avatar: p.get('avatar') || '',
         reward: p.get('reward') || '', rewardName: p.get('reward') || '',
         months: p.get('months') || '', level: p.get('level') || '',
-        game: p.get('game') || '', duration: p.get('duration') || '',
       }), 800);
     }
   }
 
-  // ──────────────── DEMO ────────────────
+  renderVals() { return {}; }
+
+  // ════════════════ DEMO ════════════════
   buildDemoPanel() {
     const btns = [
       ['Follow', 'follow', {}, ''],
@@ -468,7 +469,7 @@ class CCOverlay {
     setTimeout(() => this.enqueue('follow', { user: 'Nova_Pilot' }), 900);
   }
 
-  // ──────────────── CANVAS PARTICLES ────────────────
+  // ════════════════ CANVAS PARTICLES ════════════════
   startParticleLoop() {
     const tick = () => {
       const ctx = this.ctx;
@@ -538,7 +539,7 @@ class CCOverlay {
     launch();
   }
 
-  // ──────────────── INCOMING FLEET (raid) ────────────────
+  // ════════════════ INCOMING FLEET (raid) ════════════════
   launchFleet(opts = {}) {
     const cx = 960, cy = 470;
     const color = opts.color || '#ff4444';
@@ -703,7 +704,7 @@ class CCOverlay {
     ctx.restore();
   }
 
-  // ──────────────── AUDIO ────────────────
+  // ════════════════ AUDIO ════════════════
   playSound(id) {
     if (!id || this.muted) return;
     const map = {
@@ -719,7 +720,7 @@ class CCOverlay {
     try { const a = new Audio(src); a.volume = 0.7; a.play().catch(() => {}); } catch (e) {}
   }
 
-  // ──────────────── FLASH ────────────────
+  // ════════════════ FLASH ════════════════
   flash(color, count, cb, on, off) {
     on = on || this.FLASH_ON; off = off || this.FLASH_OFF;
     let n = 0;
@@ -732,10 +733,10 @@ class CCOverlay {
     step();
   }
 
-  // ──────────────── DEBUG ────────────────
+  // ════════════════ DEBUG ════════════════
   dbg(msg, type = 'info') {
     const colors = { info: 'rgba(0,212,255,0.85)', ok: '#4ade80', warn: '#f5c518', err: '#f87171' };
-    const prefix = { info: '●', ok: '✓', warn: '⚠', err: '✗' };
+    const prefix = { info: '\u25CF', ok: '\u2713', warn: '\u26A0', err: '\u2717' };
     const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const line = document.createElement('div');
     line.style.cssText = `color:${colors[type]};text-shadow:0 0 6px ${colors[type]}40;`;
@@ -754,7 +755,7 @@ class CCOverlay {
     return { num: months, lbl };
   }
 
-  // ──────────────── ALERT CONFIG ────────────────
+  // ════════════════ ALERT CONFIG ════════════════
   buildAlert(type, data) {
     const user = data.user || data.userName || data.displayName || '???';
     const amount = parseInt(data.amount || data.bits || data.quantity || data.viewers || 0, 10);
@@ -776,8 +777,8 @@ class CCOverlay {
         const high = (tier === '2000' || tier === '3000');
         return { label: high ? 'TIER ' + (tier === '2000' ? '2' : '3') + ' ABO' : 'NEUES ABONNEMENT',
           user, userFont: 'orbitron', userColor: '#f0a500',
-          msg: high ? `Danke ${H(user)}!<br>Scheiß aufs Tanken – wir kaufen ein neues Schiff.`
-            : `${H(user)} sichert die Nachschublinien.<br>Wir können wieder tanken!`,
+          msg: high ? `Danke ${H(user)}!<br>Schei\u00df aufs Tanken \u2013 wir kaufen ein neues Schiff.`
+            : `${H(user)} sichert die Nachschublinien.<br>Wir k\u00f6nnen wieder tanken!`,
           avatar, sound: 'snd-sub', frame: 'gold', glow: '240,165,0', glitch: true, duration: 7000 };
       }
 
@@ -785,45 +786,45 @@ class CCOverlay {
         const high = (tier === '2000' || tier === '3000');
         const badge = this.monthsBadge(months);
         const isMs = this.MILESTONES.includes(months);
-        return { label: isMs ? '⭐ MEILENSTEIN' : '⟳ TREUER CREWMANN',
+        return { label: isMs ? '\u2B50 MEILENSTEIN' : '\u27F3 TREUER CREWMANN',
           user, userFont: 'orbitron', userColor: '#f0a500',
-          msg: high ? `${H(user)} bleibt dabei – Tier ${tier === '2000' ? '2' : '3'}!`
-            : `${H(user)} ist weiterhin an Bord.${months >= 2 ? '<br>' + H(months + ' Monate') + ' Dienst für die Crew.' : ''}`,
+          msg: high ? `${H(user)} bleibt dabei \u2013 Tier ${tier === '2000' ? '2' : '3'}!`
+            : `${H(user)} ist weiterhin an Bord.${months >= 2 ? '<br>' + H(months + ' Monate') + ' Dienst f\u00fcr die Crew.' : ''}`,
           avatar, stat: badge, sound: isMs ? 'snd-bomb' : 'snd-sub', frame: 'gold', glow: '240,165,0',
           glitch: isMs, fx: isMs ? 'fireworks' : null, fxColor: ['#f0a500', '#00d4ff', '#fff'], duration: 7500 };
       }
 
       case 'bits': case 'cheer':
         return { label: 'BITS EINGETROFFEN', user, userFont: 'orbitron', userColor: '#f0a500',
-          msg: `${H(user)} lässt ${H(amount + ' Bits')} in der Kaffeekasse.<br>Das hält die Crew wach.`,
+          msg: `${H(user)} l\u00e4sst ${H(amount + ' Bits')} in der Kaffeekasse.<br>Das h\u00e4lt die Crew wach.`,
           avatar, stat: { num: amount, lbl: 'BITS', count: true }, sound: 'snd-bits',
           frame: 'gold', glow: '240,165,0', duration: 7000 };
 
       case 'subgift': case 'subbomb': case 'giftbomb':
-        return { label: '⚡ SUBBOMBE EINGESCHLAGEN', user, userFont: 'orbitron', userColor: '#f0a500',
-          msg: `${H(user)} versorgt die Flotte mit<br>${H('+' + amount + ' Subs')} — Stärke gesteigert!`,
+        return { label: '\u26A1 SUBBOMBE EINGESCHLAGEN', user, userFont: 'orbitron', userColor: '#f0a500',
+          msg: `${H(user)} versorgt die Flotte mit<br>${H('+' + amount + ' Subs')} \u2014 St\u00e4rke gesteigert!`,
           avatar, avatarLarge: true, stat: { num: '+' + amount, lbl: 'SUBS' }, sound: 'snd-bomb',
           frame: 'gold', glow: '240,165,0', entrance: 'pop', fx: 'fireworks', fxColor: ['#f0a500', '#ffd060', '#fff'], duration: 9000 };
 
       case 'raid':
-        return { label: '\u{1F6A8} ALARM — EINGEHENDER RAID', user, userFont: 'orbitron', userColor: '#ff6b6b',
-          msg: `${H(user)} führt ${H(amount + ' Piloten')} in den Angriff!<br>SHIELDS HOCH. ALLE MANN AN DIE GESCHÜTZE!`,
+        return { label: '\u{1F6A8} ALARM \u2014 EINGEHENDER RAID', user, userFont: 'orbitron', userColor: '#ff6b6b',
+          msg: `${H(user)} f\u00fchrt ${H(amount + ' Piloten')} in den Angriff!<br>SHIELDS HOCH. ALLE MANN AN DIE GESCH\u00dcTZE!`,
           avatar, avatarLarge: true, stat: { num: amount, lbl: 'RAIDER', count: true }, sound: 'snd-raid',
           frame: 'raid', glow: '255,68,68', entrance: 'slam', fleet: true, flash: 'rgba(200,0,0,0.42)', flashCount: 6, flashOn: 80, flashOff: 100,
           fx: 'burst', fxColor: ['#ff4444', '#ff8888'], duration: 10000 };
 
       case 'outraid':
         return { label: '\u{1F680} RAID GESTARTET', user, userFont: 'orbitron', userColor: '#00d4ff',
-          msg: `Die Chaos Crew verlässt die Station.<br>Kurs: ${H(user)} — ${H('Quantum Jump')} initiiert.`,
+          msg: `Die Chaos Crew verl\u00e4sst die Station.<br>Kurs: ${H(user)} \u2014 ${H('Quantum Jump')} initiiert.`,
           avatar, stat: { num: amount, lbl: 'PILOTEN', count: true }, sound: 'snd-outraid',
           frame: 'cyan', glow: '0,212,255', duration: 7000 };
 
       case 'hypetrain': {
-        const labels = ['', 'HYPE TRAIN LVL 1', 'HYPE TRAIN LVL 2', 'HYPE TRAIN LVL 3', 'HYPE TRAIN LVL 4', '⚡ HYPE TRAIN LVL 5 — MAX'];
-        const msgs = ['', 'Die Triebwerke werden warm.', 'Wir beschleunigen — Vollgas!', 'Quantenantrieb aktiv!',
-          'Wir brechen die Schallmauer!', 'MAXIMALE ENERGIE — CHAOS PUR!'];
+        const labels = ['', 'HYPE TRAIN LVL 1', 'HYPE TRAIN LVL 2', 'HYPE TRAIN LVL 3', 'HYPE TRAIN LVL 4', '\u26A1 HYPE TRAIN LVL 5 \u2014 MAX'];
+        const msgs = ['', 'Die Triebwerke werden warm.', 'Wir beschleunigen \u2014 Vollgas!', 'Quantenantrieb aktiv!',
+          'Wir brechen die Schallmauer!', 'MAXIMALE ENERGIE \u2014 CHAOS PUR!'];
         const lv = Math.min(Math.max(level, 1), 5);
-        return { label: labels[lv], user: '— CHAOS CREW —', userFont: 'orbitron', userColor: '#00ff88',
+        return { label: labels[lv], user: '\u2014 CHAOS CREW \u2014', userFont: 'orbitron', userColor: '#00ff88',
           msg: `${H('Level ' + lv)} erreicht!<br>${msgs[lv]}`,
           stat: { num: 'LVL ' + lv, lbl: 'HYPE' }, sound: 'snd-hype', frame: 'green', glow: '0,255,136',
           shake: lv >= 3, glitch: lv >= 4, fx: lv === 5 ? 'fireworks' : null, fxColor: ['#00ff88', '#00d4ff'],
@@ -832,12 +833,12 @@ class CCOverlay {
 
       case 'streamstart':
         return { label: 'MISSION GESTARTET', user: 'CHAOS CREW', userFont: 'orbitron', userColor: '#00d4ff',
-          msg: `Alle Systeme online. Besatzung – ${H('Stationen einnehmen.')}<br>Der Stream ist heiß. Let's fly.`,
+          msg: `Alle Systeme online. Besatzung \u2013 ${H('Stationen einnehmen.')}<br>Der Stream ist hei\u00df. Let's fly.`,
           sound: 'snd-follow', frame: 'cyan', glow: '0,212,255', duration: 8000 };
 
       case 'alert':
-        return { label: '\u{1F6A8} RED ALERT — SIRENE', user, userFont: 'orbitron', userColor: '#ff6b6b',
-          msg: `${H(user)} hat Alarmstufe Rot ausgelöst.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
+        return { label: '\u{1F6A8} RED ALERT \u2014 SIRENE', user, userFont: 'orbitron', userColor: '#ff6b6b',
+          msg: `${H(user)} hat Alarmstufe Rot ausgel\u00f6st.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
           avatar, sound: 'snd-alert', frame: 'raid', glow: '255,68,68', glitch: true,
           flash: 'rgba(200,0,0,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#ff4444'], duration: 6000 };
 
@@ -849,45 +850,45 @@ class CCOverlay {
 
   buildRedeem(reward, data, user, avatar, H) {
     const REWARDS = {
-      'erschreck den streamer. alarm!': { label: '\u{1F6A8} RED ALERT — SIRENE',
-        msg: `${H(user)} hat Alarmstufe Rot ausgelöst.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
+      'erschreck den streamer. alarm!': { label: '\u{1F6A8} RED ALERT \u2014 SIRENE',
+        msg: `${H(user)} hat Alarmstufe Rot ausgel\u00f6st.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
         sound: 'snd-alert', frame: 'raid', glow: '255,68,68', glitch: true,
         flash: 'rgba(200,0,0,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#ff4444', '#ff8888'] },
       'mach ein selfie und poste es sofort': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
-        msg: `${H(user)} hat gesprochen.<br>Kamera drauf, Selfie raus – ${H('sofort.')}`,
+        msg: `${H(user)} hat gesprochen.<br>Kamera drauf, Selfie raus \u2013 ${H('sofort.')}`,
         sound: 'snd-selfie', frame: 'cyan', glow: '0,212,255',
         flash: 'rgba(255,255,255,0.55)', flashCount: 2, flashOn: 60, flashOff: 90, fx: 'burst', fxColor: ['#ffffff', '#cce8f0'] },
       'mach kamera aus!': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
-        msg: `${H(user)} möchte Privatsphäre.<br>Kamera aus. ${H('Befehl ausgeführt.')}`,
+        msg: `${H(user)} m\u00f6chte Privatsph\u00e4re.<br>Kamera aus. ${H('Befehl ausgef\u00fchrt.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
       'paulcontent': { label: 'ANFORDERUNG', userColor: '#f0a500',
-        msg: `${H(user)} fordert ${H('PAULCONTENT')}.<br>Die Crew wartet. Paul – dein Einsatz.`,
+        msg: `${H(user)} fordert ${H('PAULCONTENT')}.<br>Die Crew wartet. Paul \u2013 dein Einsatz.`,
         sound: 'snd-redeem', frame: 'gold', glow: '240,165,0', glitch: true,
         flash: 'rgba(240,165,0,0.3)', flashCount: 3, fx: 'burst', fxColor: ['#f0a500', '#ffd060'] },
       'rip': { label: 'VERLUSTE GEMELDET', userColor: '#ff6b6b',
-        msg: `${H(user)} hat RIP gedrückt.<br>Möge der Respawn gnädig sein. ${H('o7')}`,
+        msg: `${H(user)} hat RIP gedr\u00fcckt.<br>M\u00f6ge der Respawn gn\u00e4dig sein. ${H('o7')}`,
         sound: 'snd-rip', frame: 'raid', glow: '255,68,68',
         flash: 'rgba(120,0,0,0.5)', flashCount: 3, flashOn: 200, flashOff: 120 },
       'trink was bitte': { label: 'VERSORGUNGSBEFEHL', userColor: '#00d4ff',
-        msg: `${H(user)} befiehlt Flüssigkeitszufuhr.<br>${H('Trinken. Jetzt. Das ist ein Befehl.')}`,
+        msg: `${H(user)} befiehlt Fl\u00fcssigkeitszufuhr.<br>${H('Trinken. Jetzt. Das ist ein Befehl.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
       'was macht antje': { label: 'CREW-NACHFRAGE', userColor: '#00d4ff',
-        msg: `${H(user)} fragt nach Antje.<br>Navigationsoffizierin – ${H('bitte melden!')}`,
+        msg: `${H(user)} fragt nach Antje.<br>Navigationsoffizierin \u2013 ${H('bitte melden!')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
-      'zieh mütze aus': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
-        msg: `${H(user)} besteht auf Kopffreiheit.<br>${H('Mütze ab. Respekt zeigen.')}`,
+      'zieh m\u00fctze aus': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
+        msg: `${H(user)} besteht auf Kopffreiheit.<br>${H('M\u00fctze ab. Respekt zeigen.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
     };
     const cfg = REWARDS[reward];
     if (!cfg) {
       return { label: 'CHANNEL REWARD', user, userFont: 'orbitron', userColor: '#00d4ff',
-        msg: `${H(user)} hat einen Reward eingelöst:<br>${H(data.reward || data.rewardName || '???')}`,
+        msg: `${H(user)} hat einen Reward eingel\u00f6st:<br>${H(data.reward || data.rewardName || '???')}`,
         avatar, sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255', duration: 6000 };
     }
     return Object.assign({ user, userFont: 'orbitron', avatar, duration: 6500 }, cfg);
   }
 
-  // ──────────────── QUEUE ────────────────
+  // ════════════════ QUEUE ════════════════
   enqueue(type, data) {
     // feed the persistent "latest" widget
     this.updateLatest(type, data);
@@ -901,7 +902,7 @@ class CCOverlay {
 
     const cfg = this.buildAlert(type, data);
     if (!cfg) { this.dbg(`Unbekannt: ${type}`, 'warn'); return; }
-    this.dbg(`Alert: ${type} ← ${data.user || '?'}`, 'ok');
+    this.dbg(`Alert: ${type} \u2190 ${data.user || '?'}`, 'ok');
 
     // route: minor events → compact corner channel; important → big center
     if (this.COMPACT_TYPES.has(type)) {
@@ -929,7 +930,7 @@ class CCOverlay {
     catch (e) { this.dbg('cERR: ' + e.message, 'err'); this.cShowing = false; setTimeout(() => this.processCompact(), 500); }
   }
 
-  // ──────────────── SHOW ALERT ────────────────
+  // ════════════════ SHOW ALERT ════════════════
   showAlert(cfg) {
     const E = this.els;
     // content
@@ -1066,7 +1067,7 @@ class CCOverlay {
     return `rgba(0,212,255,${a})`;
   }
 
-  // ──────────────── SHOUTOUT ────────────────
+  // ════════════════ SHOUTOUT ════════════════
   showShoutout(data) {
     const E = this.els;
     const user = data.user || data.userName || '???';
@@ -1078,7 +1079,7 @@ class CCOverlay {
     E.soAmbient.textContent = U;
     E.soBigName.textContent = U;
     E.soBigUrl.textContent = 'TWITCH.TV/' + user.toUpperCase();
-    E.soGame.textContent = game ? '▶ ZULETZT: ' + game.toUpperCase() : '';
+    E.soGame.textContent = game ? '\u25B6 ZULETZT: ' + game.toUpperCase() : '';
     E.soMsg.innerHTML = `Schaut bei <span style="color:#f0a500;text-shadow:0 0 8px rgba(240,165,0,0.7);">${U}</span> vorbei!<br>Die Crew empfiehlt diesen Kanal. <span style="color:#f0a500;">o7</span>`;
     E.soUrl.textContent = 'twitch.tv/' + user.toLowerCase();
     if (avatar) { E.soAv.src = avatar; E.soAv.style.visibility = 'visible'; } else { E.soAv.style.visibility = 'hidden'; }
@@ -1142,22 +1143,22 @@ class CCOverlay {
     }, ms);
   }
 
-  // ──────────────── RESUB FULLSCREEN ────────────────
+  // ════════════════ RESUB FULLSCREEN ════════════════
   msLabel(m) {
     if (m >= 12 && m % 12 === 0) { const y = m / 12; return y === 1 ? '1 JAHR AN BORD' : y + ' JAHRE AN BORD'; }
     return m + ' MONATE AN BORD';
   }
   msMsg(user, m, H) {
     if (m === 6) return `${H(user)} ist seit 6 Monaten dabei.<br>Halbes Jahr. ${H('Respekt, Pilot.')}`;
-    if (m === 12) return `${H(user)} überlebt ein ganzes Jahr mit uns.<br>Das verdient eine ${H('Medaille. o7')}`;
-    if (m === 24) return `${H(user)} – 2 Jahre Chaos Crew.<br>Du weißt was du dir angetan hast. ${H('Danke.')}`;
-    if (m === 36) return `3 Jahre. ${H(user)} ist Teil der Möbel.<br>${H('Quantum-Veteran. Unaufhaltbar.')}`;
-    return `${H(user)} – ${m} Monate durchgehalten!<br>Die Crew ${H('salutiert.')}`;
+    if (m === 12) return `${H(user)} \u00fcberlebt ein ganzes Jahr mit uns.<br>Das verdient eine ${H('Medaille. o7')}`;
+    if (m === 24) return `${H(user)} \u2013 2 Jahre Chaos Crew.<br>Du wei\u00dft was du dir angetan hast. ${H('Danke.')}`;
+    if (m === 36) return `3 Jahre. ${H(user)} ist Teil der M\u00f6bel.<br>${H('Quantum-Veteran. Unaufhaltbar.')}`;
+    return `${H(user)} \u2013 ${m} Monate durchgehalten!<br>Die Crew ${H('salutiert.')}`;
   }
   resubMsg(user, m, H) {
-    if (m >= 24) return `${H(user)} ist seit über 2 Jahren dabei.<br>${H('Die Crew vergisst das nicht.')}`;
-    if (m >= 12) return `${H(user)} – über ein Jahr an Bord.<br>${H('Treue wie Titanpanzerung.')}`;
-    return `${H(user)} verlängert den Dienst.<br>${H(m + ' Monate')} für die Crew.`;
+    if (m >= 24) return `${H(user)} ist seit \u00fcber 2 Jahren dabei.<br>${H('Die Crew vergisst das nicht.')}`;
+    if (m >= 12) return `${H(user)} \u2013 \u00fcber ein Jahr an Bord.<br>${H('Treue wie Titanpanzerung.')}`;
+    return `${H(user)} verl\u00e4ngert den Dienst.<br>${H(m + ' Monate')} f\u00fcr die Crew.`;
   }
 
   showResubFs(data, isMs) {
@@ -1168,7 +1169,7 @@ class CCOverlay {
     const m = parseInt(data.months || data.cumulativeMonths || 0, 10);
     const dur = isMs ? 13000 : 11000;
 
-    E.rfsLbl.textContent = isMs ? '⭐ MEILENSTEIN ERREICHT' : '⟳ TREUER CREWMANN';
+    E.rfsLbl.textContent = isMs ? '\u2B50 MEILENSTEIN ERREICHT' : '\u27F3 TREUER CREWMANN';
     E.rfsName.textContent = user.toUpperCase();
     E.rfsBadge.textContent = this.msLabel(m);
     E.rfsMsg.innerHTML = isMs ? this.msMsg(user, m, H) : this.resubMsg(user, m, H);
@@ -1188,7 +1189,7 @@ class CCOverlay {
     }, dur);
   }
 
-  // ──────────────── FLYING LETTERS ────────────────
+  // ════════════════ FLYING LETTERS ════════════════
   flyInLetters(el, text, opts = {}) {
     const step = opts.step != null ? opts.step : 28;
     const base = opts.base || 0;
@@ -1199,7 +1200,7 @@ class CCOverlay {
     const chars = [...String(text)];
     chars.forEach((ch, i) => {
       const s = document.createElement('span');
-      s.textContent = ch === ' ' ? ' ' : ch;
+      s.textContent = ch === ' ' ? '\u00A0' : ch;
       s.style.display = 'inline-block';
       s.style.willChange = 'transform, opacity';
       const lx = (Math.random() * 2 - 1) * spread;
@@ -1213,7 +1214,7 @@ class CCOverlay {
     });
   }
 
-  // ──────────────── COMPACT ALERT (top-right) ────────────────
+  // ════════════════ COMPACT ALERT (top-right) ════════════════
   showCompact(cfg) {
     const E = this.els;
     if (this.latestRunning) this.hideLatestSession();
@@ -1275,15 +1276,15 @@ class CCOverlay {
     }, 420);
   }
 
-  // ──────────────── LATEST WIDGET (top-right, periodic) ────────────────
+  // ════════════════ LATEST WIDGET (top-right, periodic) ════════════════
   initLatest() {
     this.latest = { follower: null, sub: null, resub: null, giftsub: null };
     this.latestOrder = ['follower', 'sub', 'resub', 'giftsub'];
     this.latestMeta = {
-      follower: { label: 'LETZTER FOLLOWER', accent: '#00d4ff', glyph: '✦' },
-      sub: { label: 'LETZTES ABO', accent: '#f0a500', glyph: '★' },
-      resub: { label: 'LETZTER RESUB', accent: '#f0a500', glyph: '⟳' },
-      giftsub: { label: 'LETZTER GIFT-SUB', accent: '#f0a500', glyph: '♦' },
+      follower: { label: 'LETZTER FOLLOWER', accent: '#00d4ff', glyph: '\u2726' },
+      sub: { label: 'LETZTES ABO', accent: '#f0a500', glyph: '\u2605' },
+      resub: { label: 'LETZTER RESUB', accent: '#f0a500', glyph: '\u27F3' },
+      giftsub: { label: 'LETZTER GIFT-SUB', accent: '#f0a500', glyph: '\u2666' },
     };
     // seed demo defaults so a session has content
     this.latest.follower = { name: 'NOVA_PILOT', avatar: '' };
@@ -1375,7 +1376,7 @@ class CCOverlay {
     });
   }
 
-  // ──────────────── GW JOIN ────────────────
+  // ════════════════ GW JOIN ════════════════
   gwAddJoin(user) {
     if (!user) return;
     if (!this.gwSeen) this.gwSeen = new Set();
@@ -1384,7 +1385,7 @@ class CCOverlay {
     this.gwSeen.add(u);
     const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const line = document.createElement('div');
-    line.innerHTML = `${time}  <span style="color:#4ade80;">✓</span>  <span style="color:#f0a500;text-shadow:0 0 6px rgba(240,165,0,0.5)">${user}</span> ist eingetragen`;
+    line.innerHTML = `${time}  <span style="color:#4ade80;">\u2713</span>  <span style="color:#f0a500;text-shadow:0 0 6px rgba(240,165,0,0.5)">${user}</span> ist eingetragen`;
     this.els.gwjoinLines.insertBefore(line, this.els.gwjoinLines.firstChild);
     while (this.els.gwjoinLines.children.length > 12) this.els.gwjoinLines.removeChild(this.els.gwjoinLines.lastChild);
     this.els.gwjoin.style.opacity = '1';
@@ -1392,14 +1393,14 @@ class CCOverlay {
     this.gwFade = setTimeout(() => { this.els.gwjoin.style.opacity = '0'; }, 60000);
   }
 
-  // ──────────────── WEBSOCKETS ────────────────
+  // ════════════════ WEBSOCKETS ════════════════
   connect() {
     const url = new URLSearchParams(location.search).get('sb') || 'ws://192.168.178.39:9090';
-    this.dbg('WS → ' + url, 'info');
+    this.dbg('WS \u2192 ' + url, 'info');
     try { this.ws = new WebSocket(url); } catch (e) { this.scheduleRetry(); return; }
-    this.ws.onopen = () => { this.dbg('WS verbunden ✓', 'ok'); this.wsDelay = 1000; this.ws.send(JSON.stringify({ event: 'cc_alert_register' })); };
+    this.ws.onopen = () => { this.dbg('WS verbunden \u2713', 'ok'); this.wsDelay = 1000; this.ws.send(JSON.stringify({ event: 'cc_alert_register' })); };
     this.ws.onmessage = (e) => this.handleMessage(e);
-    this.ws.onclose = () => { this.dbg('WS getrennt – reconnect', 'warn'); this.scheduleRetry(); };
+    this.ws.onclose = () => { this.dbg('WS getrennt \u2013 reconnect', 'warn'); this.scheduleRetry(); };
     this.ws.onerror = () => {};
   }
   scheduleRetry() {
@@ -1428,13 +1429,6 @@ class CCOverlay {
     this.gwWs.onclose = () => {};
     this.gwWs.onerror = () => {};
   }
-}
-
-// Boot
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new CCOverlay().init());
-} else {
-  new CCOverlay().init();
 }
 </script>
 </body>

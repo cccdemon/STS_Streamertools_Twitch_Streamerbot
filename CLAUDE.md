@@ -98,7 +98,8 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 | Join animation | `/giveaway/giveaway-join.html` |
 | Spacefight | `/spacefight/spacefight.html` |
 | HUD Chat | `/alerts/chat.html?channel=DEIN_KANAL` |
-| Alert bar | `/alerts/alerts.html` |
+| Alert overlay (Redesign, fullscreen) | `/alerts/overlay.html` (clean/live by default; `?demo=1` = demo panel) |
+| Alert bar (legacy) | `/alerts/alerts.html` |
 | Raid info | `/alerts/raid-info.html` |
 | Shoutout info | `/alerts/shoutout-info.html` |
 | Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
@@ -204,7 +205,8 @@ All three overlays connect to alerts service WS via `/alerts/ws`.
 
 | File | Purpose |
 |---|---|
-| `alerts.html` | Bottom-bar alert (follow, sub, bits, raid, subgift, subbomb, hypetrain, redeem, shoutout, outraid) |
+| `overlay.html` | **Redesign** — fullscreen 1920×1080 sci-fi overlay: big center alert + compact corner channel + Latest widget + cinematic shoutout + resub-fullscreen + Canvas raid Reaper fleet. Standalone (no `.dc.html`/React). **Clean/live by default** (transparent, connects Streamerbot WS, sound on); `?demo=1` shows demo panel+backdrop (muted); `?test=<type>&...` fires one event; `?sb=ws://host:port` overrides WS. Assets in `public/assets/`, sounds in `public/sounds/`. |
+| `alerts.html` | Legacy bottom-bar alert (follow, sub, bits, raid, subgift, subbomb, hypetrain, redeem, shoutout, outraid) |
 | `raid-info.html` | Right-panel raid info with AI summary (Claude API, Firefly theme) |
 | `shoutout-info.html` | Right-panel shoutout info with AI summary + chat reply via `/alerts/api/chat/send` |
 
