@@ -408,6 +408,7 @@ class CCOverlay {
     } else {
       this.connect();
       this.gwConnect();
+      this.connectAdmin();
     }
 
     // ?test=raid style
@@ -1427,6 +1428,24 @@ class CCOverlay {
     this.gwWs.onmessage = (e) => { try { const m = JSON.parse(e.data); if (m && m.event === 'gw_join' && m.user) this.gwAddJoin(m.user); } catch (x) {} };
     this.gwWs.onclose = () => {};
     this.gwWs.onerror = () => {};
+  }
+  // Admin test-console channel (alerts service WS). Only acts on synthetic
+  // _test-flagged alerts so real events (via Streamerbot) never double-fire.
+  connectAdmin() {
+    const base = location.protocol + '//' + location.host;
+    const url = base.replace(/^http/, 'ws') + '/alerts/ws';
+    try { this.aws = new WebSocket(url); } catch (e) { this.scheduleAdminRetry(); return; }
+    this.aws.onopen = () => { this.awsDelay = 1000; this.aws.send(JSON.stringify({ event: 'cc_identify', role: 'alerts-overlay' })); };
+    this.aws.onmessage = (e) => {
+      try { const m = JSON.parse(e.data); if (m && m._test && m.alertType) { this.dbg('TEST ← ' + m.alertType, 'info'); this.enqueue(m.alertType, m); } } catch (x) {}
+    };
+    this.aws.onclose = () => { this.scheduleAdminRetry(); };
+    this.aws.onerror = () => {};
+  }
+  scheduleAdminRetry() {
+    if (this.awsTimer) return;
+    this.awsDelay = Math.min((this.awsDelay || 1000) * 2, 10000);
+    this.awsTimer = setTimeout(() => { this.awsTimer = null; this.connectAdmin(); }, this.awsDelay);
   }
 }
 

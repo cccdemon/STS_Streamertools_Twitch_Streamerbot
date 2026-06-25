@@ -207,6 +207,8 @@ All three overlays connect to alerts service WS via `/alerts/ws`.
 |---|---|
 | `overlay.html` | **Redesign** — fullscreen 1920×1080 sci-fi overlay: big center alert + compact corner channel + Latest widget + cinematic shoutout + resub-fullscreen + Canvas raid Reaper fleet. Standalone (no `.dc.html`/React). **Clean/live by default** (transparent, connects Streamerbot WS, sound on); `?demo=1` shows demo panel+backdrop (muted); `?test=<type>&...` fires one event; `?sb=ws://host:port` overrides WS. Assets in `public/assets/`, sounds in `public/sounds/`. |
 | `alerts.html` | Legacy bottom-bar alert (follow, sub, bits, raid, subgift, subbomb, hypetrain, redeem, shoutout, outraid) |
+
+**Admin test path:** overlay opens a 2nd WS to `/alerts/ws` (`connectAdmin`) that only enqueues `_test`-flagged alerts (real Streamerbot events never double-fire). Admin page `/admin/alerts-test.html` sends `{ event:'cc_test', alertType, user, amount, tier, months, level, reward, game, avatar }` → `alerts/server.js` `injectTestAlert()` sanitizes + `broadcastAll` a `_test` alert → all overlays show it. Lets you trigger the OBS overlay live from the admin dashboard. `cc_test` is in `ALLOWED_EVENTS` (admin-shared.js).
 | `raid-info.html` | Right-panel raid info with AI summary (Claude API, Firefly theme) |
 | `shoutout-info.html` | Right-panel shoutout info with AI summary + chat reply via `/alerts/api/chat/send` |
 

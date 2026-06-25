@@ -94,7 +94,10 @@ wss.on('connection', (ws, req) => {
     if (msg.event === 'cc_identify') {
       meta.role = sanitizeStr(msg.role || '', 50);
       log('WS', `${clientId} identified as: ${meta.role}`);
+      return;
     }
+    // Admin test console injects a synthetic alert → fan out to overlays.
+    if (msg.event === 'cc_test') { injectTestAlert(msg); return; }
   });
 
   ws.on('close', () => {
@@ -102,6 +105,33 @@ wss.on('connection', (ws, req) => {
     log('WS', `Disconnected: ${clientId} – ${clients.size} remaining`);
   });
 });
+
+// ── Admin test injection ─────────────────────────────────
+// The admin "Alert Test" console sends { event:'cc_test', alertType, ... }.
+// We sanitize and broadcast a flat, _test-flagged alert that the redesign
+// overlay (overlay.html) picks up on its admin WS channel.
+const TEST_ALERT_TYPES = new Set([
+  'follow', 'sub', 'resub', 'bits', 'cheer', 'subgift', 'subbomb', 'giftbomb',
+  'raid', 'outraid', 'hypetrain', 'streamstart', 'alert', 'redeem', 'shoutout',
+]);
+function injectTestAlert(msg) {
+  const type = sanitizeStr(msg.alertType || '', 20).toLowerCase();
+  if (!TEST_ALERT_TYPES.has(type)) { log('Test', `rejected alertType: ${type}`); return; }
+  const out = {
+    alertType: type,
+    _test:  true,
+    user:   sanitizeStr(msg.user   || '', 40),
+    amount: parseInt(msg.amount, 10) || 0,
+    tier:   sanitizeStr(msg.tier   || '', 6),
+    months: parseInt(msg.months, 10) || 0,
+    level:  parseInt(msg.level,  10) || 0,
+    reward: sanitizeStr(msg.reward || '', 80),
+    game:   sanitizeStr(msg.game   || '', 60),
+    avatar: sanitizeStr(msg.avatar || '', 300),
+  };
+  broadcastAll(out);
+  log('Test', `inject ${type} ← ${out.user || '?'}`);
+}
 
 // ── Redis Pub/Sub: ch:alerts + ch:chat ───────────────────
 function subscribeToAlerts() {

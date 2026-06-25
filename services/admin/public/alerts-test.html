@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Chaos Crew – Alert Test Console</title>
+<link rel="stylesheet" href="chaos-crew-admin.css">
+</head>
+<body>
+<script src="admin-shared.js"></script>
+
+<div class="page-header">
+  <div class="page-title">CHAOS<span> //</span> <em>ALERT</em> TEST</div>
+  <div class="header-right">
+    <span id="status" class="badge off">OFFLINE</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.25);letter-spacing:1px;">/alerts/ws</span>
+    <button class="btn btn-cyan btn-sm" onclick="reconnect()">VERBINDEN</button>
+    <button class="btn btn-red  btn-sm" onclick="disconnect()">TRENNEN</button>
+  </div>
+</div>
+
+<div class="test-layout">
+
+  <div class="test-controls">
+
+    <!-- Info -->
+    <div class="test-section">
+      <div class="test-section-title">OVERLAY TESTEN</div>
+      <div class="test-section-body">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.3);letter-spacing:1px;line-height:1.6;">
+          Sendet Test-Alerts an das Overlay <b>/alerts/overlay.html</b> (Browserquelle in OBS).<br>
+          Das Overlay muss live laufen (ohne <b>?demo=1</b>). Ton nur wenn „Audio über OBS steuern" aktiv ist.
+        </div>
+      </div>
+    </div>
+
+    <!-- Parameter -->
+    <div class="test-section">
+      <div class="test-section-title">PARAMETER</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <span class="row-label">USERNAME</span>
+          <input type="text" class="wide" id="t-user" value="TestPilot">
+        </div>
+        <div class="test-row">
+          <span class="row-label">AVATAR-URL</span>
+          <input type="text" class="wide" id="t-avatar" value="" placeholder="optional https://…">
+        </div>
+        <div class="test-row">
+          <span class="row-label">BETRAG</span>
+          <input type="text" class="small" id="t-amount" value="247" placeholder="Bits/Subs/Raider">
+          <span class="row-label">TIER</span>
+          <select id="t-tier"><option value="1000">1</option><option value="2000">2</option><option value="3000">3</option></select>
+        </div>
+        <div class="test-row">
+          <span class="row-label">MONATE</span>
+          <input type="text" class="small" id="t-months" value="24" placeholder="Resub">
+          <span class="row-label">HYPE LVL</span>
+          <input type="text" class="small" id="t-level" value="5" placeholder="1-5">
+        </div>
+        <div class="test-row">
+          <span class="row-label">SPIEL</span>
+          <input type="text" class="wide" id="t-game" value="Star Citizen" placeholder="Shoutout">
+        </div>
+      </div>
+    </div>
+
+    <!-- Big alerts -->
+    <div class="test-section">
+      <div class="test-section-title">BIG ALERTS (MITTE)</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <button class="btn btn-cyan  btn-sm" onclick="fire('follow')">FOLLOW</button>
+          <button class="btn btn-gold  btn-sm" onclick="fire('sub')">SUB</button>
+          <button class="btn btn-gold  btn-sm" onclick="fire('bits')">BITS</button>
+          <button class="btn btn-gold  btn-sm" onclick="fire('subbomb')">SUB BOMB</button>
+        </div>
+        <div class="test-row">
+          <button class="btn btn-red   btn-sm" onclick="fire('raid')">RAID (FLOTTE)</button>
+          <button class="btn btn-green btn-sm" onclick="fire('hypetrain')">HYPE TRAIN</button>
+          <button class="btn btn-gold  btn-sm" onclick="fire('resub')">RESUB</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compact / corner -->
+    <div class="test-section">
+      <div class="test-section-title">COMPACT (OBEN RECHTS)</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <button class="btn btn-cyan btn-sm" onclick="fire('outraid')">OUTRAID</button>
+          <button class="btn btn-cyan btn-sm" onclick="fire('streamstart')">STREAMSTART</button>
+          <button class="btn btn-red  btn-sm" onclick="fire('alert')">RED ALERT</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Redeems -->
+    <div class="test-section">
+      <div class="test-section-title">CHANNEL REWARDS (REDEEM)</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <button class="btn btn-red  btn-sm" onclick="fireReward('Erschreck den Streamer. Alarm!')">RED ALERT</button>
+          <button class="btn btn-cyan btn-sm" onclick="fireReward('mach ein selfie und poste es sofort')">SELFIE</button>
+          <button class="btn btn-red  btn-sm" onclick="fireReward('rip')">RIP</button>
+        </div>
+        <div class="test-row">
+          <span class="row-label">REWARD</span>
+          <input type="text" class="wide" id="t-reward" value="paulcontent" placeholder="Reward-Titel">
+          <button class="btn btn-gold btn-sm" onclick="fireReward(document.getElementById('t-reward').value)">SENDEN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen -->
+    <div class="test-section">
+      <div class="test-section-title">FULLSCREEN</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <button class="btn btn-gold btn-sm" onclick="fire('shoutout')">SHOUTOUT</button>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.3);letter-spacing:1px;">Resub ≥12 Monate löst zusätzlich Fullscreen aus.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Log -->
+  <div class="test-log-panel">
+    <div class="test-log-head">
+      <span>EVENT LOG</span>
+      <span class="link-dim" onclick="clearLog()">CLEAR</span>
+    </div>
+    <div id="log"></div>
+  </div>
+
+</div>
+
+<script src="alerts-test.js"></script>
+</body>
+</html>
