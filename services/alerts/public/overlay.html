@@ -398,6 +398,23 @@ class CCOverlay {
     ['assets/reaper_sovereign.png', 'assets/reaper_omen.png'].forEach(src => {
       const im = new Image(); im.src = src; this.reaperImgs.push(im);
     });
+
+    // Preload + buffer each sound once. Reusing a loaded element is far more
+    // reliable than `new Audio()` per event (avoids cold-load / autoplay drops).
+    this.sndSrc = {
+      'snd-follow': 'sounds/sound_follow.mp3', 'snd-sub': 'sounds/sound_sub.mp3',
+      'snd-bits': 'sounds/sound_bits.mp3', 'snd-bomb': 'sounds/sound_bomb.mp3',
+      'snd-raid': 'sounds/sound_raid.mp3', 'snd-redeem': 'sounds/sound_redeem.mp3',
+      'snd-hype': 'sounds/sound_hype.mp3', 'snd-outraid': 'sounds/sound_outraid.mp3',
+      'snd-rip': 'sounds/sound_rip.mp3', 'snd-selfie': 'sounds/sound_selfie.mp3',
+      'snd-alert': 'sounds/sound_alert.ogg',
+    };
+    this.snd = {};
+    Object.entries(this.sndSrc).forEach(([k, src]) => {
+      const a = new Audio(); a.src = src; a.preload = 'auto'; a.volume = 0.7;
+      try { a.load(); } catch (e) {}
+      this.snd[k] = a;
+    });
     this.startParticleLoop();
     this.buildDemoPanel();
     this.initLatest();
@@ -707,17 +724,15 @@ class CCOverlay {
   // ──────────────── AUDIO ────────────────
   playSound(id) {
     if (!id || this.muted) return;
-    const map = {
-      'snd-follow': 'sounds/sound_follow.mp3', 'snd-sub': 'sounds/sound_sub.mp3',
-      'snd-bits': 'sounds/sound_bits.mp3', 'snd-bomb': 'sounds/sound_bomb.mp3',
-      'snd-raid': 'sounds/sound_raid.mp3', 'snd-redeem': 'sounds/sound_redeem.mp3',
-      'snd-hype': 'sounds/sound_hype.mp3', 'snd-outraid': 'sounds/sound_outraid.mp3',
-      'snd-rip': 'sounds/sound_rip.mp3', 'snd-selfie': 'sounds/sound_selfie.mp3',
-      'snd-alert': 'sounds/sound_alert.ogg',
-    };
-    const src = map[id];
-    if (!src) return;
-    try { const a = new Audio(src); a.volume = 0.7; a.play().catch(() => {}); } catch (e) {}
+    const a = this.snd && this.snd[id];
+    if (!a) return;
+    try {
+      a.currentTime = 0;
+      a.volume = 0.7;
+      const p = a.play();
+      // If a reused element is mid-play, retry once on a fresh clone (autoplay/seek race).
+      if (p && p.catch) p.catch(() => { try { const c = new Audio(this.sndSrc[id]); c.volume = 0.7; c.play().catch(() => {}); } catch (e) {} });
+    } catch (e) {}
   }
 
   // ──────────────── FLASH ────────────────
