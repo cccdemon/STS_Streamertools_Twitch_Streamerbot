@@ -94,13 +94,11 @@ function handle(msg) {
       updateGwStatus();
       renderTable();
       updateStats();
-      broadcastOverlay();
       break;
 
     case 'gw_status':
       gwIsOpen = msg.status === 'open';
       updateGwStatus();
-      broadcastOverlay();
       break;
 
     case 'gw_ack':
@@ -218,7 +216,7 @@ function showWinnerAnimation(winnerName, watchSec, coins) {
 }
 
 function reroll()      { drawWinner(); }
-function clearWinner() { lastWinner=null; document.getElementById('winner-card').style.display='none'; broadcastOverlay(); }
+function clearWinner() { lastWinner=null; document.getElementById('winner-card').style.display='none'; clearOverlay(); }
 
 // ── Manual Actions ────────────────────────────────────────
 function manualAdd() {
@@ -254,7 +252,7 @@ function resetAll() {
   send({ event:'gw_cmd', cmd:'gw_reset' });
   participants={}; gwIsOpen=false; lastWinner=null;
   document.getElementById('winner-card').style.display = 'none';
-  updateGwStatus(); renderTable(); updateStats(); broadcastOverlay();
+  updateGwStatus(); renderTable(); updateStats(); clearOverlay();
   log('RESET – alle Daten geloescht', 'red');
 }
 
@@ -314,17 +312,10 @@ function updateStats() {
   document.getElementById('s-msgs').textContent    = active.reduce((s,p)=>s+(parseInt(p.msgs)||0),0);
 }
 
-function broadcastOverlay(winner=null) {
-  send({
-    event:   'gw_overlay',
-    open:    gwIsOpen,
-    total:   Object.values(participants).filter(p=>!p.banned).length,
-    tickets: Object.values(participants).filter(p=>!p.banned&&p.coins>0).reduce((s,p)=>s+p.coins,0),
-    top5:    [...Object.values(participants)].filter(p=>!p.banned&&p.coins>0)
-               .sort((a,b)=>b.coins-a.coins).slice(0,5)
-               .map(p=>({ name:p.display, tickets:p.coins })),
-    winner:  winner || null
-  });
+// OBS-Overlay (giveaway-overlay.html) ist winner-only. Der Server broadcastet
+// den Gewinner bei der Ziehung selbst; hier nur das explizite Leeren.
+function clearOverlay() {
+  send({ event: 'gw_overlay', winner: null });
 }
 
 // ── Export ────────────────────────────────────────────────

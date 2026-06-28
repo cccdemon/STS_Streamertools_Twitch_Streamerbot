@@ -7,7 +7,7 @@
 //
 // Redis Sub: ch:giveaway (viewer_tick, chat_msg, time_cmd)
 // Redis Pub: ch:chat_reply (time_cmd replies, first chatter)
-// WS (9001):  admin commands + broadcasts
+// WS + REST (3001): admin commands + broadcasts; same HTTP server
 // REST:       /api/participants, /api/user/:u, /api/sessions, /api/leaderboard
 // ════════════════════════════════════════════════════════
 
@@ -82,29 +82,24 @@ const wte = new WatchtimeEngine(redis, pg);
 let currentSessionId = null;
 
 // ── Session Management ────────────────────────────────────
-async function ensureSession() {
-  if (currentSessionId) return currentSessionId;
-  const existing = await redis.get(K.gwSessionId());
-  if (existing) { currentSessionId = existing; return existing; }
-  currentSessionId = `sess_${Date.now()}`;
-  await pg.query(`INSERT INTO sessions (id) VALUES ($1) ON CONFLICT (id) DO NOTHING`, [currentSessionId]);
-  await redis.set(K.gwSessionId(), currentSessionId);
-  log('Session', 'Created:', currentSessionId);
-  return currentSessionId;
-}
-
 async function openGiveaway(keyword) {
-  const sid = await ensureSession();
-  await wte.openGiveaway(keyword, sid);
-  await pg.query(`UPDATE sessions SET keyword = $1 WHERE id = $2`, [keyword || '', sid]);
+  // Jedes Öffnen startet eine frische Session (neues Giveaway = neue Session).
+  currentSessionId = `sess_${Date.now()}`;
+  await pg.query(
+    `INSERT INTO sessions (id, keyword) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+    [currentSessionId, keyword || '']
+  );
+  await redis.set(K.gwSessionId(), currentSessionId);
+  await wte.openGiveaway(keyword, currentSessionId);
   broadcastAll({ event: 'gw_status', status: 'open' });
-  log('GW', 'Opened, keyword:', keyword);
+  log('GW', 'Opened, session:', currentSessionId, 'keyword:', keyword);
 }
 
 async function closeGiveaway() {
   const sid = currentSessionId || await redis.get(K.gwSessionId());
   await wte.closeGiveaway(sid);
-  currentSessionId = null;
+  // currentSessionId bewusst NICHT zurücksetzen: Reroll nach dem Schließen
+  // braucht die Session, damit times_won korrekt umgebucht wird (gw_reset löscht).
   broadcastAll({ event: 'gw_status', status: 'closed' });
   log('GW', 'Closed');
 }
@@ -174,6 +169,23 @@ async function handleClientMessage(ws, msg) {
     case 'gw_cmd':
       await handleAdminCmd(send, msg);
       break;
+
+    // Overlay-Relay: Admin/Test senden gw_overlay (winner / clear) → an alle
+    // Clients weiterreichen, damit das OBS-Overlay (giveaway-overlay.html) es sieht.
+    case 'gw_overlay':
+      broadcastAll({ event: 'gw_overlay', winner: msg.winner || null, coins: msg.coins || 0 });
+      break;
+
+    // Test-Console-Simulation: viewer_tick / chat_msg / time_cmd kommen im
+    // Echtbetrieb über die Bridge auf ch:giveaway. Über WS injizierte Sim-Events
+    // werden hier auf denselben Kanal republished, damit der reguläre
+    // Subscriber sie identisch verarbeitet.
+    case 'viewer_tick':
+    case 'chat_msg':
+    case 'time_cmd':
+      redisPub.publish('ch:giveaway', JSON.stringify(msg))
+        .catch((e) => logErr('Sim', 'republish failed:', e.message));
+      break;
   }
 }
 
@@ -204,16 +216,24 @@ async function handleAdminCmd(send, msg) {
     case 'gw_add_ticket': {
       const u = sanitizeUsername(msg.user);
       if (!u) return;
+      // User registrieren, sonst taucht er nicht in gwIndex auf → unsichtbar
+      // für Teilnehmerliste und Ziehung (verwaiste watchSec).
+      const sid = currentSessionId || await redis.get(K.gwSessionId());
+      await wte.registerUser(u, sid);
       const newSec = await redis.incrby(K.gwWatchSec(u), 7200);
+      await wte.logManualAdjust(u, 7200, sid);   // Audit-Trail
       send({ event: 'gw_ack', type: 'ticket_added', user: u, watchSec: newSec });
       break;
     }
     case 'gw_sub_ticket': {
       const u = sanitizeUsername(msg.user);
       if (!u) return;
-      const cur = parseInt(await redis.get(K.gwWatchSec(u)) || '0');
-      const newSec = Math.max(0, cur - 7200);
-      await redis.set(K.gwWatchSec(u), String(newSec));
+      // Atomar abziehen, dann auf >=0 klemmen (vermeidet Race mit Ticker-incrby).
+      const after = await redis.decrby(K.gwWatchSec(u), 7200);
+      let newSec = after;
+      if (after < 0) { await redis.set(K.gwWatchSec(u), '0'); newSec = 0; }
+      const sid = currentSessionId || await redis.get(K.gwSessionId());
+      await wte.logManualAdjust(u, -7200, sid);  // Audit-Trail
       send({ event: 'gw_ack', type: 'ticket_removed', user: u, watchSec: newSec });
       break;
     }

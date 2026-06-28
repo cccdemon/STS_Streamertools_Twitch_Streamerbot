@@ -192,6 +192,21 @@ class WatchtimeEngine {
     return { registered: true, isNew: !already };
   }
 
+  // Manuelle Admin-Registrierung (gw_add_ticket auf noch unbekannten User).
+  // Sorgt dafür, dass der User in gwIndex/gwRegistered landet und in PG existiert.
+  async registerUser(username, sessionId) {
+    const u = sanitizeUsername(username);
+    if (!u) return null;
+    return this._handleRegistration(u, u, sessionId);
+  }
+
+  // Audit-Eintrag für manuelle Ticket-Anpassungen (+/- watchSec durch Admin).
+  async logManualAdjust(username, deltaSec, sessionId) {
+    const u = sanitizeUsername(username);
+    if (!u) return;
+    await this._logEvent(u, deltaSec >= 0 ? 'admin_add' : 'admin_sub', deltaSec, sessionId);
+  }
+
   // Watchtime-Stand eines Users abrufen
   async getUserState(username) {
     const u = sanitizeUsername(username);
@@ -400,7 +415,8 @@ class WatchtimeEngine {
       console.error('[WTE] closeGiveaway error:', e.message);
     } finally {
       client.release();
-      await this.redis.del(K.gwSessionId());
+      // gw_session_id bleibt erhalten → Reroll nach Close findet die Session.
+      // Endgültig gelöscht wird sie erst in resetGiveaway().
     }
   }
 
