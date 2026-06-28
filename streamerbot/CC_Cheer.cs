@@ -1,8 +1,9 @@
-// Action: "CC – Cheer/Bits Alert"
+// Action: "CC – Cheer"
 // Trigger: Twitch → Cheer
 //
-// Sendet ein Cheer-Event direkt an das Alert-Overlay (alerts.html)
-// via cc_alert_session (gesetzt durch cc_alert_register).
+// Sendet ein Bits/Cheer-Event an das Alert-Overlay (overlay.html)
+// über cc_alert_session. Overlay-alertType: "cheer".
+// Felder die overlay.html liest: user, amount (Bits), avatar (optional).
 
 using Newtonsoft.Json.Linq;
 
@@ -10,39 +11,35 @@ public class CPHInline
 {
     public bool Execute()
     {
-        string user    = GetArg("displayName") ?? GetArg("userName") ?? "Unbekannt";
-        string bitsStr = GetArg("bits") ?? "0";
-        string message = GetArg("message") ?? "";
-
         var payload = new JObject
         {
-            ["event"]     = "cheer",
             ["alertType"] = "cheer",
-            ["user"]      = user,
-            ["amount"]    = bitsStr,
-            ["message"]   = message
+            ["user"]      = A("displayName") ?? A("userName") ?? "Unbekannt",
+            ["amount"]    = A("bits") ?? "0",
+            ["avatar"]    = A("userProfileImageUrl") ?? A("profileImageUrl") ?? "",
         };
+        return Send(payload, "Cheer");
+    }
 
-        string alertSession = CPH.GetGlobalVar<string>("cc_alert_session", false);
-        if (!string.IsNullOrEmpty(alertSession))
+    private bool Send(JObject payload, string tag)
+    {
+        string session = CPH.GetGlobalVar<string>("cc_alert_session", false);
+        if (string.IsNullOrEmpty(session))
         {
-            CPH.WebsocketCustomServerBroadcast(payload.ToString(), alertSession, 0);
-            CPH.LogInfo($"[CC Cheer] {user} – {bitsStr} Bits → Alert-Overlay broadcast");
+            CPH.LogWarn($"[CC {tag}] cc_alert_session nicht gesetzt – Overlay nicht registriert.");
+            return true;
         }
-        else
-        {
-            CPH.LogWarn("[CC Cheer] Keine registrierte Alert-Session gefunden.");
-        }
-
+        CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
+        CPH.LogInfo($"[CC {tag}] → Overlay broadcast");
         return true;
     }
 
-    private string GetArg(string key)
+    private string A(string key)
     {
         if (args.ContainsKey(key) && args[key] != null)
         {
-            string val = args[key].ToString().Trim();
-            return val.Length > 0 ? val : null;
+            string v = args[key].ToString().Trim();
+            return v.Length > 0 ? v : null;
         }
         return null;
     }

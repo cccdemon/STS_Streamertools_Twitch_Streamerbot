@@ -247,20 +247,18 @@ async function handleAdminCmd(send, msg) {
       break;
     }
     case 'gw_draw_winner': {
-      const participants = await wte.getAllParticipants();
-      const eligible = participants.filter(p => !p.banned && p.coins > 0);
-      if (!eligible.length) { send({ event: 'gw_ack', type: 'no_winner' }); break; }
-      const total = eligible.reduce((s, p) => s + p.coins, 0);
-      let rand = Math.random() * total;
-      let winner = eligible[eligible.length - 1];
-      for (const p of eligible) { rand -= p.coins; if (rand <= 0) { winner = p; break; } }
-      if (currentSessionId) {
-        await pg.query(`UPDATE sessions SET winner=$1, winner_watch_sec=$2, winner_coins=$3 WHERE id=$4`,
-          [winner.username, winner.watchSec, winner.coins, currentSessionId]);
-        await pg.query(`UPDATE users SET times_won = times_won + 1 WHERE username=$1`, [winner.username]);
+      try {
+        const sid = currentSessionId || await redis.get(K.gwSessionId());
+        const result = await wte.drawWinner(sid, { test: !!msg.test });
+        if (!result) { send({ event: 'gw_ack', type: 'no_winner' }); break; }
+        send({ event: 'gw_ack', type: 'winner_drawn', winner: result.winner,
+               watchSec: result.watchSec, coins: result.coins, drawId: result.drawId });
+        broadcastAll({ event: 'gw_overlay', winner: result.winner, coins: result.coins });
+        log('GW', `Winner: ${result.winner} (draw #${result.drawId}, ${result.eligibleCount} eligible, pool ${result.total})`);
+      } catch (e) {
+        logErr('GW', 'draw_winner failed:', e.message);
+        send({ event: 'gw_ack', type: 'draw_error', error: e.message });
       }
-      send({ event: 'gw_ack', type: 'winner_drawn', winner: winner.username, watchSec: winner.watchSec, coins: winner.coins });
-      broadcastAll({ event: 'gw_overlay', winner: winner.username, coins: winner.coins });
       break;
     }
   }
@@ -389,6 +387,21 @@ app.get('/api/sessions', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Audit-Trail aller Ziehungen (Nachvollziehbarkeit).
+// ?session=<id> filtert auf eine Session, ?full=1 inkl. eligible_snapshot.
+app.get('/api/draws', async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit || '50'), 500);
+    const cols = req.query.full === '1'
+      ? '*'
+      : 'id, session_id, winner, winner_coins, winner_watch_sec, total_coins, eligible_count, rand_value, draw_index, is_test, drawn_at';
+    const result = req.query.session
+      ? await pg.query(`SELECT ${cols} FROM giveaway_draws WHERE session_id=$1 ORDER BY drawn_at DESC LIMIT $2`, [req.query.session, limit])
+      : await pg.query(`SELECT ${cols} FROM giveaway_draws ORDER BY drawn_at DESC LIMIT $1`, [limit]);
+    res.json(result.rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit || '50'), 500);
@@ -408,9 +421,35 @@ app.get('/api/ws/clients', (_req, res) => {
 app.use(express.static('public'));
 
 // ── Start ─────────────────────────────────────────────────
+// Idempotente Schema-Sicherung. Migrations werden bei bestehendem
+// Volume NICHT automatisch angewendet (init.sql läuft nur bei frischem
+// Datenverzeichnis) — daher hier garantieren, dass die Audit-Tabelle existiert.
+async function ensureSchema() {
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS giveaway_draws (
+      id                BIGSERIAL PRIMARY KEY,
+      session_id        TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+      winner            TEXT NOT NULL,
+      winner_coins      NUMERIC(10,4) NOT NULL DEFAULT 0,
+      winner_watch_sec  BIGINT NOT NULL DEFAULT 0,
+      total_coins       NUMERIC(10,4) NOT NULL DEFAULT 0,
+      eligible_count    INTEGER NOT NULL DEFAULT 0,
+      rand_value        NUMERIC(20,10) NOT NULL DEFAULT 0,
+      draw_index        INTEGER NOT NULL DEFAULT 1,
+      is_test           BOOLEAN NOT NULL DEFAULT FALSE,
+      eligible_snapshot JSONB,
+      drawn_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_session ON giveaway_draws(session_id)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_winner  ON giveaway_draws(winner)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_ts      ON giveaway_draws(drawn_at DESC)`);
+  log('Schema', 'giveaway_draws ensured');
+}
+
 async function main() {
   await redisReady();
   await pgReady();
+  await ensureSchema();
 
   const existing = await redis.get(K.gwSessionId());
   if (existing) { currentSessionId = existing; log('Session', 'Resuming:', currentSessionId); }

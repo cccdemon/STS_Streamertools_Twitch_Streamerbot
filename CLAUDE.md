@@ -98,10 +98,8 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 | Join animation | `/giveaway/giveaway-join.html` |
 | Spacefight | `/spacefight/spacefight.html` |
 | HUD Chat | `/alerts/chat.html?channel=DEIN_KANAL` |
-| Alert overlay (Redesign, fullscreen) | `/alerts/overlay.html` (clean/live by default; `?demo=1` = demo panel) |
-| Alert bar (legacy) | `/alerts/alerts.html` |
-| Raid info | `/alerts/raid-info.html` |
-| Shoutout info | `/alerts/shoutout-info.html` |
+| Alert overlay (Redesign, fullscreen, **the** alert renderer) | `/alerts/overlay.html` (clean/live by default; `?demo=1` = demo panel) |
+| HUD Chat | `/alerts/chat.html?channel=DEIN_KANAL` |
 | Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
 
 ## REST API Endpoints
@@ -113,6 +111,7 @@ Known roles: `giveaway-admin`, `spacefight-admin`, `giveaway-test`, `spacefight-
 | GET | `/giveaway/api/user/:username` | Single user giveaway data |
 | GET | `/giveaway/api/sessions` | Session history |
 | GET | `/giveaway/api/leaderboard` | Global leaderboard (watchtime) |
+| GET | `/giveaway/api/draws` | Draw audit trail (`?session=`, `?full=1`, `?limit=`) |
 | GET | `/giveaway/api/ws/clients` | Connected WS clients |
 
 ### Spacefight Service (`/spacefight/api/...`)
@@ -201,18 +200,23 @@ Per-ship PNGs live in `services/spacefight/public/assets/ships/<slug>.png`. Slug
 Defender ships are mirrored at render time via `transform: scaleX(-1)` — ship the right-facing variant only.
 
 ## Alert Overlays (`services/alerts/`)
-All three overlays connect to alerts service WS via `/alerts/ws`.
+`overlay.html` is **the single alert renderer** (source of truth). The legacy
+`alerts.html`, `raid-info.html`, `shoutout-info.html` panels were **removed** —
+all alert types now render in `overlay.html`. C# actions must match its
+`buildAlert()` field contract (see `streamerbot/SETUP.md`).
 
 | File | Purpose |
 |---|---|
-| `overlay.html` | **Redesign** — fullscreen 1920×1080 sci-fi overlay: big center alert + compact corner channel + Latest widget + cinematic shoutout + resub-fullscreen + Canvas raid Reaper fleet. Standalone (no `.dc.html`/React). **Clean/live by default** (transparent, connects Streamerbot WS, sound on); `?demo=1` shows demo panel+backdrop (muted); `?test=<type>&...` fires one event; `?sb=ws://host:port` overrides WS. Assets in `public/assets/`, sounds in `public/sounds/`. |
-| `alerts.html` | Legacy bottom-bar alert (follow, sub, bits, raid, subgift, subbomb, hypetrain, redeem, shoutout, outraid) |
+| `overlay.html` | **Redesign** — fullscreen 1920×1080 sci-fi overlay: big center alert + compact corner channel + Latest widget + cinematic shoutout + resub-fullscreen + Canvas raid Reaper fleet. Standalone (inline JS/CSS, no external js/css). **Clean/live by default** (transparent, connects Streamerbot WS at `ws://192.168.178.39:9090`, sound on); `?demo=1` shows demo panel+backdrop (muted, does NOT connect live); `?sb=ws://host:port` overrides WS. Assets in `public/assets/`, sounds in `public/sounds/`. |
+| `chat.html` / `chat.js` | HUD chat overlay (separate; consumes `ch:chat` via `/alerts/ws`) |
 
-**Admin test path:** overlay opens a 2nd WS to `/alerts/ws` (`connectAdmin`) that only enqueues `_test`-flagged alerts (real Streamerbot events never double-fire). Admin page `/admin/alerts-test.html` sends `{ event:'cc_test', alertType, user, amount, tier, months, level, reward, game, avatar }` → `alerts/server.js` `injectTestAlert()` sanitizes + `broadcastAll` a `_test` alert → all overlays show it. Lets you trigger the OBS overlay live from the admin dashboard. `cc_test` is in `ALLOWED_EVENTS` (admin-shared.js).
-| `raid-info.html` | Right-panel raid info with AI summary (Claude API, Firefly theme) |
-| `shoutout-info.html` | Right-panel shoutout info with AI summary + chat reply via `/alerts/api/chat/send` |
+**Live alerts:** `overlay.html` connects directly to the Streamerbot WS server, sends `{event:'cc_alert_register'}`, and receives per-event custom broadcasts (flat payload with top-level `alertType`). Bridge/Redis is NOT in the live alert path.
 
-Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as URL param. `POST /alerts/api/claude/summary` handles all AI calls.
+**Overlay `buildAlert` alertTypes + fields:** `follow`(user,avatar) · `cheer`(user,amount,avatar) · `sub`(user,tier,avatar) · `resub`(user,tier,cumulativeMonths,avatar) · `subgift`(user,recipient,amount,tier,avatar) · `subbomb`(user,amount,tier,avatar) · `raid`(user,amount,avatar,game) · `redeem`(user,reward,avatar) · `shoutout`(user,avatar,game) · `hypetrain`(level) · `outraid`(user,amount) · `streamstart`. Field reads are defensive (`avatar||profileImageUrl`, `months||cumulativeMonths`, `amount||bits||viewers`). tier expects `1000/2000/3000`.
+
+**Admin test path:** overlay opens a 2nd WS to `/alerts/ws` (`connectAdmin`) that only enqueues `_test`-flagged alerts (real Streamerbot events never double-fire). Admin page `/admin/alerts-test.html` sends `{ event:'cc_test', alertType, user, recipient, amount, tier, months, level, reward, game, avatar }` → `alerts/server.js` `injectTestAlert()` sanitizes + `broadcastAll` a `_test` alert → overlay shows it. `cc_test` is in `ALLOWED_EVENTS` (admin-shared.js).
+
+Claude API key in `.env` as `ANTHROPIC_KEY`. `POST /alerts/api/claude/summary` handles AI calls (no longer used by a built-in panel; available for future use).
 
 ### Sound files
 Checked into `services/alerts/public/`:
@@ -224,43 +228,44 @@ OBS browser source: enable **"Control audio via OBS"** for audio to appear in th
 Per-reward overlay config lives in the `CHANNEL_REWARDS` map in `alerts.html` — keyed by lowercased reward title. Each entry: `{ label, msg(user), stat, flash, sound }`. Add new rewards by extending this map; no server changes needed.
 
 ## Streamerbot C# Actions (`streamerbot/`)
-All broadcasters send to `cc_api_session` (set by `CC_ApiRegister.cs`) via `CPH.WebsocketCustomServerBroadcast`.
-Bridge receives the event and routes it to the correct Redis channel.
+**Two broadcast targets:**
+- **Alert actions** send directly to `cc_alert_session` (set by `CC_AlertRegister.cs`) → `overlay.html`. They do NOT go through the Bridge/Redis. Payload is flat with a top-level `alertType` + the exact fields `overlay.html` `buildAlert()` reads.
+- **Giveaway/Spacefight/Chat actions** send to `cc_api_session` (set by `CC_ApiRegister.cs`) → Bridge → Redis channel.
 
-| File | Action Name | Trigger | Purpose |
+Full setup/import guide: `streamerbot/SETUP.md`.
+
+| File | Trigger | Target | Sends |
 |---|---|---|---|
-| `CC_ApiRegister.cs` | CC – API Register | WS Custom Server Message | Saves cc_api_session on connect |
-| `CC_ChatReply.cs` | CC – Chat Reply Handler | WS Custom Server Message | Forwards chat_reply to Twitch chat |
-| `CC_AlertRegister.cs` | CC – Alert Register | WS Custom Server Message | Registers overlay WS sessions |
-| `CC_RaidBroadcaster.cs` | CC – Raid Broadcaster | Twitch Raid | Sends raid event to alerts overlay |
-| `CC_Follow.cs` | CC – Follow | Twitch Follow | Sends follow event to alerts overlay |
-| `CC_Cheer.cs` | CC – Cheer | Twitch Cheer | Sends cheer/bits event to alerts overlay |
-| `CC_Shoutout.cs` | CC – Shoutout | Core Command `!so` | Shoutout to chat + Twitch native shoutout |
-| `CC_ClipCreated.cs` | CC – Clip Created | Clip Created | Sends clip title + URL to chat |
-| `CC_AdBreakStart.cs` | CC – Ad Break Start | Ad Break Start | Sends ad notice to chat |
-| `CC_AdBreakEnd.cs` | CC – Ad Break End | Ad Break End | Sends ad-end notice to chat |
-| `CC_FirstChatter.cs` | CC – First Chatter | Chat Message | Sends first_chatter event to API |
-| `CC_Sub.cs` | CC – Sub | Twitch Sub | Sends sub event |
-| `CC_Resub.cs` | CC – Resub | Twitch Resub | Sends resub event |
-| `CC_SubGift.cs` | CC – SubGift | Twitch SubGift | Sends subgift event |
-| `CC_SubBomb.cs` | CC – SubBomb | Twitch CommunityGiftSub | Sends subbomb event |
-| `CC_Redeem.cs` | CC – Redeem | Channel Point Redeem | Sends redeem event (alerts overlay maps via `CHANNEL_REWARDS`) |
-| `GW_A_ViewerTick.cs` | GW – Viewer Tick | Twitch Present Viewer | Sends viewer_tick to bridge |
-| `GW_B_ChatMessage.cs` | GW – Chat Message | Twitch Chat Message | Sends chat_msg to bridge |
-| `GW_TimeInfo.cs` | GW – Time Info | Command `!time` / `!coin` | Sends time_cmd to bridge |
-| `GW_Leaderboard.cs` | GW – Leaderboard | Command `!top` | Queries stats API, posts top 3 to chat |
-| `SF_FightCmd.cs` | SF – Fight Cmd | Command `!fight` | Sends fight_cmd to bridge |
-| `SF_ChallengeAccept.cs` | SF – Challenge Accept | Command `!ja` | Accepts pending spacefight challenge |
-| `SF_ChallengeDecline.cs` | SF – Challenge Decline | Command `!nein` | Declines pending spacefight challenge |
-| `SF_ChatTracker.cs` | SF – Chat Tracker | Twitch Chat Message | Tracks active chatters for fight matchmaking |
-| `SF_StreamOnline.cs` | SF – Stream Online | Stream Online | Sends stream_online → enables fights |
-| `SF_StreamOffline.cs` | SF – Stream Offline | Stream Offline | Sends stream_offline → disables fights |
+| `CC_ApiRegister.cs` | WS Custom Server Message | – | saves `cc_api_session` (Bridge) |
+| `CC_AlertRegister.cs` | WS Custom Server Message | – | saves `cc_alert_session` (overlay.html) |
+| `CC_ChatReply.cs` | WS Custom Server Message | chat | forwards chat_reply to Twitch chat |
+| `CC_Follow.cs` | Twitch Follow | overlay | `alertType:follow` (user, avatar) |
+| `CC_Cheer.cs` | Twitch Cheer | overlay | `alertType:cheer` (user, amount, avatar) |
+| `CC_Sub.cs` ⭐ | Twitch Sub + Resub + GiftSub + CommunityGiftSub (all 4 on this one action) | overlay | auto: `sub`/`resub`/`subgift`/`subbomb`; tier normalized to `1000/2000/3000` |
+| `CC_RaidBroadcaster.cs` | Twitch Raid | overlay | `alertType:raid` (user, amount, avatar, game) + chat msg |
+| `CC_Redeem.cs` | Channel Point Redeem | overlay | `alertType:redeem` (user, reward, avatar) — overlay maps reward via `REWARDS` |
+| `CC_Shoutout.cs` | Command `!so` | overlay | `alertType:shoutout` (user, avatar, game) + native Twitch shoutout |
+| `CC_HypeTrain.cs` | Twitch Hype Train | overlay | `alertType:hypetrain` (level) |
+| `CC_OutRaid.cs` | Twitch Raid Started / `!raid` | overlay | `alertType:outraid` (user, amount) |
+| `CC_StreamStart.cs` | Stream Online | overlay | `alertType:streamstart` |
+| `CC_ClipCreated.cs` | Clip Created | chat | clip title + URL |
+| `CC_AdBreakStart.cs` / `CC_AdBreakEnd.cs` | Ad Break Start/End | chat | ad notices |
+| `CC_FirstChatter.cs` | Chat Message | Bridge | first_chatter → ch:alerts → welcome chat reply |
+| `GW_A_ViewerTick.cs` | Twitch Present Viewer | Bridge | viewer_tick |
+| `GW_B_ChatMessage.cs` | Twitch Chat Message | Bridge | chat_msg |
+| `GW_TimeInfo.cs` | Command `!time` / `!coin` | Bridge | time_cmd |
+| `GW_Leaderboard.cs` | Command `!top` | chat | queries stats API, posts top 3 |
+| `SF_FightCmd.cs` | Command `!fight` | Bridge | fight_cmd |
+| `SF_ChallengeAccept.cs` / `SF_ChallengeDecline.cs` | `!ja` / `!nein` | Bridge | accept/decline challenge |
+| `SF_ChatTracker.cs` | Twitch Chat Message | Bridge | tracks active chatters |
+| `SF_StreamOnline.cs` / `SF_StreamOffline.cs` | Stream Online/Offline | Bridge | enables/disables fights |
 
-> Known issue (commits `e81f770`, `bec98cc`): each sub variant has its own action — should be consolidated.
+> ✅ Sub-variant consolidation done: `CC_Sub.cs` handles all four sub events; `CC_Resub/CC_SubGift/CC_SubBomb` removed.
+> Alert delivery is overlay-direct: the Bridge→ch:alerts path no longer carries follow/cheer/raid/sub/shoutout (only `first_chatter`).
 
 ## Data Storage
 - **Redis (ephemeral)**: giveaway open/closed, current keyword, banned users, watchsec/msgs per user, spacefight live/active flags, first chatter toggle, session ID, Twitch user cache
-- **PostgreSQL (persistent)**: `sessions`, `users` (giveaway winners, ticket counts), `spacefight_stats` (wins/losses), `spacefight_results` (fight history)
+- **PostgreSQL (persistent)**: `sessions`, `users` (giveaway winners, ticket counts), `session_participants` (per-session snapshot), `watchtime_events` (tick/chat_bonus audit), `giveaway_draws` (full draw audit trail — winner, eligible snapshot, rand, totals), `spacefight_stats` (wins/losses), `spacefight_results` (fight history), `debug_log`
 
 ## Known Issues (as of 2026-05-06)
 
@@ -273,10 +278,15 @@ Bridge receives the event and routes it to the correct Redis channel.
 - `caddy/Caddyfile.ssl` proxies `/api/*` and `/health` to a nonexistent `api:3000` service. The non-SSL `caddy/Caddyfile` is correct — use it as the reference.
 - Spacefight public JS (`spacefight.js`, `spacefight-admin.js`) fetches root-relative `/api/spacefight/...` paths, which 404 through Caddy. Should be `/spacefight/api/spacefight/...`.
 
-### Data integrity
-- `spacefight_result` is handled by both the service WS handler and the Redis pub/sub subscriber — a result arriving on both paths is saved twice. No dedup key exists.
-- `closeGiveaway()` in `watchtime.js` increments lifetime `total_watch_sec`/`total_msgs` every call. Calling `gw_close` or `gw_reset` more than once for the same session double-counts totals. No `closed_at` guard.
-- `gw_draw_winner` runs `UPDATE users SET times_won = times_won + 1` without upserting first — winners added only via `gw_add_ticket` (Redis-only) are never written to PostgreSQL and the increment silently no-ops.
+### Data integrity — FIXED 2026-06-25
+- ~~`spacefight_result` saved twice~~ FIXED: dead pub/sub `spacefight_result` handler removed (overlay is sole producer, sends via WS only); `saveSpacefightResult` now guards with a 12s Redis `sf:dedup:<winner>:<loser>` NX-lock (covers multiple open overlays each running their own `runFight`).
+- ~~`closeGiveaway()` double-counts lifetime totals~~ FIXED: `UPDATE sessions ... WHERE id=$1 AND closed_at IS NULL` guard; lifetime upsert only runs when `rowCount>0` (first close wins).
+- ~~`gw_draw_winner` `times_won` no-op~~ FIXED: rewritten as testable `WatchtimeEngine.drawWinner(sessionId, {test})`. Upserts the winner into `users` (no more silent no-op), crypto-weighted pick, fully transactional, works even after close. `times_won` counts once per session and is reroll-safe (decrements previous session winner on re-draw).
+
+### Giveaway draw auditability (Nachvollziehbarkeit)
+Every draw writes a row to `giveaway_draws` (see Data Storage). `eligible_snapshot` (ordered username+coins) + `total_coins` + `rand_value` make any draw reproducible: walk the snapshot accumulating coins until `rand_value < acc` → winner. `is_test=true` rows (overlay/admin test draws) are audited but never touch `users`/`sessions`. Query via `GET /giveaway/api/draws` (`?session=<id>`, `?full=1` for snapshot, `?limit=`).
+
+> Schema note: `giveaway_draws` is created by `init.sql` (fresh volume), `migrations/003_giveaway_draws.sql` (existing volume — NOT auto-applied), AND guaranteed at giveaway-service startup via `ensureSchema()`. The startup ensure is the reliable path; migrations are not auto-run by compose.
 
 ## Development
 

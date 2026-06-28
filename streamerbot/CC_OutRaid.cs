@@ -1,10 +1,11 @@
-// Action: "CC – Redeem"
-// Trigger: Twitch → Channel Point Reward Redemption
+// Action: "CC – Out Raid" (ausgehender Raid)
+// Trigger: Twitch → Raid Started (ausgehend)  — falls dein Streamerbot
+//   kein Outgoing-Raid-Event hat, an einen Command (z.B. !raid <ziel>)
+//   oder die native Raid-Sub-Action binden.
 //
-// Sendet ein Reward-Event an das Alert-Overlay (overlay.html)
-// über cc_alert_session. Overlay-alertType: "redeem".
-// Felder die overlay.html liest: user, reward (Titel, gematcht gegen
-// REWARDS-Map per Kleinschreibung), avatar (optional).
+// Sendet ein Out-Raid-Event an das Alert-Overlay (overlay.html)
+// über cc_alert_session. Overlay-alertType: "outraid".
+// Felder die overlay.html liest: user (Ziel-Kanal), amount (Piloten/Viewer).
 
 using Newtonsoft.Json.Linq;
 
@@ -14,12 +15,11 @@ public class CPHInline
     {
         var payload = new JObject
         {
-            ["alertType"] = "redeem",
-            ["user"]      = A("displayName") ?? A("userName") ?? "Unbekannt",
-            ["reward"]    = A("rewardName") ?? A("redemption.reward.title") ?? "",
-            ["avatar"]    = A("userProfileImageUrl") ?? A("profileImageUrl") ?? "",
+            ["alertType"] = "outraid",
+            ["user"]      = A("targetUserName") ?? A("targetUser") ?? A("raidTarget") ?? A("displayName") ?? "Unbekannt",
+            ["amount"]    = A("viewers") ?? A("viewerCount") ?? "0",
         };
-        return Send(payload, "Redeem");
+        return Send(payload, "OutRaid");
     }
 
     private bool Send(JObject payload, string tag)
@@ -31,7 +31,7 @@ public class CPHInline
             return true;
         }
         CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
-        CPH.LogInfo($"[CC {tag}] → Overlay broadcast: {payload["reward"]}");
+        CPH.LogInfo($"[CC {tag}] → Overlay broadcast");
         return true;
     }
 

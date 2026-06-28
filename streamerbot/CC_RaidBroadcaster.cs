@@ -1,66 +1,56 @@
-// Action: "CC – Raid Broadcaster"
+// Action: "CC – Raid" (eingehender Raid)
 // Trigger: Twitch → Raid
 //
-// Sendet ein Raid-Event an das Alert-Overlay (alerts.html) via cc_alert_session
-// UND an die API (cc_api_session → Bridge → raid-info.html via /alerts/ws).
+// Sendet ein Raid-Event an das Alert-Overlay (overlay.html)
+// über cc_alert_session. Overlay-alertType: "raid".
+// Felder die overlay.html liest: user, amount (Viewer), avatar, game (optional).
 
-using System;
 using Newtonsoft.Json.Linq;
 
 public class CPHInline
 {
     public bool Execute()
     {
-        string user    = GetArg("displayName") ?? GetArg("userName") ?? GetArg("user") ?? "Unbekannt";
-        string viewers = GetArg("viewers") ?? GetArg("viewerCount") ?? "0";
-        string avatar  = GetArg("profileImageUrl") ?? GetArg("userProfileImageUrl") ?? "";
-        string game    = GetArg("gameName") ?? GetArg("game") ?? "";
+        string user    = A("displayName") ?? A("userName") ?? A("user") ?? "Unbekannt";
+        string viewers = A("viewers") ?? A("viewerCount") ?? "0";
+        string game    = A("gameName") ?? A("game") ?? "";
 
         var payload = new JObject
         {
-            ["event"]           = "raid",
-            ["alertType"]       = "raid",
-            ["user"]            = user,
-            ["amount"]          = viewers,
-            ["profileImageUrl"] = avatar,
-            ["game"]            = game
+            ["alertType"] = "raid",
+            ["user"]      = user,
+            ["amount"]    = viewers,
+            ["avatar"]    = A("profileImageUrl") ?? A("userProfileImageUrl") ?? "",
+            ["game"]      = game,
         };
 
-        // ── Chatnachricht senden ──
+        // Chat-Ankündigung
         string msg = $"🚀 Raid incoming! {user} bringt {viewers} Viewer mit!";
-        if (!string.IsNullOrEmpty(game))
-            msg += $" (zuletzt: {game})";
+        if (!string.IsNullOrEmpty(game)) msg += $" (zuletzt: {game})";
         CPH.SendMessage(msg);
 
-        // An Alert-Overlay (alerts.html, direkt an Streamerbot angebunden)
-        string alertSession = CPH.GetGlobalVar<string>("cc_alert_session", false);
-        if (!string.IsNullOrEmpty(alertSession))
-        {
-            CPH.WebsocketCustomServerBroadcast(payload.ToString(), alertSession, 0);
-            CPH.LogInfo($"[CC Raid] {user} mit {viewers} Viewern → Alert-Overlay broadcast");
-        }
-        else
-        {
-            CPH.LogWarn("[CC Raid] Keine registrierte Alert-Session gefunden.");
-        }
+        return Send(payload, "Raid");
+    }
 
-        // An API (Bridge → Redis → raid-info.html via /alerts/ws)
-        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
-        if (!string.IsNullOrEmpty(apiSession))
+    private bool Send(JObject payload, string tag)
+    {
+        string session = CPH.GetGlobalVar<string>("cc_alert_session", false);
+        if (string.IsNullOrEmpty(session))
         {
-            CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
-            CPH.LogInfo($"[CC Raid] {user} → API broadcast");
+            CPH.LogWarn($"[CC {tag}] cc_alert_session nicht gesetzt – Overlay nicht registriert.");
+            return true;
         }
-
+        CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
+        CPH.LogInfo($"[CC {tag}] → Overlay broadcast");
         return true;
     }
 
-    private string GetArg(string key)
+    private string A(string key)
     {
         if (args.ContainsKey(key) && args[key] != null)
         {
-            string val = args[key].ToString().Trim();
-            return val.Length > 0 ? val : null;
+            string v = args[key].ToString().Trim();
+            return v.Length > 0 ? v : null;
         }
         return null;
     }

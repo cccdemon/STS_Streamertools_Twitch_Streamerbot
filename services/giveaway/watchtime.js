@@ -5,6 +5,8 @@
 // Gesamte Watchtime-Logik hier – testbar ohne WS/HTTP
 // ════════════════════════════════════════════════════════
 
+const { randomInt } = require('crypto');
+
 const SECS_PER_COIN  = 7200;   // 2h = 1 Coin
 const CHAT_BONUS_SEC = 5;       // +5s pro qualifizierender Nachricht
 const CHAT_COOLDOWN  = 10;      // Sekunden zwischen zählenden Nachrichten
@@ -244,6 +246,104 @@ class WatchtimeEngine {
     }
     if (sessionId) await this.redis.set(K.gwSessionId(), sessionId);
     console.log(`[WTE] Giveaway opened, keyword="${keyword}", session=${sessionId}`);
+  }
+
+  // ── Winner-Ziehung ──────────────────────────────────────
+  // Gewichtet nach Coins. Schreibt einen vollständigen,
+  // nachvollziehbaren Audit-Eintrag in giveaway_draws:
+  // eligible_snapshot (geordnete Liste username+coins), total_coins
+  // und rand_value erlauben jederzeit die Reproduktion der Ziehung.
+  // times_won wird pro Session nur einmal gezählt (Reroll-sicher).
+  // Gibt null zurück wenn kein berechtigter Teilnehmer (coins>0, nicht gebannt).
+  async drawWinner(sessionId, opts = {}) {
+    const isTest = !!opts.test;
+    const participants = await this.getAllParticipants();       // sortiert coins DESC
+    const eligible = participants.filter(p => !p.banned && p.coins > 0);
+    if (!eligible.length) return null;
+
+    const total = eligible.reduce((s, p) => s + p.coins, 0);
+    // Kryptografisch gleichverteilt in [0, total)
+    const rand = (randomInt(0, 2 ** 31) / (2 ** 31)) * total;
+    let acc = 0;
+    let winner = eligible[eligible.length - 1];
+    for (const p of eligible) { acc += p.coins; if (rand < acc) { winner = p; break; } }
+
+    // Reproduzierbarer Snapshot in exakt der Reihenfolge, die die Ziehung benutzt
+    const snapshot = eligible.map(p => ({ u: p.username, c: p.coins }));
+    const totalRounded = Math.round(total * 10000) / 10000;
+    const randRounded  = Math.round(rand * 1e10) / 1e10;
+
+    const client = await this.pg.connect();
+    let drawId = null;
+    let drawIndex = 1;
+    try {
+      await client.query('BEGIN');
+
+      const idxRes = await client.query(
+        sessionId
+          ? `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id = $1`
+          : `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id IS NULL AND drawn_at > NOW() - INTERVAL '1 day'`,
+        sessionId ? [sessionId] : []
+      );
+      drawIndex = (idxRes.rows[0]?.n || 0) + 1;
+
+      const ins = await client.query(`
+        INSERT INTO giveaway_draws
+          (session_id, winner, winner_coins, winner_watch_sec, total_coins,
+           eligible_count, rand_value, draw_index, is_test, eligible_snapshot)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        RETURNING id
+      `, [sessionId || null, winner.username, winner.coins, winner.watchSec,
+          totalRounded, eligible.length, randRounded, drawIndex, isTest,
+          JSON.stringify(snapshot)]);
+      drawId = ins.rows[0].id;
+
+      if (!isTest) {
+        // times_won pro Session nur einmal — Reroll ersetzt vorherigen Gewinner
+        let prevWinner = null;
+        if (sessionId) {
+          const sres = await client.query(`SELECT winner FROM sessions WHERE id = $1`, [sessionId]);
+          prevWinner = sres.rows[0]?.winner || null;
+        }
+        if (prevWinner !== winner.username) {
+          if (prevWinner) {
+            await client.query(
+              `UPDATE users SET times_won = GREATEST(times_won - 1, 0) WHERE username = $1`,
+              [prevWinner]
+            );
+          }
+          // Upsert behebt den No-op-Bug: Gewinner ohne users-Zeile wird angelegt
+          await client.query(`
+            INSERT INTO users (username, display, times_won, last_seen)
+            VALUES ($1, $2, 1, NOW())
+            ON CONFLICT (username) DO UPDATE SET
+              times_won = users.times_won + 1,
+              last_seen = NOW()
+          `, [winner.username, winner.username]);
+        }
+        if (sessionId) {
+          await client.query(
+            `UPDATE sessions SET winner = $1, winner_watch_sec = $2, winner_coins = $3 WHERE id = $4`,
+            [winner.username, winner.watchSec, winner.coins, sessionId]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      console.error('[WTE] drawWinner error:', e.message);
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    console.log(`[WTE] Draw #${drawId} (idx ${drawIndex}, session=${sessionId || 'none'}): ` +
+                `${winner.username} won, coins=${winner.coins}, pool=${totalRounded}, eligible=${eligible.length}, test=${isTest}`);
+    return {
+      winner: winner.username, coins: winner.coins, watchSec: winner.watchSec,
+      drawId, drawIndex, eligibleCount: eligible.length, total: totalRounded, rand: randRounded, isTest,
+    };
   }
 
   // Giveaway schließen – Snapshot in PG speichern

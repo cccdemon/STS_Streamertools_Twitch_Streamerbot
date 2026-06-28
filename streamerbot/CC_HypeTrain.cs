@@ -1,10 +1,9 @@
-// Action: "CC – Redeem"
-// Trigger: Twitch → Channel Point Reward Redemption
+// Action: "CC – Hype Train"
+// Trigger: Twitch → Hype Train (Start / Level Up / Update)
 //
-// Sendet ein Reward-Event an das Alert-Overlay (overlay.html)
-// über cc_alert_session. Overlay-alertType: "redeem".
-// Felder die overlay.html liest: user, reward (Titel, gematcht gegen
-// REWARDS-Map per Kleinschreibung), avatar (optional).
+// Sendet ein Hype-Train-Event an das Alert-Overlay (overlay.html)
+// über cc_alert_session. Overlay-alertType: "hypetrain".
+// Felder die overlay.html liest: level (1–5).
 
 using Newtonsoft.Json.Linq;
 
@@ -12,14 +11,14 @@ public class CPHInline
 {
     public bool Execute()
     {
+        string level = A("level") ?? A("hypeLevel") ?? A("currentLevel") ?? "1";
+
         var payload = new JObject
         {
-            ["alertType"] = "redeem",
-            ["user"]      = A("displayName") ?? A("userName") ?? "Unbekannt",
-            ["reward"]    = A("rewardName") ?? A("redemption.reward.title") ?? "",
-            ["avatar"]    = A("userProfileImageUrl") ?? A("profileImageUrl") ?? "",
+            ["alertType"] = "hypetrain",
+            ["level"]     = level,
         };
-        return Send(payload, "Redeem");
+        return Send(payload, "HypeTrain");
     }
 
     private bool Send(JObject payload, string tag)
@@ -31,7 +30,7 @@ public class CPHInline
             return true;
         }
         CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
-        CPH.LogInfo($"[CC {tag}] → Overlay broadcast: {payload["reward"]}");
+        CPH.LogInfo($"[CC {tag}] Level {payload["level"]} → Overlay broadcast");
         return true;
     }
 

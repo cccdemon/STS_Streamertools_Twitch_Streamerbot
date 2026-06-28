@@ -779,6 +779,7 @@ class CCOverlay {
     const months = parseInt(data.months || data.cumulativeMonths || 0, 10);
     const reward = (data.reward || data.rewardName || '').toLowerCase().trim();
     const level = parseInt(data.level || 1, 10);
+    const recipient = data.recipient || data.recipientDisplayName || data.recipientUserName || '';
     const H = (s) => `<span style="color:#f0a500;text-shadow:0 0 8px rgba(240,165,0,0.7);">${s}</span>`;
 
     switch (type) {
@@ -815,7 +816,15 @@ class CCOverlay {
           avatar, stat: { num: amount, lbl: 'BITS', count: true }, sound: 'snd-bits',
           frame: 'gold', glow: '240,165,0', duration: 7000 };
 
-      case 'subgift': case 'subbomb': case 'giftbomb':
+      case 'subgift':
+        // Einzelnes Gift-Sub: Schenker → Empfänger. amount>1 wäre eine Bombe → fällt unten durch.
+        if (amount <= 1 && recipient) {
+          return { label: '🎁 ABO VERSCHENKT', user, userFont: 'orbitron', userColor: '#f0a500',
+            msg: `${H(user)} schenkt ${H(recipient)} ein Abo.<br>Willkommen an Bord, Crewmann!`,
+            avatar, sound: 'snd-sub', frame: 'gold', glow: '240,165,0', duration: 7000 };
+        }
+        // fällt durch zu Bombe (Mehrfach-Gift ohne Empfänger)
+      case 'subbomb': case 'giftbomb':
         return { label: '⚡ SUBBOMBE EINGESCHLAGEN', user, userFont: 'orbitron', userColor: '#f0a500',
           msg: `${H(user)} versorgt die Flotte mit<br>${H('+' + amount + ' Subs')} — Stärke gesteigert!`,
           avatar, avatarLarge: true, stat: { num: '+' + amount, lbl: 'SUBS' }, sound: 'snd-bomb',

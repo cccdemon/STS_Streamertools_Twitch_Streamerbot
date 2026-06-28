@@ -112,6 +112,7 @@ function handle(msg) {
       }
       if (msg.type === 'winner_drawn') showWinnerAnimation(msg.winner, msg.watchSec, msg.coins);
       if (msg.type === 'no_winner') log('Keine Teilnehmer mit Coins im Pool!', 'red');
+      if (msg.type === 'draw_error') log('ZIEHUNG FEHLGESCHLAGEN: ' + (msg.error || '?') + ' – nichts gespeichert, bitte erneut ziehen', 'red');
       requestData();
       break;
 

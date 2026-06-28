@@ -205,6 +205,12 @@ async function saveSpacefightResult(result) {
   const loser  = sanitizeUsername(result.loser);
   if (!winner || !loser) return;
 
+  // Dedup: bei mehreren offenen Overlays rechnet jedes seinen eigenen
+  // runFight und sendet ein eigenes spacefight_result. NX-Lock verhindert
+  // Doppel-Speicherung desselben Matchups innerhalb von 12s.
+  const fresh = await redis.set(`sf:dedup:${winner}:${loser}`, '1', 'EX', 12, 'NX');
+  if (!fresh) { log('SF', `Duplicate result ${winner} > ${loser} ignored (dedup)`); return; }
+
   const client = await pg.connect();
   try {
     await client.query('BEGIN');
@@ -298,13 +304,9 @@ function subscribeToSpacefight() {
         broadcastAll(msg);
         break;
       }
-      case 'spacefight_result': {
-        if (msg.winner && msg.loser) {
-          await saveSpacefightResult(msg);
-          broadcastAll({ event: 'sf_result', winner: msg.winner, loser: msg.loser, ship_w: msg.ship_w, ship_l: msg.ship_l });
-        }
-        break;
-      }
+      // Hinweis: spacefight_result kommt NUR vom Overlay über die WS-Verbindung
+      // (Fight wird clientseitig berechnet). Streamerbot sendet es nie über den
+      // Bridge-Pub/Sub-Pfad — daher hier bewusst kein Handler (war Doppel-Save-Quelle).
       case 'stream_online':
         await redis.set(SF_LIVE, 'true');
         broadcastAll({ event: 'sf_status', live: true });

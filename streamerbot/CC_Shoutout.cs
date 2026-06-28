@@ -1,9 +1,10 @@
 // Action: "CC – Shoutout"
 // Trigger: Core → Command → !so  (Berechtigung: Moderator / Broadcaster)
 //
-// Sendet eine Shoutout-Chatnachricht, löst den nativen
-// Twitch-Shoutout aus, und schickt das Event an die API
-// (die es an alle Overlays weiterleitet).
+// Löst den nativen Twitch-Shoutout aus und sendet ein Shoutout-Event
+// an das Alert-Overlay (overlay.html) über cc_alert_session.
+// Overlay-alertType: "shoutout". Felder die overlay.html liest:
+// user, avatar, game.
 
 using Newtonsoft.Json.Linq;
 
@@ -11,14 +12,12 @@ public class CPHInline
 {
     public bool Execute()
     {
-        // Ziel-Username aus dem Command-Argument holen
+        // Ziel-Username aus dem Command-Argument
         string target = "";
         if (args.ContainsKey("input0") && args["input0"] != null)
             target = args["input0"].ToString().Trim().TrimStart('@');
-        // Fallback: rawInput
         if (string.IsNullOrEmpty(target) && args.ContainsKey("rawInput") && args["rawInput"] != null)
             target = args["rawInput"].ToString().Trim().TrimStart('@').Split(' ')[0];
-
         if (string.IsNullOrEmpty(target)) return true;
 
         // Sicherheitscheck: nur a-z, A-Z, 0-9, _
@@ -27,32 +26,27 @@ public class CPHInline
             if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_')
                 sb.Append(ch);
         target = sb.ToString();
-
         if (target.Length == 0 || target.Length > 25) return true;
 
-        // ── Twitch User-Info laden (Avatar, Game) ──
+        // Twitch User-Info laden (Avatar, Game)
         string avatar = "";
         string game   = "";
         try
         {
-            // TwitchUserInfoByLogin populates targetUser* args
             var infoMethod = CPH.GetType().GetMethod("TwitchUserInfoByLogin");
             if (infoMethod != null)
             {
                 infoMethod.Invoke(CPH, new object[] { target });
                 if (args.ContainsKey("targetUserProfileImageUrl"))
                     avatar = args["targetUserProfileImageUrl"]?.ToString() ?? "";
-                if (args.ContainsKey("targetLastGame") || args.ContainsKey("targetUserGame"))
-                {
-                    game = (args.ContainsKey("targetLastGame") ? args["targetLastGame"]?.ToString() : null)
-                        ?? (args.ContainsKey("targetUserGame") ? args["targetUserGame"]?.ToString() : null)
-                        ?? "";
-                }
+                game = (args.ContainsKey("targetLastGame") ? args["targetLastGame"]?.ToString() : null)
+                    ?? (args.ContainsKey("targetUserGame") ? args["targetUserGame"]?.ToString() : null)
+                    ?? "";
             }
         }
         catch { CPH.LogInfo("[CC Shoutout] TwitchUserInfoByLogin nicht verfügbar"); }
 
-        // ── Nativen Twitch-Shoutout auslösen ──
+        // Nativen Twitch-Shoutout auslösen
         try
         {
             var m = CPH.GetType().GetMethod("TwitchSendShoutout");
@@ -60,28 +54,22 @@ public class CPHInline
         }
         catch { }
 
-        // ── Event an API senden → wird an alle Browser-Overlays gebroadcastet ──
-        // shoutout-info.html und alerts.html empfangen das über API WS (9091)
         var payload = new JObject
         {
-            ["event"]           = "shoutout",
-            ["user"]            = target,
-            ["profileImageUrl"] = avatar,
-            ["game"]            = game,
-            ["bio"]             = ""
+            ["alertType"] = "shoutout",
+            ["user"]      = target,
+            ["avatar"]    = avatar,
+            ["game"]      = game,
         };
 
-        string apiSession = CPH.GetGlobalVar<string>("cc_api_session", false);
-        if (!string.IsNullOrEmpty(apiSession))
+        string session = CPH.GetGlobalVar<string>("cc_alert_session", false);
+        if (string.IsNullOrEmpty(session))
         {
-            CPH.WebsocketCustomServerBroadcast(payload.ToString(), apiSession, 0);
-            CPH.LogInfo($"[CC Shoutout] {target} → API broadcast");
+            CPH.LogWarn("[CC Shoutout] cc_alert_session nicht gesetzt – Overlay nicht registriert.");
+            return true;
         }
-        else
-        {
-            CPH.LogInfo($"[CC Shoutout] WARNUNG: cc_api_session nicht gesetzt! API nicht verbunden?");
-        }
-
+        CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
+        CPH.LogInfo($"[CC Shoutout] {target} → Overlay broadcast");
         return true;
     }
 }

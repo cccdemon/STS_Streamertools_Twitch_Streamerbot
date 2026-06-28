@@ -1,10 +1,14 @@
 // Action: "CC – Alert Register"
-// Trigger: Core → WebSocket → Custom Server Message
+// Trigger: Core → WebSocket → Custom Server → Message
 //
-// Registriert die Sessions der Alert-Overlays:
-//   cc_alert_register    → cc_alert_session    (alerts.html)
-//   cc_raid_register     → cc_raid_session     (raid-info.html)
-//   cc_shoutout_register → cc_shoutout_session (shoutout-info.html)
+// Das Alert-Overlay (overlay.html) sendet beim Verbinden
+// { "event": "cc_alert_register" }. Diese Action speichert die
+// Session-ID der Verbindung als GlobalVar cc_alert_session –
+// danach senden alle CC-Alert-Actions ihre Events gezielt an
+// diese Session (→ Overlay).
+//
+// Hinweis: in-memory (persist=false) → nach Streamerbot-Neustart
+// weg, bis das Overlay neu verbindet und sich re-registriert.
 
 using Newtonsoft.Json.Linq;
 
@@ -14,40 +18,19 @@ public class CPHInline
     {
         if (!args.ContainsKey("data") || args["data"] == null) return true;
         string raw = args["data"].ToString();
-        if (string.IsNullOrEmpty(raw)) return true;
-
-        // Schnellcheck: enthält es ein bekanntes Register-Event?
-        if (!raw.Contains("cc_alert_register") &&
-            !raw.Contains("cc_raid_register") &&
-            !raw.Contains("cc_shoutout_register"))
-            return true;
+        if (string.IsNullOrEmpty(raw) || !raw.Contains("cc_alert_register")) return true;
 
         JObject msg;
         try { msg = JObject.Parse(raw); }
         catch { return true; }
 
-        string evnt = msg["event"]?.ToString();
+        if (msg["event"]?.ToString() != "cc_alert_register") return true;
+
         string sessionId = args.ContainsKey("sessionId") ? args["sessionId"]?.ToString() : null;
         if (string.IsNullOrEmpty(sessionId)) return true;
 
-        switch (evnt)
-        {
-            case "cc_alert_register":
-                CPH.SetGlobalVar("cc_alert_session", sessionId, false);
-                CPH.LogInfo("[CC] Alert-Overlay registriert – Session: " + sessionId);
-                break;
-
-            case "cc_raid_register":
-                CPH.SetGlobalVar("cc_raid_session", sessionId, false);
-                CPH.LogInfo("[CC] Raid-Panel registriert – Session: " + sessionId);
-                break;
-
-            case "cc_shoutout_register":
-                CPH.SetGlobalVar("cc_shoutout_session", sessionId, false);
-                CPH.LogInfo("[CC] Shoutout-Panel registriert – Session: " + sessionId);
-                break;
-        }
-
+        CPH.SetGlobalVar("cc_alert_session", sessionId, false);
+        CPH.LogInfo("[CC] Alert-Overlay registriert – Session: " + sessionId);
         return true;
     }
 }

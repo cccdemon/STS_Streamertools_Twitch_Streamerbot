@@ -121,6 +121,7 @@ function injectTestAlert(msg) {
     alertType: type,
     _test:  true,
     user:   sanitizeStr(msg.user   || '', 40),
+    recipient: sanitizeStr(msg.recipient || '', 40),
     amount: parseInt(msg.amount, 10) || 0,
     tier:   sanitizeStr(msg.tier   || '', 6),
     months: parseInt(msg.months, 10) || 0,
@@ -147,15 +148,11 @@ function subscribeToAlerts() {
     log('Alert', `← [${channel}] ${msg.event}`);
 
     if (channel === 'ch:alerts') {
+      // Hinweis: follow/cheer/raid/sub/shoutout laufen NICHT mehr über diesen
+      // Pfad. Die CC-Alert-Actions senden direkt an die Overlay-WS-Session
+      // (cc_alert_session) in Streamerbot → overlay.html. Hier bleibt nur
+      // first_chatter (kommt über die Bridge und löst eine Chat-Antwort aus).
       switch (msg.event) {
-        case 'follow':
-        case 'cheer':
-        case 'raid':
-          broadcastAll(msg);
-          break;
-        case 'shoutout':
-          broadcastAll(msg);
-          break;
         case 'first_chatter': {
           const enabled = await redis.get('cc_first_chatter_enabled') === 'true';
           if (enabled && msg.user) {
