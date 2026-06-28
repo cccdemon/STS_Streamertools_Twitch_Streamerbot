@@ -7,9 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-  /* 1080p-Layout per zoom auf 1440p (2560×1440) skaliert — OBS-Source-Größe = 2560×1440. */
-  html { zoom:1.3333; }
-  html, body { width:1920px; height:1080px; background:transparent; overflow:hidden; }
+  /* 1080p-Layout per transform:scale auf 1440p (2560×1440) skaliert (#cc-ov).
+     OBS Browser-Source-Größe = 2560 × 1440 setzen. */
+  html, body { width:2560px; height:1440px; background:transparent; overflow:hidden; }
 
   /* ── Keyframes ───────────────────────────────────── */
   @keyframes ccAlertIn {
@@ -149,7 +149,7 @@
 </head>
 <body>
 
-<div id="cc-ov" style="position:relative; width:1920px; height:1080px; overflow:hidden; font-family:'Share Tech Mono',monospace;">
+<div id="cc-ov" style="position:relative; width:1920px; height:1080px; overflow:hidden; font-family:'Share Tech Mono',monospace; transform:scale(1.3333); transform-origin:top left;">
 
   <!-- Demo backdrop (only visible in demo mode; transparent in OBS) -->
   <div id="cc-demo-bg" style="position:absolute; inset:0; z-index:0; display:none; background:radial-gradient(ellipse at 50% 40%, #0c1622 0%, #060a10 60%, #03050a 100%);">
