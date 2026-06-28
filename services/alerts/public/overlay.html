@@ -967,7 +967,10 @@ class CCOverlay {
   // ──────────────── QUEUE ────────────────
   enqueue(type, data) {
     // Profil-Steckbrief (!id): eigener Vollbild-Panel, NICHT ins Latest-Widget.
+    // 'profile'         = fertiges Payload (z.B. Admin-Test, server-aggregiert)
+    // 'profile_request' = Rohfelder von CC_Id.cs → Browser reichert via API an
     if (type === 'profile') { this.showProfile(data); return; }
+    if (type === 'profile_request') { this.loadProfileRequest(data); return; }
 
     // feed the persistent "latest" widget
     this.updateLatest(type, data);
@@ -1264,6 +1267,18 @@ class CCOverlay {
   }
 
   // ──────────────── PROFIL / STECKBRIEF (!id) ────────────────
+  // CC_Id.cs liefert nur Rohfelder; der Browser reichert über /alerts/api/profile
+  // an (Watchtime/Giveaway/Spacefight) und rendert dann den Steckbrief.
+  loadProfileRequest(data) {
+    fetch('api/profile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data || {}),
+    }).then((r) => (r.ok ? r.json() : null)).then((p) => {
+      if (p && p.alertType) this.showProfile(p);
+      else this.dbg('Profil-API leer', 'warn');
+    }).catch((e) => this.dbg('Profil-API Fehler: ' + e.message, 'err'));
+  }
+
   showProfile(data) {
     const E = this.els;
     const esc = (s) => String(s == null ? '' : s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));

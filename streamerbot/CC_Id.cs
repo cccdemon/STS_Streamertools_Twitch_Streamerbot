@@ -3,15 +3,13 @@
 //
 // Zeigt dem aufrufenden User seinen Steckbrief im Alert-Overlay (overlay.html):
 // Watchtime, Errungenschaften, Status (Followage, Abo, Bits ...) + ein
-// netter Status-Satz. Ablauf:
-//   1. Twitch-/Hauling-Daten des Users sammeln (soweit verfügbar).
-//   2. POST an /alerts/api/profile → Service reichert mit Watchtime +
-//      Giveaway- + Spacefight-Daten an und baut das fertige Payload.
-//   3. Das zurückgegebene JSON (alertType:"profile") an cc_alert_session
-//      broadcasten → Overlay rendert die Personalakte.
+// netter Status-Satz.
 //
-// GlobalVar API_HOST (z.B. http://192.168.178.34) — sonst Fallback unten.
-// UserVars die NICHT vorhanden sein müssen werden mit 0 / leer behandelt.
+// Diese Action macht KEIN HTTP (Streamerbots Inline-C# referenziert System.Net
+// nicht). Sie sammelt nur die Twitch-/Hauling-Felder und broadcastet sie als
+// alertType:"profile_request" an cc_alert_session. Das Overlay (Browser) ruft
+// dann selbst /alerts/api/profile auf, reichert mit Watchtime + Giveaway- +
+// Spacefight-Daten an und rendert die Personalakte.
 
 using Newtonsoft.Json.Linq;
 
@@ -30,12 +28,29 @@ public class CPHInline
         if (string.IsNullOrEmpty(display)) display = login;
 
         // ── Twitch-Status (best effort, fehlende Werte = Default) ──
-        string avatar = ArgStr("userProfileImageUrl");
-        bool   isSub  = ArgBool("isSubscribed");
-        string tier   = ArgStr("subscriptionTier");        // "1000"/"2000"/"3000" o. leer
-        int    subMon = ArgInt("cumulativeMonths", ArgInt("subscriptionMonths", 0));
-        long   bits   = ArgLong("bits", 0);                // ggf. via UserVar unten ergänzt
-        int    followDays = ArgInt("followAgeDays", 0);    // optional via Sub-Action befüllen
+        string avatar = (args.ContainsKey("userProfileImageUrl") && args["userProfileImageUrl"] != null)
+            ? args["userProfileImageUrl"].ToString() : "";
+
+        bool isSub = false;
+        if (args.ContainsKey("isSubscribed") && args["isSubscribed"] != null)
+            bool.TryParse(args["isSubscribed"].ToString(), out isSub);
+
+        string tier = (args.ContainsKey("subscriptionTier") && args["subscriptionTier"] != null)
+            ? args["subscriptionTier"].ToString() : "";   // "1000"/"2000"/"3000" o. leer
+
+        int subMon = 0;
+        if (args.ContainsKey("cumulativeMonths") && args["cumulativeMonths"] != null)
+            int.TryParse(args["cumulativeMonths"].ToString(), out subMon);
+        if (subMon == 0 && args.ContainsKey("subscriptionMonths") && args["subscriptionMonths"] != null)
+            int.TryParse(args["subscriptionMonths"].ToString(), out subMon);
+
+        long bits = 0;
+        if (args.ContainsKey("bits") && args["bits"] != null)
+            long.TryParse(args["bits"].ToString(), out bits);
+
+        int followDays = 0;                                // optional via Sub-Action befüllen
+        if (args.ContainsKey("followAgeDays") && args["followAgeDays"] != null)
+            int.TryParse(args["followAgeDays"].ToString(), out followDays);
 
         // Bits-Gesamt bevorzugt aus persistenter UserVar (falls getrackt)
         long bitsVar = CPH.GetTwitchUserVar<long?>(login, "bitsTotal", true) ?? 0;
@@ -43,11 +58,11 @@ public class CPHInline
 
         // Hauling-Punkte + Rang (eigenes Chatgame)
         int haulPoints = CPH.GetTwitchUserVar<int?>(login, "haulPoints", true) ?? 0;
-        string haulRank = HaulRank(haulPoints);
 
-        // ── Payload an den Service ────────────────────────────
-        var body = new JObject
+        // ── Rohfelder ans Overlay; Anreicherung macht der Browser-Fetch ──
+        var payload = new JObject
         {
+            ["alertType"]     = "profile_request",
             ["login"]         = login,
             ["display"]       = display,
             ["avatar"]        = avatar,
@@ -57,67 +72,18 @@ public class CPHInline
             ["bitsTotal"]     = bits,
             ["followageDays"] = followDays,
             ["haulPoints"]    = haulPoints,
-            ["haulRank"]      = haulPoints > 0 ? haulRank : "",
+            ["haulRank"]      = haulPoints > 0 ? HaulRank(haulPoints) : "",
         };
 
-        string host = CPH.GetGlobalVar<string>("API_HOST", false);
-        if (string.IsNullOrEmpty(host)) host = "http://192.168.178.34";
-        string url = host.TrimEnd('/') + "/alerts/api/profile";
-
-        string respJson;
-        try
-        {
-            using (var http = new System.Net.Http.HttpClient())
-            {
-                http.Timeout = System.TimeSpan.FromSeconds(6);
-                var content = new System.Net.Http.StringContent(
-                    body.ToString(), System.Text.Encoding.UTF8, "application/json");
-                var resp = http.PostAsync(url, content).Result;
-                respJson = resp.Content.ReadAsStringAsync().Result;
-                if (!resp.IsSuccessStatusCode)
-                {
-                    CPH.LogWarn($"[CC Id] profile API {((int)resp.StatusCode)}: {respJson}");
-                    return true;
-                }
-            }
-        }
-        catch (System.Exception ex)
-        {
-            CPH.LogWarn("[CC Id] profile API fehlgeschlagen: " + ex.Message);
-            return true;
-        }
-
-        // ── An Overlay broadcasten ────────────────────────────
         string session = CPH.GetGlobalVar<string>("cc_alert_session", false);
         if (string.IsNullOrEmpty(session))
         {
             CPH.LogWarn("[CC Id] cc_alert_session nicht gesetzt – Overlay nicht registriert.");
             return true;
         }
-        CPH.WebsocketCustomServerBroadcast(respJson, session, 0);
-        CPH.LogInfo($"[CC Id] Steckbrief für {login} → Overlay");
+        CPH.WebsocketCustomServerBroadcast(payload.ToString(), session, 0);
+        CPH.LogInfo($"[CC Id] profile_request für {login} → Overlay");
         return true;
-    }
-
-    // ── Helfer: Args defensiv lesen ───────────────────────────
-    string ArgStr(string key)
-    {
-        return (args.ContainsKey(key) && args[key] != null) ? args[key].ToString() : "";
-    }
-    bool ArgBool(string key)
-    {
-        if (!args.ContainsKey(key) || args[key] == null) return false;
-        bool b; return bool.TryParse(args[key].ToString(), out b) && b;
-    }
-    int ArgInt(string key, int fallback)
-    {
-        if (!args.ContainsKey(key) || args[key] == null) return fallback;
-        int n; return int.TryParse(args[key].ToString(), out n) ? n : fallback;
-    }
-    long ArgLong(string key, long fallback)
-    {
-        if (!args.ContainsKey(key) || args[key] == null) return fallback;
-        long n; return long.TryParse(args[key].ToString(), out n) ? n : fallback;
     }
 
     static string HaulRank(int balance)

@@ -213,7 +213,7 @@ all alert types now render in `overlay.html`. C# actions must match its
 
 **Live alerts:** `overlay.html` connects directly to the Streamerbot WS server, sends `{event:'cc_alert_register'}`, and receives per-event custom broadcasts (flat payload with top-level `alertType`). Bridge/Redis is NOT in the live alert path.
 
-**Profil-Steckbrief (`!id`):** alertType `profile` is NOT a transient `buildAlert` alert — it has its own fullscreen dossier panel (`showProfile`, like shoutout/resub-fs). Payload (built by `alerts/profile.js`): `user, login, avatar, fields[{label,value}], achievements[{icon,label}], statusLine`. `CC_Id.cs` collects Twitch/Hauling data → POST `/alerts/api/profile` → broadcasts result to `cc_alert_session`. Admin preview: ALERT TEST → "PROFIL (!id)" (uses User field as login, real data via `cc_test` → `injectTestAlert`).
+**Profil-Steckbrief (`!id`):** alertType `profile` is NOT a transient `buildAlert` alert — own fullscreen dossier panel (`showProfile`, like shoutout/resub-fs). Payload (built by `alerts/profile.js`): `user, login, avatar, fields[{label,value}], achievements[{icon,label}], statusLine`. Flow: `CC_Id.cs` does NO HTTP (Streamerbot inline lacks `System.Net`) — it broadcasts raw Twitch/Hauling fields as alertType `profile_request` to `cc_alert_session`; the overlay (`loadProfileRequest`) POSTs them to `/alerts/api/profile` (same origin), gets the enriched `profile` payload back, then `showProfile`. Admin preview: ALERT TEST → "PROFIL (!id)" sends `cc_test` alertType `profile` → `injectTestAlert` server-aggregates + broadcasts a full `profile`.
 
 **Overlay `buildAlert` alertTypes + fields:** `follow`(user,avatar) · `cheer`(user,amount,avatar) · `sub`(user,tier,avatar) · `resub`(user,tier,cumulativeMonths,avatar) · `subgift`(user,recipient,amount,tier,avatar) · `subbomb`(user,amount,tier,avatar) · `raid`(user,amount,avatar,game) · `redeem`(user,reward,avatar) · `shoutout`(user,avatar,game) · `hypetrain`(level) · `outraid`(user,amount) · `streamstart`. Field reads are defensive (`avatar||profileImageUrl`, `months||cumulativeMonths`, `amount||bits||viewers`). tier expects `1000/2000/3000`.
 
@@ -248,7 +248,7 @@ Full setup/import guide: `streamerbot/SETUP.md`.
 | `CC_RaidBroadcaster.cs` | Twitch Raid | overlay | `alertType:raid` (user, amount, avatar, game) + chat msg |
 | `CC_Redeem.cs` | Channel Point Redeem | overlay | `alertType:redeem` (user, reward, avatar) — overlay maps reward via `REWARDS` |
 | `CC_Shoutout.cs` | Command `!so` | overlay | `alertType:shoutout` (user, avatar, game) + native Twitch shoutout |
-| `CC_Id.cs` | Command `!id` | overlay | collects Twitch/Hauling → POST `/alerts/api/profile` → broadcasts `alertType:profile` dossier (watchtime, achievements, status) |
+| `CC_Id.cs` | Command `!id` | overlay | broadcasts `alertType:profile_request` (raw Twitch/Hauling fields, no C# HTTP); overlay enriches via `/alerts/api/profile` → dossier (watchtime, achievements, status) |
 | `CC_HypeTrain.cs` | Twitch Hype Train | overlay | `alertType:hypetrain` (level) |
 | `CC_OutRaid.cs` | Twitch Raid Started / `!raid` | overlay | `alertType:outraid` (user, amount) |
 | `CC_StreamStart.cs` | Stream Online | overlay | `alertType:streamstart` |
