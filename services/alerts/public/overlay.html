@@ -1224,10 +1224,15 @@ class CCOverlay {
     const el = this.els.soMsg;
     el.style.textTransform = isSummary ? 'none' : 'uppercase';
     el.style.overflowWrap = 'anywhere';
+    el.style.wordBreak = 'break-word';
+    el.style.width = '100%';            // sonst max-content im zentrierten Flex → eine Zeile, h. abgeschnitten
+    el.style.maxWidth = '100%';
+    el.style.maxHeight = '360px';       // Sicherheitsnetz gegen vertikalen Überlauf
+    el.style.overflow = 'hidden';
     el.style.transition = 'opacity 0.35s ease';
     el.style.opacity = '0';
     el.textContent = String(text == null ? '' : text);
-    this.fitText(el, isSummary ? 17 : 14, 9, 250);
+    this.fitText(el, isSummary ? 17 : 14, 9, 350);
     void el.offsetWidth;
     el.style.opacity = '1';
   }
