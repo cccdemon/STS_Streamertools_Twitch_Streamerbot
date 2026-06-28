@@ -1315,7 +1315,7 @@ class CCOverlay {
     E.pfFrame.style.transform = 'translate(0px,-50%)';
     E.pfAv.classList.remove('cc-decrypt');
     setTimeout(() => E.pfAv.classList.add('cc-decrypt'), 250);
-    this.playSound('snd-redeem');
+    // !id spielt bewusst KEINEN Ton.
 
     const dur = parseInt(data.duration || 12000, 10);
     if (this.pfTimer) clearTimeout(this.pfTimer);
