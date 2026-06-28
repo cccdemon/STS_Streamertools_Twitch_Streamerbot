@@ -18,6 +18,7 @@ let gwWs         = null;
 let gwWsRetry    = 1000;
 let gwWsReconnectTimer = null;
 let lastWinner   = null;
+let historyDraws = [];
 
 function esc(s) {
   return (window.CC && CC.validate && typeof CC.validate.escHtml === 'function')
@@ -44,6 +45,7 @@ function connectWS() {
     send({ event: 'cc_identify', role: 'giveaway-admin' });
     requestData();
     loadKeyword();
+    loadHistory();
   };
   gwWs.onmessage = (e) => { const msg = CC.validate.safeJsonParse(e.data); if (msg) handle(msg); };
   gwWs.onclose = gwWs.onerror = () => { setBadge(false); scheduleReconnect(); };
@@ -108,7 +110,7 @@ function handle(msg) {
         document.getElementById('kw-current').textContent = kw || '- (deaktiviert)';
         document.getElementById('kw-input').value = kw;
       }
-      if (msg.type === 'winner_drawn') showWinnerAnimation(msg.winner, msg.watchSec, msg.coins);
+      if (msg.type === 'winner_drawn') { showWinnerAnimation(msg.winner, msg.watchSec, msg.coins, msg.prize); loadHistory(); }
       if (msg.type === 'no_winner') log('Keine Teilnehmer mit Coins im Pool!', 'red');
       if (msg.type === 'draw_error') log('ZIEHUNG FEHLGESCHLAGEN: ' + (msg.error || '?') + ' – nichts gespeichert, bitte erneut ziehen', 'red');
       requestData();
@@ -194,9 +196,13 @@ function updateGwStatus() {
   else          { el.textContent='CLOSED'; el.className='gw-status closed'; }
 }
 
-function drawWinner() { send({ event:'gw_cmd', cmd:'gw_draw_winner' }); }
+function drawWinner() {
+  var el = document.getElementById('prize-input');
+  var prize = el ? el.value.trim() : '';
+  send({ event:'gw_cmd', cmd:'gw_draw_winner', prize: prize });
+}
 
-function showWinnerAnimation(winnerName, watchSec, coins) {
+function showWinnerAnimation(winnerName, watchSec, coins, prize) {
   const names = Object.keys(participants).filter(k => !participants[k].banned && participants[k].coins > 0);
   if (!names.length) names.push(winnerName);
   let flashes = 0;
@@ -208,9 +214,10 @@ function showWinnerAnimation(winnerName, watchSec, coins) {
       clearInterval(interval);
       lastWinner = winnerName;
       document.getElementById('w-name').textContent = winnerName.toUpperCase();
-      document.getElementById('w-info').textContent = `${parseDec(coins).toFixed(2)} Coins // ${fmtTime(watchSec||0)}`;
+      const prizeTxt = prize ? ` // 🎁 ${prize}` : '';
+      document.getElementById('w-info').textContent = `${parseDec(coins).toFixed(2)} Coins // ${fmtTime(watchSec||0)}${prizeTxt}`;
       renderTable(winnerName);
-      log(`GEWINNER: ${winnerName} (${parseDec(coins).toFixed(2)} Coins)`, 'gold');
+      log(`GEWINNER: ${winnerName} (${parseDec(coins).toFixed(2)} Coins)${prize ? ' – Preis: ' + prize : ''}`, 'gold');
     }
   }, 75);
 }
@@ -316,6 +323,46 @@ function updateStats() {
 // den Gewinner bei der Ziehung selbst; hier nur das explizite Leeren.
 function clearOverlay() {
   send({ event: 'gw_overlay', winner: null });
+}
+
+// ── Gewinner-Historie ─────────────────────────────────────
+function loadHistory() {
+  fetch('api/draws?limit=50')
+    .then(function(r) { return r.json(); })
+    .then(function(rows) { historyDraws = Array.isArray(rows) ? rows : []; renderHistory(); })
+    .catch(function() {
+      const el = document.getElementById('history-list');
+      if (el) el.innerHTML = '<div class="wsc-empty">Historie nicht ladbar</div>';
+    });
+}
+
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (!el) return;
+  const showTests = !!document.getElementById('hist-show-tests') && document.getElementById('hist-show-tests').checked;
+  const rows = historyDraws.filter(function(d) { return showTests || !d.is_test; });
+  if (!rows.length) { el.innerHTML = '<div class="wsc-empty">Noch keine Ziehungen</div>'; return; }
+  el.innerHTML = rows.map(function(d) {
+    const when  = fmtDrawDate(d.drawn_at);
+    const prize = d.prize ? '🎁 ' + esc(d.prize) : '<span style="color:var(--dim)">— kein Preis —</span>';
+    const test  = d.is_test ? ' <span style="color:var(--gold);font-size:9px;">TEST</span>' : '';
+    return '<div class="hist-row" style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;">' +
+        '<strong>' + esc(d.winner) + test + '</strong>' +
+        '<span style="color:var(--dim);font-size:10px;white-space:nowrap;">' + when + '</span>' +
+      '</div>' +
+      '<div style="font-size:12px;">' + prize + '</div>' +
+      '<div style="color:var(--dim);font-size:10px;">' +
+        parseDec(d.winner_coins).toFixed(2) + ' Coins · ' + (d.eligible_count || 0) + ' Teilnehmer' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function fmtDrawDate(iso) {
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 // ── Export ────────────────────────────────────────────────

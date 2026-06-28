@@ -269,10 +269,10 @@ async function handleAdminCmd(send, msg) {
     case 'gw_draw_winner': {
       try {
         const sid = currentSessionId || await redis.get(K.gwSessionId());
-        const result = await wte.drawWinner(sid, { test: !!msg.test });
+        const result = await wte.drawWinner(sid, { test: !!msg.test, prize: msg.prize });
         if (!result) { send({ event: 'gw_ack', type: 'no_winner' }); break; }
         send({ event: 'gw_ack', type: 'winner_drawn', winner: result.winner,
-               watchSec: result.watchSec, coins: result.coins, drawId: result.drawId });
+               watchSec: result.watchSec, coins: result.coins, drawId: result.drawId, prize: result.prize });
         broadcastAll({ event: 'gw_overlay', winner: result.winner, coins: result.coins });
         log('GW', `Winner: ${result.winner} (draw #${result.drawId}, ${result.eligibleCount} eligible, pool ${result.total})`);
       } catch (e) {
@@ -414,7 +414,7 @@ app.get('/api/draws', async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit || '50'), 500);
     const cols = req.query.full === '1'
       ? '*'
-      : 'id, session_id, winner, winner_coins, winner_watch_sec, total_coins, eligible_count, rand_value, draw_index, is_test, drawn_at';
+      : 'id, session_id, winner, winner_coins, winner_watch_sec, total_coins, eligible_count, rand_value, draw_index, is_test, prize, drawn_at';
     const result = req.query.session
       ? await pg.query(`SELECT ${cols} FROM giveaway_draws WHERE session_id=$1 ORDER BY drawn_at DESC LIMIT $2`, [req.query.session, limit])
       : await pg.query(`SELECT ${cols} FROM giveaway_draws ORDER BY drawn_at DESC LIMIT $1`, [limit]);
@@ -457,9 +457,12 @@ async function ensureSchema() {
       rand_value        NUMERIC(20,10) NOT NULL DEFAULT 0,
       draw_index        INTEGER NOT NULL DEFAULT 1,
       is_test           BOOLEAN NOT NULL DEFAULT FALSE,
+      prize             TEXT,
       eligible_snapshot JSONB,
       drawn_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+  // Bestehende Volumes nachziehen (CREATE TABLE greift nur bei frischem Volume).
+  await pg.query(`ALTER TABLE giveaway_draws ADD COLUMN IF NOT EXISTS prize TEXT`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_session ON giveaway_draws(session_id)`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_winner  ON giveaway_draws(winner)`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_ts      ON giveaway_draws(drawn_at DESC)`);

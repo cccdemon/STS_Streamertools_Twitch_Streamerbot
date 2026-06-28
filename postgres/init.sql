@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS giveaway_draws (
     rand_value        NUMERIC(20,10) NOT NULL DEFAULT 0,
     draw_index        INTEGER NOT NULL DEFAULT 1,
     is_test           BOOLEAN NOT NULL DEFAULT FALSE,
+    prize             TEXT,
     eligible_snapshot JSONB,
     drawn_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

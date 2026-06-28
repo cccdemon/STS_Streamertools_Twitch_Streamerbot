@@ -272,6 +272,7 @@ class WatchtimeEngine {
   // Gibt null zurück wenn kein berechtigter Teilnehmer (coins>0, nicht gebannt).
   async drawWinner(sessionId, opts = {}) {
     const isTest = !!opts.test;
+    const prize  = opts.prize ? sanitizeStr(opts.prize, 100) : null;
     const participants = await this.getAllParticipants();       // sortiert coins DESC
     const eligible = participants.filter(p => !p.banned && p.coins > 0);
     if (!eligible.length) return null;
@@ -305,11 +306,11 @@ class WatchtimeEngine {
       const ins = await client.query(`
         INSERT INTO giveaway_draws
           (session_id, winner, winner_coins, winner_watch_sec, total_coins,
-           eligible_count, rand_value, draw_index, is_test, eligible_snapshot)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           eligible_count, rand_value, draw_index, is_test, prize, eligible_snapshot)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
         RETURNING id
       `, [sessionId || null, winner.username, winner.coins, winner.watchSec,
-          totalRounded, eligible.length, randRounded, drawIndex, isTest,
+          totalRounded, eligible.length, randRounded, drawIndex, isTest, prize,
           JSON.stringify(snapshot)]);
       drawId = ins.rows[0].id;
 
@@ -357,7 +358,7 @@ class WatchtimeEngine {
                 `${winner.username} won, coins=${winner.coins}, pool=${totalRounded}, eligible=${eligible.length}, test=${isTest}`);
     return {
       winner: winner.username, coins: winner.coins, watchSec: winner.watchSec,
-      drawId, drawIndex, eligibleCount: eligible.length, total: totalRounded, rand: randRounded, isTest,
+      drawId, drawIndex, eligibleCount: eligible.length, total: totalRounded, rand: randRounded, isTest, prize,
     };
   }
 
