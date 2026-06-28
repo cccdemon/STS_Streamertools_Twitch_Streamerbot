@@ -19,8 +19,7 @@ public class CPHInline
     const string VarStreak = "haulStreak";
     const string VarRuns   = "haulRuns";
     const string VarWins   = "haulWins";
-    const string VarLast   = "haulLast";
-    const int    CooldownSeconds = 45;   // Anti-Spam zwischen zwei !haul
+    // Cooldown wird im Streamerbot-Command gesteuert (nicht im Code).
 
     class Job
     {
@@ -79,17 +78,6 @@ public class CPHInline
             return false;
         }
         if (string.IsNullOrEmpty(displayName)) displayName = userName;
-
-        // ── Cooldown ──
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        long last = CPH.GetTwitchUserVar<long?>(userName, VarLast, true) ?? 0;
-        long wait = CooldownSeconds - (now - last);
-        if (last > 0 && wait > 0)
-        {
-            CPH.SendMessage($"⏳ {displayName}, dein LKW tankt noch. Nächster Auftrag in {wait}s.");
-            return true;
-        }
-        CPH.SetTwitchUserVar(userName, VarLast, now, true);
 
         // ── Zustand laden ──
         int balance = CPH.GetTwitchUserVar<int?>(userName, VarPoints, true) ?? 0;

@@ -102,7 +102,8 @@ Pfad wie die Alerts, eigene Session `cc_haul_session`.
 - **Streak**: jeder Erfolg in Folge +5 % Belohnung (max +50 %), Fehlschlag setzt zurück.
 - **Volltreffer** (8 %): Belohnung ×2. **Jackpot** (2 %): +2000. **Piratenüberfall**
   (12 % bei Fehlschlag): Verlust +50 %.
-- **Cooldown** 45 s pro User (`CooldownSeconds` in `Hauling.cs`).
+- **Cooldown** wird im Streamerbot-Command gesteuert (nicht im Code) — Cooldown
+  am `!haul`-Command setzen.
 - **Ränge** nach Kontostand: Frachtanfänger ⚪ → Lehrling 🟢 → Kurierfahrer 🟡 →
   Frachtprofi 🟠 → Frachtbaron 🔴 → Logistik-Magnat 🟣 → Sternenspediteur 🌟.
 
@@ -115,8 +116,7 @@ Pfad wie die Alerts, eigene Session `cc_haul_session`.
 3. Ohne registriertes Overlay läuft das Spiel normal weiter — der Broadcast ist
    dann ein No-op (kein Fehler).
 
-UserVars: `haulPoints` (Punkte), `haulStreak`, `haulRuns`, `haulWins`, `haulLast`
-(Cooldown-Zeitstempel, Unix-Sekunden).
+UserVars: `haulPoints` (Punkte), `haulStreak`, `haulRuns`, `haulWins`.
 
 ## 7. Bekannte Eigenheiten
 
