@@ -1159,7 +1159,9 @@ class CCOverlay {
     E.soBigName.textContent = U;
     E.soBigUrl.textContent = 'TWITCH.TV/' + user.toUpperCase();
     E.soGame.textContent = game ? '▶ ZULETZT: ' + game.toUpperCase() : '';
-    E.soMsg.innerHTML = `Schaut bei <span style="color:#f0a500;text-shadow:0 0 8px rgba(240,165,0,0.7);">${U}</span> vorbei!<br>Die Crew empfiehlt diesen Kanal. <span style="color:#f0a500;">o7</span>`;
+    // Fallback sofort sichtbar; AI-Summary (falls verfügbar) ersetzt ihn asynchron.
+    this.setSoMsg(`Schaut bei ${U} vorbei! Die Crew empfiehlt diesen Kanal. o7`, false);
+    this.loadShoutoutSummary(user, game, data);
     E.soUrl.textContent = 'twitch.tv/' + user.toLowerCase();
     if (avatar) { E.soAv.src = avatar; E.soAv.style.visibility = 'visible'; } else { E.soAv.style.visibility = 'hidden'; }
 
@@ -1211,6 +1213,54 @@ class CCOverlay {
         E.soPanel.style.transform = 'translateX(104%)';
       }, 500);
     }, 250);
+  }
+
+  // Setzt den Shoutout-Text sicher (textContent → Sonderzeichen/Umlaute korrekt)
+  // und skaliert die Schrift herunter bis er in den Panel passt.
+  setSoMsg(text, isSummary) {
+    const el = this.els.soMsg;
+    el.style.textTransform = isSummary ? 'none' : 'uppercase';
+    el.style.overflowWrap = 'anywhere';
+    el.style.transition = 'opacity 0.35s ease';
+    el.style.opacity = '0';
+    el.textContent = String(text == null ? '' : text);
+    this.fitText(el, isSummary ? 17 : 14, 9, 250);
+    void el.offsetWidth;
+    el.style.opacity = '1';
+  }
+
+  // Verkleinert die Schriftgröße bis el.scrollHeight <= maxH (1080-Koordinaten).
+  fitText(el, startPx, minPx, maxH) {
+    let px = startPx, guard = 80;
+    el.style.fontSize = px + 'px';
+    while (el.scrollHeight > maxH && px > minPx && guard-- > 0) {
+      px -= 1; el.style.fontSize = px + 'px';
+    }
+  }
+
+  // Holt den KI-Empfehlungstext (Bordcomputer) und ersetzt den Fallback.
+  loadShoutoutSummary(user, game, data) {
+    if (data && data.summary && String(data.summary).trim()) {
+      this.setSoMsg(String(data.summary).trim(), true);
+      return;
+    }
+    if (this.demoMode) return;                       // im Demo kein Netzwerk
+    const login = String(user || '').toLowerCase();
+    const token = (this.soReq = (this.soReq || 0) + 1);   // nur jüngste Antwort gilt
+    const ask = (bio) => {
+      fetch('api/claude/summary', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'shoutout', user, game: game || '', bio: bio || '' }),
+      }).then((r) => (r.ok ? r.json() : null)).then((j) => {
+        if (token !== this.soReq) return;            // veraltete Antwort verwerfen
+        const s = j && j.summary && j.summary.trim();
+        if (s) { this.setSoMsg(s, true); this.dbg('Shoutout-Summary ✓', 'ok'); }
+      }).catch(() => {});
+    };
+    fetch('api/twitch/user/' + encodeURIComponent(login))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => ask(j && j.description ? j.description : ''))
+      .catch(() => ask(''));
   }
 
   // ──────────────── PROFIL / STECKBRIEF (!id) ────────────────
