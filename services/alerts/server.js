@@ -43,7 +43,11 @@ const CFG = {
     lazyConnect:   true,
     retryStrategy: (t) => Math.min(t * 500, 5000),
   },
+  giveawayUrl:   process.env.GIVEAWAY_URL   || 'http://giveaway:3001',
+  spacefightUrl: process.env.SPACEFIGHT_URL || 'http://spacefight:3002',
 };
+
+const { buildProfile } = require('./profile.js');
 
 const redis    = new Redis(CFG.redis);
 const redisSub = new Redis(CFG.redis);
@@ -113,10 +117,25 @@ wss.on('connection', (ws, req) => {
 const TEST_ALERT_TYPES = new Set([
   'follow', 'sub', 'resub', 'bits', 'cheer', 'subgift', 'subbomb', 'giftbomb',
   'raid', 'outraid', 'hypetrain', 'streamstart', 'alert', 'redeem', 'shoutout',
+  'profile',
 ]);
-function injectTestAlert(msg) {
+async function injectTestAlert(msg) {
   const type = sanitizeStr(msg.alertType || '', 20).toLowerCase();
   if (!TEST_ALERT_TYPES.has(type)) { log('Test', `rejected alertType: ${type}`); return; }
+
+  // Profil-Test: echte Aggregation für den angegebenen User, als _test broadcasten.
+  if (type === 'profile') {
+    try {
+      const login = sanitizeStr(msg.user || '', 40) || 'tester';
+      const p = await aggregateProfile(login, {
+        display: sanitizeStr(msg.user || login, 40),
+        avatar: sanitizeStr(msg.avatar || '', 300),
+      });
+      broadcastAll(Object.assign({ _test: true }, p));
+      log('Test', `inject profile ← ${login}`);
+    } catch (e) { logErr('Test', 'profile:', e.message); }
+    return;
+  }
   const out = {
     alertType: type,
     _test:  true,
@@ -289,6 +308,74 @@ app.post('/api/claude/summary', async (req, res) => {
     logErr('Claude', 'Fetch error:', e.message);
     res.status(502).json({ error: e.message });
   }
+});
+
+// ── Profil / Steckbrief (!id) ─────────────────────────────
+// Reichert die von Streamerbot gelieferten Twitch-/Hauling-Felder mit
+// Watchtime + Giveaway- + Spacefight-Daten aus den anderen Services an
+// und baut das fertige Overlay-Payload (alertType:'profile').
+async function aggregateProfile(login, extras = {}) {
+  const u = sanitizeUsername(login);
+  if (!u) throw new Error('invalid login');
+
+  let watchSec = 0, giveawayWins = 0, msgs = 0, sfWins = 0, sfLosses = 0;
+
+  try {
+    const r = await fetch(`${CFG.giveawayUrl}/api/user/${u}`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const j = await r.json();
+      const lt = j.lifetime || {};
+      watchSec     = parseInt(lt.total_watch_sec || 0, 10) + parseInt(j.watchSec || 0, 10);
+      giveawayWins = parseInt(lt.times_won || 0, 10);
+      msgs         = parseInt(lt.total_msgs || 0, 10) + parseInt(j.msgs || 0, 10);
+    }
+  } catch (e) { logErr('Profile', 'giveaway lookup:', e.message); }
+
+  try {
+    const r = await fetch(`${CFG.spacefightUrl}/api/spacefight/player/${u}`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const j = await r.json();
+      const s = j.stats || j;
+      sfWins   = parseInt(s.wins   || 0, 10);
+      sfLosses = parseInt(s.losses || 0, 10);
+    }
+  } catch (e) { logErr('Profile', 'spacefight lookup:', e.message); }
+
+  const coins = Math.round((watchSec / 7200) * 100) / 100;   // 2h = 1 Coin
+
+  return buildProfile({
+    login: u,
+    display: extras.display || u,
+    avatar: extras.avatar || '',
+    followageDays: extras.followageDays,
+    isSub: extras.isSub,
+    subTier: extras.subTier,
+    subMonths: extras.subMonths,
+    bitsTotal: extras.bitsTotal,
+    haulPoints: extras.haulPoints,
+    haulRank: extras.haulRank,
+    watchSec, coins, giveawayWins, msgs, sfWins, sfLosses,
+  });
+}
+
+app.post('/api/profile', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const login = sanitizeStr(b.login || b.user || '', 40);
+    if (!login) return res.status(400).json({ error: 'login required' });
+    const payload = await aggregateProfile(login, {
+      display:       sanitizeStr(b.display || b.user || '', 40),
+      avatar:        sanitizeStr(b.avatar || '', 300),
+      followageDays: parseInt(b.followageDays, 10) || 0,
+      isSub:         !!b.isSub,
+      subTier:       sanitizeStr(b.subTier || '1000', 6),
+      subMonths:     parseInt(b.subMonths, 10) || 0,
+      bitsTotal:     parseInt(b.bitsTotal, 10) || 0,
+      haulPoints:    parseInt(b.haulPoints, 10) || 0,
+      haulRank:      sanitizeStr(b.haulRank || '', 40),
+    });
+    res.json(payload);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/chat/send', (req, res) => {

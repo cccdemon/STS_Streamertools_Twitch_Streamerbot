@@ -53,10 +53,21 @@ Pro `.cs`-Datei in diesem Ordner:
 | CC_HypeTrain | Twitch → Hype Train (Level Up / Update) | `hypetrain` | level (1–5) |
 | CC_OutRaid | Twitch → Raid Started (ausgehend) bzw. Command `!raid` | `outraid` | user(Ziel), amount(viewer) |
 | CC_StreamStart | Twitch → Stream Online | `streamstart` | – |
+| CC_Id | Core → Command → `!id` (Everyone, Cooldown empf.) | `profile` (via POST `/alerts/api/profile`) | Steckbrief: Watchtime, Errungenschaften, Status (Followage/Abo/Bits), Status-Satz |
 
 ⭐ **CC_Sub** ersetzt die alten vier Actions (CC_Resub/CC_SubGift/CC_SubBomb gelöscht).
 Lege **alle vier Sub-Trigger** auf diese eine Action — sie erkennt den Typ aus den Args
 (`gifts` → subbomb, `recipient*` → subgift, `cumulativeMonths>1` → resub, sonst sub).
+
+### Steckbrief `!id` (CC_Id)
+`CC_Id.cs` liest die Daten des **aufrufenden** Users: Login/Anzeigename + (sofern
+vom Trigger geliefert) `isSubscribed`, `cumulativeMonths`, `userProfileImageUrl`
+sowie die UserVars `haulPoints` und optional `bitsTotal`. Followage ist optional —
+per Sub-Action in `args["followAgeDays"]` füllen, sonst „—". Watchtime, Giveaway-
+Siege, Spacefight-Bilanz und Coins reichert der Service (`/alerts/api/profile`)
+selbst aus Giveaway/Spacefight an. `API_HOST` GlobalVar setzen (z.B.
+`http://192.168.178.34`), sonst Fallback im Code. Antwort wird an `cc_alert_session`
+gebroadcastet → Overlay zeigt die Personalakte. Cooldown am Command empfohlen.
 
 ### Redeem-Rewards
 `overlay.html` matcht `reward` (Titel, kleingeschrieben) gegen die `REWARDS`-Map.

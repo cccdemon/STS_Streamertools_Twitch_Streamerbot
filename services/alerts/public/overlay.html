@@ -281,6 +281,54 @@
     </div>
   </div>
 
+  <!-- ──── PROFIL / STECKBRIEF (!id) ──── -->
+  <style>
+    #cc-pf-grid { display:grid; grid-template-columns:1fr 1fr; gap:11px 30px; margin:22px 0 26px; }
+    .pf-field { border-bottom:1px solid rgba(0,212,255,0.12); padding-bottom:6px; }
+    .pf-flabel { font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:3px; color:rgba(0,212,255,0.55); text-transform:uppercase; }
+    .pf-fval { font-family:'Orbitron',monospace; font-size:21px; font-weight:700; color:#eaf6ff; text-shadow:0 0 10px rgba(0,212,255,0.25); margin-top:2px; }
+    #cc-pf-ach { display:flex; flex-wrap:wrap; gap:8px; }
+    .pf-badge { font-family:'Share Tech Mono',monospace; font-size:14px; letter-spacing:1px; color:#ffd060; background:rgba(240,165,0,0.1); border:1px solid rgba(240,165,0,0.45); border-radius:999px; padding:5px 13px; white-space:nowrap; }
+    .pf-badge.dim { color:rgba(200,220,232,0.4); background:transparent; border-color:rgba(200,220,232,0.18); }
+    .pf-seclbl { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:4px; color:#f0a500; text-transform:uppercase; margin-bottom:10px; }
+  </style>
+  <div id="cc-pf" style="position:absolute; inset:0; z-index:195; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0); pointer-events:none; opacity:0; transition:opacity 0.6s ease;">
+    <div id="cc-pf-frame" style="position:relative; width:1080px; padding:44px 56px; background:rgba(2,5,10,0.95); border:1.5px solid rgba(0,212,255,0.4);">
+      <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
+      <div style="position:absolute; top:-2px; right:-2px; width:42px; height:42px; border-top:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
+      <div style="position:absolute; bottom:-2px; left:-2px; width:42px; height:42px; border-bottom:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
+      <div style="position:absolute; bottom:-2px; right:-2px; width:42px; height:42px; border-bottom:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
+      <div style="position:absolute; top:0; left:60px; right:60px; height:1px; background:linear-gradient(90deg,transparent,#f0a500,#00d4ff,#f0a500,transparent); opacity:0.7;"></div>
+      <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.008) 3px,rgba(0,212,255,0.008) 4px);"></div>
+
+      <div id="cc-pf-lbl" style="font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:10px; color:#f0a500; text-shadow:0 0 12px rgba(240,165,0,0.8); text-transform:uppercase; margin-bottom:28px;">// CREW-DOSSIER // PERSONALAKTE</div>
+
+      <div style="display:flex; gap:48px; align-items:flex-start;">
+        <!-- Avatar -->
+        <div style="flex:0 0 230px; text-align:center;">
+          <div style="position:relative; display:inline-block;">
+            <img id="cc-pf-av" alt="" style="width:220px; height:220px; object-fit:cover; display:block; border:2px solid #00d4ff; filter:drop-shadow(0 0 22px rgba(0,212,255,0.5));">
+            <div style="position:absolute; top:-3px; left:-3px; width:22px; height:22px; border-top:2px solid #f0a500; border-left:2px solid #f0a500;"></div>
+            <div style="position:absolute; bottom:-3px; right:-3px; width:22px; height:22px; border-bottom:2px solid #f0a500; border-right:2px solid #f0a500;"></div>
+          </div>
+          <div id="cc-pf-handle" style="font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:2px; color:rgba(0,212,255,0.6); margin-top:14px; word-break:break-all;"></div>
+        </div>
+
+        <!-- Info -->
+        <div style="flex:1; min-width:0;">
+          <div id="cc-pf-name" style="font-family:'Orbitron',monospace; font-size:50px; font-weight:900; color:#00d4ff; text-shadow:0 0 18px rgba(0,212,255,0.9),0 0 50px rgba(0,212,255,0.3); letter-spacing:3px; text-transform:uppercase; line-height:1;"></div>
+          <div id="cc-pf-grid"></div>
+          <div class="pf-seclbl">Errungenschaften</div>
+          <div id="cc-pf-ach"></div>
+          <div style="margin-top:24px; border-left:3px solid #f0a500; padding:6px 0 6px 16px; background:linear-gradient(90deg,rgba(240,165,0,0.08),transparent);">
+            <span style="font-family:'Orbitron',monospace; font-weight:900; font-size:15px; letter-spacing:3px; color:#f0a500; text-shadow:0 0 10px rgba(240,165,0,0.7);">STATUS:</span>
+            <span id="cc-pf-statustxt" style="font-family:'Share Tech Mono',monospace; font-size:18px; letter-spacing:1px; color:#eaf6ff;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ──── DEBUG ──── -->
   <div id="cc-dbg" style="position:absolute; bottom:16px; right:16px; z-index:9000; font-family:'Orbitron',monospace; font-size:10px; line-height:1.7; color:rgba(0,212,255,0.85); text-shadow:0 0 8px rgba(0,212,255,0.5); pointer-events:none; width:420px; text-align:right; word-break:break-all; overflow:hidden;">
     <div style="font-size:10px; letter-spacing:0.3em; color:rgba(240,165,0,0.5); margin-bottom:4px; text-transform:uppercase;">// Alert Debug</div>
@@ -371,6 +419,8 @@ class CCOverlay {
       soCursor: $('cc-so-cursor'), soGame: $('cc-so-game'), soMsg: $('cc-so-msg'), soUrl: $('cc-so-url'),
       rfs: $('cc-rfs'), rfsLbl: $('cc-rfs-lbl'), rfsAv: $('cc-rfs-av'),
       rfsName: $('cc-rfs-name'), rfsBadge: $('cc-rfs-badge'), rfsMsg: $('cc-rfs-msg'),
+      pf: $('cc-pf'), pfFrame: $('cc-pf-frame'), pfAv: $('cc-pf-av'), pfName: $('cc-pf-name'),
+      pfHandle: $('cc-pf-handle'), pfGrid: $('cc-pf-grid'), pfAch: $('cc-pf-ach'), pfStatus: $('cc-pf-statustxt'),
       lblrow: $('cc-lblrow'), diamond: $('cc-diamond'),
       dbgLines: $('cc-dbg-lines'), dbg: $('cc-dbg'),
       gwjoin: $('cc-gwjoin'), gwjoinLines: $('cc-gwjoin-lines'),
@@ -916,6 +966,9 @@ class CCOverlay {
 
   // ──────────────── QUEUE ────────────────
   enqueue(type, data) {
+    // Profil-Steckbrief (!id): eigener Vollbild-Panel, NICHT ins Latest-Widget.
+    if (type === 'profile') { this.showProfile(data); return; }
+
     // feed the persistent "latest" widget
     this.updateLatest(type, data);
 
@@ -1158,6 +1211,53 @@ class CCOverlay {
         E.soPanel.style.transform = 'translateX(104%)';
       }, 500);
     }, 250);
+  }
+
+  // ──────────────── PROFIL / STECKBRIEF (!id) ────────────────
+  showProfile(data) {
+    const E = this.els;
+    const esc = (s) => String(s == null ? '' : s).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const user = data.user || data.login || '???';
+    const login = String(data.login || user).toLowerCase();
+
+    E.pfName.textContent = String(user).toUpperCase();
+    E.pfHandle.textContent = 'AKTE // twitch.tv/' + login;
+    if (data.avatar) { E.pfAv.src = data.avatar; E.pfAv.style.visibility = 'visible'; }
+    else { E.pfAv.style.visibility = 'hidden'; }
+
+    const fields = Array.isArray(data.fields) ? data.fields : [];
+    E.pfGrid.innerHTML = fields.map((f) =>
+      `<div class="pf-field"><div class="pf-flabel">${esc(f.label)}</div><div class="pf-fval">${esc(f.value)}</div></div>`).join('');
+
+    const ach = Array.isArray(data.achievements) ? data.achievements : [];
+    E.pfAch.innerHTML = ach.length
+      ? ach.map((a) => `<span class="pf-badge">${esc(a.icon)} ${esc(a.label)}</span>`).join('')
+      : '<span class="pf-badge dim">— noch keine —</span>';
+
+    E.pfStatus.textContent = data.statusLine || '';
+
+    // Einblenden mit kurzem Scan-Flash + Avatar-Decrypt
+    this.flash('rgba(0,180,255,0.22)', 2, () => {
+      E.pf.style.transition = 'opacity 0.5s ease';
+      E.pf.style.background = 'rgba(0,0,0,0.86)';
+      E.pf.style.opacity = '1';
+    });
+    E.pfAv.classList.remove('cc-decrypt');
+    void E.pfFrame.offsetWidth;
+    setTimeout(() => E.pfAv.classList.add('cc-decrypt'), 200);
+    this.playSound('snd-redeem');
+
+    const dur = parseInt(data.duration || 14000, 10);
+    if (this.pfTimer) clearTimeout(this.pfTimer);
+    this.pfTimer = setTimeout(() => this.hideProfile(), dur);
+    this.dbg('Profil: ' + login, 'ok');
+  }
+
+  hideProfile() {
+    const E = this.els;
+    E.pf.style.transition = 'opacity 0.7s ease';
+    E.pf.style.opacity = '0';
+    setTimeout(() => { E.pf.style.background = 'rgba(0,0,0,0)'; }, 700);
   }
 
   typeIn(el, text, ms, cb) {
