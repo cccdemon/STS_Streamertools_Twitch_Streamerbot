@@ -97,8 +97,10 @@ Pfad wie die Alerts, eigene Session `cc_haul_session`.
 > Befehlsrecht im Streamerbot-Command auf Mod bzw. Broadcaster setzen.
 
 ### Mechanik
-- 24 Aufträge in 4 Risiko-Stufen (LEICHT/MITTEL/SCHWER/EXTREM); höheres Risiko
-  = höherer Gewinn **und** Verlust, geringere Erfolgschance.
+- **Star-Citizen-Theme**: 24 Cargo-Runs (echte SC-Commodities/Orte: Quantanium,
+  Laranite, Jumptown, Grim HEX …) in 4 Risiko-Stufen (LEICHT/MITTEL/SCHWER/EXTREM);
+  höheres Risiko = höherer Gewinn **und** Verlust, geringere Erfolgschance.
+- Fehlschläge sind SC-Hazards (30k, Hull Breach, Quantum-Interdiction, Soft Death …).
 - **Streak**: jeder Erfolg in Folge +5 % Belohnung (max +50 %), Fehlschlag setzt zurück.
 - **Volltreffer** (8 %): Belohnung ×2. **Jackpot** (2 %): +2000. **Piratenüberfall**
   (12 % bei Fehlschlag): Verlust +50 %.

@@ -30,40 +30,41 @@ public class CPHInline
         { Name=n; Emoji=e; Tier=t; Prob=p; MinWin=mw; MaxWin=xw; MinLoss=ml; MaxLoss=xl; }
     }
 
-    // Aufträge in 4 Risiko-Stufen. Höheres Risiko = mehr Gewinn, mehr Verlust.
+    // Star-Citizen Cargo-Runs in 4 Risiko-Stufen.
+    // Höheres Risiko = mehr Gewinn, mehr Verlust, geringere Erfolgschance.
     static readonly Job[] Jobs = new[]
     {
-        // LEICHT (~65% Erfolg)
-        new Job("Koloniegüter-Lieferung","📦","LEICHT",0.66, 80, 320, 20, 140),
-        new Job("Stadt-Kurierlauf","🛵","LEICHT",0.68, 70, 280, 15, 120),
-        new Job("Lebensmittel-Konvoi","🥫","LEICHT",0.64, 90, 340, 25, 150),
-        new Job("Baumaterial-Transport","🧱","LEICHT",0.65, 100, 360, 30, 160),
-        new Job("Express-Paketdienst","✉️","LEICHT",0.67, 80, 300, 20, 130),
-        new Job("Wassertank-Versorgung","🚰","LEICHT",0.66, 85, 330, 25, 145),
+        // LEICHT (~65%) – legale Standard-Fracht, sichere Routen (Crusader/microTech)
+        new Job("Agricium nach Lorville","🪙","LEICHT",0.66, 80, 320, 20, 140),
+        new Job("Medical Supplies → New Babbage","💊","LEICHT",0.68, 70, 280, 15, 120),
+        new Job("Titanium-Lieferung","🔩","LEICHT",0.64, 90, 340, 25, 150),
+        new Job("Aluminium-Fracht → Area18","🧱","LEICHT",0.65, 100, 360, 30, 160),
+        new Job("Stims-Auslieferung","📦","LEICHT",0.67, 80, 300, 20, 130),
+        new Job("Processed Food → Orison","🥫","LEICHT",0.66, 85, 330, 25, 145),
 
-        // MITTEL (~50% Erfolg)
-        new Job("Weltraum-Erztransport","🪨","MITTEL",0.50, 180, 620, 80, 360),
-        new Job("Wüsten-Konvoi","🏜️","MITTEL",0.49, 200, 640, 90, 380),
-        new Job("Arktis-Versorgungslauf","❄️","MITTEL",0.48, 210, 660, 100, 400),
-        new Job("Schwerlast-Transport","🏗️","MITTEL",0.50, 220, 680, 110, 420),
-        new Job("Medizin-Sondertransport","💊","MITTEL",0.51, 200, 600, 90, 360),
-        new Job("Treibstoff-Tanker","⛽","MITTEL",0.47, 230, 700, 120, 440),
-        new Job("Maschinen-Großteil","⚙️","MITTEL",0.49, 210, 650, 100, 400),
+        // MITTEL (~50%) – wertvollere Commodities, umkämpfte Lanes
+        new Job("Laranite-Transport","🪨","MITTEL",0.50, 180, 620, 80, 360),
+        new Job("Hephaestanite-Bergung","⛏️","MITTEL",0.49, 200, 640, 90, 380),
+        new Job("Bexalite-Fracht","💎","MITTEL",0.48, 210, 660, 100, 400),
+        new Job("Gold-Konvoi → Grim HEX","🥇","MITTEL",0.50, 220, 680, 110, 420),
+        new Job("Diamond-Lieferung","💠","MITTEL",0.51, 200, 600, 90, 360),
+        new Job("Hydrogen-Tanker","⛽","MITTEL",0.47, 230, 700, 120, 440),
+        new Job("Quartz → ArcCorp","🔆","MITTEL",0.49, 210, 650, 100, 400),
 
-        // SCHWER (~35% Erfolg)
-        new Job("Gefahrgut-Schlepper","☢️","SCHWER",0.36, 450, 1250, 260, 720),
-        new Job("VIP-Frachteskorte","🤵","SCHWER",0.35, 500, 1300, 280, 760),
-        new Job("Tiefseeminen-Abholung","🌊","SCHWER",0.34, 520, 1350, 300, 800),
-        new Job("Kriegsgebiet-Versorgung","🪖","SCHWER",0.33, 560, 1400, 320, 840),
-        new Job("Schmuggel-Route","🕶️","SCHWER",0.32, 600, 1500, 360, 900),
-        new Job("Reaktor-Kernfracht","🔋","SCHWER",0.35, 540, 1380, 300, 820),
+        // SCHWER (~35%) – Schmuggel & Volatiles, Piratenzonen (Yela/Daymar)
+        new Job("Quantanium-Transport","☢️","SCHWER",0.36, 450, 1250, 260, 720),
+        new Job("WiDoW-Schmuggel","🕶️","SCHWER",0.35, 500, 1300, 280, 760),
+        new Job("E'tam → Schwarzmarkt","💉","SCHWER",0.34, 520, 1350, 300, 800),
+        new Job("Salvage-Bergung im Deep Space","🛠️","SCHWER",0.33, 560, 1400, 320, 840),
+        new Job("Maze-Konterbande","🌀","SCHWER",0.32, 600, 1500, 360, 900),
+        new Job("VIP-Fracht → Daymar","🤵","SCHWER",0.35, 540, 1380, 300, 820),
 
-        // EXTREM (~25% Erfolg)
-        new Job("Hochsicherheits-Fracht","🛡️","EXTREM",0.26, 900, 2400, 600, 1500),
-        new Job("Schwarzes-Loch-Bergung","🕳️","EXTREM",0.23, 1100, 2800, 750, 1800),
-        new Job("Alien-Artefakt-Bergung","👽","EXTREM",0.24, 1000, 2600, 700, 1700),
-        new Job("Plasmasturm-Durchquerung","🌩️","EXTREM",0.22, 1200, 3000, 800, 2000),
-        new Job("Piratenraum-Schmuggel","🏴‍☠️","EXTREM",0.25, 950, 2500, 650, 1600),
+        // EXTREM (~25%) – Jumptown & Maximalrisiko
+        new Job("Jumptown Drug-Run","🏭","EXTREM",0.26, 900, 2400, 600, 1500),
+        new Job("Quantanium-Notlieferung (instabil)","💥","EXTREM",0.23, 1100, 2800, 750, 1800),
+        new Job("Altruciatoxin → Grim HEX","☣️","EXTREM",0.24, 1000, 2600, 700, 1700),
+        new Job("890 Jump Beute-Bergung","🛸","EXTREM",0.22, 1200, 3000, 800, 2000),
+        new Job("Schwarzmarkt-Großlieferung","🏴‍☠️","EXTREM",0.25, 950, 2500, 650, 1600),
     };
 
     readonly Random rng = new Random();
@@ -124,7 +125,7 @@ public class CPHInline
             streak = 0;
             amount = -loss;
 
-            string reason = ambush ? "🏴‍☠️ Piratenüberfall!" : Mishap();
+            string reason = ambush ? "🏴‍☠️ Piraten-Interdiction!" : Mishap();
             string streakTxt = lostStreak >= 3 ? $" · Streak ({lostStreak}) futsch" : "";
             fxLine = $"💥🛑 VERMASSELT! {reason} −{loss} {CurrencyName}{streakTxt}";
         }
@@ -138,7 +139,7 @@ public class CPHInline
         // ── Chat-Output (2 Zeilen, grafisch untermalt) ──
         var rank = Rank(balance);
         int pct = (int)Math.Round(job.Prob * 100);
-        CPH.SendMessage($"🚚{job.Emoji} {displayName} » Auftrag „{job.Name}\" [{job.Tier}] · Risiko {RiskMeter(job.Prob)} {pct}% Erfolg");
+        CPH.SendMessage($"🚀{job.Emoji} {displayName} » Cargo-Run „{job.Name}\" [{job.Tier}] · Risiko {RiskMeter(job.Prob)} {pct}% Erfolg");
         CPH.SendMessage($"{fxLine} · Konto: {balance} {rank.Item2} {rank.Item1}");
 
         // ── Overlay-Broadcast (Phase 2, no-op wenn Overlay nicht registriert) ──
@@ -169,9 +170,11 @@ public class CPHInline
 
     static readonly string[] Mishaps =
     {
-        "Motorschaden!", "Ladung verrutscht!", "Im Stau stecken geblieben!",
-        "Falsche Koordinaten!", "Zoll kassiert ab!", "Reifenplatzer!",
-        "Navigations-Crash!", "Treibstoff leer!", "Fracht beschädigt!",
+        "30k! Server abgestürzt!", "Hull Breach – Fracht ins All verloren!",
+        "Soft Death im Quantum-Sprung!", "Tür-Bug: Fracht eingeklemmt!",
+        "Falscher Landeplatz – CrimeStat kassiert!", "Quantum-Fuel leer im Deep Space!",
+        "Asteroid übersehen!", "Komm-Array down – Auftrag verfallen!",
+        "Fracht beim Claim despawnt!",
     };
     string Mishap() => Mishaps[rng.Next(Mishaps.Length)];
 

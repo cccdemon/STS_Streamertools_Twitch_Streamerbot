@@ -70,11 +70,12 @@
   .bal{font-weight:800;color:#eaf4ff}
   .bal small{color:#8aa6c8;font-weight:600}
 
-  /* ── Truck-Fahrt ── */
-  #road{position:fixed;left:0;right:0;bottom:96px;height:3px;z-index:2;opacity:0;
-    background:repeating-linear-gradient(90deg,rgba(120,170,240,.5) 0 36px,transparent 36px 72px)}
-  #truck{position:fixed;bottom:104px;left:-160px;z-index:2;font-size:72px;
-    filter:drop-shadow(0 6px 14px rgba(0,0,0,.5))}
+  /* ── Quantum-Lane + Frachtschiff ── */
+  #road{position:fixed;left:0;right:0;bottom:120px;height:4px;z-index:2;opacity:0;
+    background:linear-gradient(90deg,transparent,rgba(70,211,255,.7) 30%,rgba(70,211,255,.9) 50%,rgba(70,211,255,.7) 70%,transparent);
+    box-shadow:0 0 24px 4px rgba(70,211,255,.5);transition:opacity .3s}
+  #truck{position:fixed;bottom:104px;left:-180px;z-index:2;font-size:78px;
+    filter:drop-shadow(0 0 16px rgba(70,211,255,.6))}
 
   @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes shake{10%,90%{transform:translate(-51%,2px)}30%,70%{transform:translate(-49%,-3px)}
@@ -85,7 +86,7 @@
 <body>
   <canvas id="fx"></canvas>
   <div id="road"></div>
-  <div id="truck">🚚</div>
+  <div id="truck">🚀</div>
 
   <div id="card">
     <div class="top">
@@ -180,9 +181,9 @@
 
       card.className = win?'show win':'show lose';
 
-      // truck drive across
+      // Frachtschiff fliegt durch die Quantum-Lane
       road.style.opacity='1';
-      truck.textContent = win?'🚚':'🚛';
+      truck.textContent = win?'🚀':'🛸';
       truck.style.transition='none'; truck.style.left='-160px';
       requestAnimationFrame(()=>{
         truck.style.transition='left 2.6s cubic-bezier(.4,0,.5,1)';
@@ -242,10 +243,10 @@
   // ── Demo ──
   function demo(){
     const samples = [
-      {type:'haul',user:'TruckerTom',emoji:'📦',job:'Koloniegüter-Lieferung',tier:'LEICHT',success:true,amount:240,balance:1240,streak:2,badge:'🟡',rank:'Kurierfahrer'},
-      {type:'haul',user:'RiskyRita',emoji:'☢️',job:'Gefahrgut-Schlepper',tier:'SCHWER',success:false,amount:-540,balance:700,streak:0,ambush:true,badge:'🟢'},
-      {type:'haul',user:'AceHauler',emoji:'👽',job:'Alien-Artefakt-Bergung',tier:'EXTREM',success:true,amount:5200,balance:30200,streak:5,crit:true,jackpot:true,badge:'🟣',rank:'Logistik-Magnat'},
-      {type:'haul',user:'SteadyStan',emoji:'⛽',job:'Treibstoff-Tanker',tier:'MITTEL',success:true,amount:430,balance:4830,streak:4,crit:true,badge:'🟠'},
+      {type:'haul',user:'CargoKid',emoji:'💊',job:'Medical Supplies → New Babbage',tier:'LEICHT',success:true,amount:240,balance:1240,streak:2,badge:'🟡',rank:'Kurierfahrer'},
+      {type:'haul',user:'QuantaQueen',emoji:'☢️',job:'Quantanium-Transport',tier:'SCHWER',success:false,amount:-540,balance:700,streak:0,ambush:true,badge:'🟢'},
+      {type:'haul',user:'JumptownJoe',emoji:'🏭',job:'Jumptown Drug-Run',tier:'EXTREM',success:true,amount:5200,balance:30200,streak:5,crit:true,jackpot:true,badge:'🟣',rank:'Logistik-Magnat'},
+      {type:'haul',user:'HullCHero',emoji:'🥇',job:'Gold-Konvoi → Grim HEX',tier:'MITTEL',success:true,amount:430,balance:4830,streak:4,crit:true,badge:'🟠'},
     ];
     let i=0;
     const fire=()=>{ enqueue(samples[i%samples.length]); i++; };
