@@ -54,6 +54,9 @@ public class CPHInline
         }
         catch { }
 
+        // Kanal-Link in den Chat posten (immer, unabhängig vom Overlay)
+        CPH.SendMessage($"📡 Crew-Empfehlung: Schaut vorbei bei https://twitch.tv/{target} o7");
+
         var payload = new JObject
         {
             ["alertType"] = "shoutout",

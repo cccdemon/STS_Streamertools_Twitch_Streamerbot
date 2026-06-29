@@ -226,6 +226,85 @@ async function getTwitchToken() {
   return twitchToken;
 }
 
+// ── Twitch-User-Cache (lokale Avatare, weniger Helix-/CDN-Traffic) ──
+// Helix wird pro User nur alle TW_FRESH_TTL Sekunden befragt; das Bild wird
+// nur neu heruntergeladen, wenn sich die Twitch-URL geändert hat. Avatare
+// liegen unter public/avatars/ und werden lokal als /alerts/avatars/<file>
+// ausgeliefert → das Overlay holt sie vom eigenen Server, nicht von Twitch.
+const fs   = require('fs');
+const path = require('path');
+const AVATAR_DIR  = path.join('public', 'avatars');
+const TW_FRESH_TTL = 43200;   // 12h
+try { fs.mkdirSync(AVATAR_DIR, { recursive: true }); } catch (e) { logErr('Avatar', 'mkdir:', e.message); }
+
+function avatarExt(url) {
+  const m = /\.(png|jpe?g|gif|webp)(?:$|\?)/i.exec(url || '');
+  return m ? m[1].toLowerCase().replace('jpeg', 'jpg') : 'png';
+}
+function avatarLocalUrl(rec) {
+  return (rec && rec.file && fs.existsSync(path.join(AVATAR_DIR, rec.file)))
+    ? `/alerts/avatars/${rec.file}` : '';
+}
+async function downloadAvatar(login, url) {
+  const file = `${login}.${avatarExt(url)}`;
+  const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!r.ok) throw new Error('download ' + r.status);
+  await fs.promises.writeFile(path.join(AVATAR_DIR, file), Buffer.from(await r.arrayBuffer()));
+  return file;
+}
+
+// Roher Helix-Call (kein Cache)
+async function fetchTwitchRaw(login) {
+  const token = await getTwitchToken();
+  if (!token) return null;
+  const r = await fetch(`https://api.twitch.tv/helix/users?login=${login}`, {
+    headers: { 'Client-Id': process.env.TWITCH_CLIENT_ID, 'Authorization': `Bearer ${token}` },
+    signal: AbortSignal.timeout(3000),
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  return j.data?.[0] || null;
+}
+
+// Gecachter Lookup → { login, display, avatar(lokale URL), description } | null
+async function getCachedTwitchUser(login) {
+  const u = sanitizeUsername(login);
+  if (!u) return null;
+  const key = `tw:user:${u}`;
+
+  let rec = null;
+  try { const s = await redis.get(key); if (s) rec = JSON.parse(s); } catch (e) {}
+  const fresh = await redis.get(`tw:fresh:${u}`);
+
+  // frisch + lokales Bild vorhanden → KEIN Helix-Call
+  if (rec && fresh && avatarLocalUrl(rec)) {
+    return { login: u, display: rec.display || u, avatar: avatarLocalUrl(rec), description: rec.description || '' };
+  }
+
+  const tw = await fetchTwitchRaw(u).catch((e) => { logErr('Twitch', 'helix:', e.message); return null; });
+  if (!tw) {
+    // Helix down → notfalls alten (stale) Datensatz nutzen
+    return rec ? { login: u, display: rec.display || u, avatar: avatarLocalUrl(rec), description: rec.description || '' } : null;
+  }
+
+  // Bild nur laden, wenn URL geändert oder Datei fehlt
+  let file = rec && rec.file;
+  if (!rec || rec.twUrl !== tw.profile_image_url || !avatarLocalUrl(rec)) {
+    try { file = await downloadAvatar(u, tw.profile_image_url); }
+    catch (e) { logErr('Avatar', 'dl:', e.message); }
+  }
+
+  const newRec = { twUrl: tw.profile_image_url, file, display: tw.display_name, description: tw.description };
+  try { await redis.set(key, JSON.stringify(newRec)); } catch (e) {}
+  try { await redis.set(`tw:fresh:${u}`, '1', 'EX', TW_FRESH_TTL); } catch (e) {}
+
+  // lokale URL bevorzugen, sonst (Download fehlgeschlagen) Twitch-URL direkt
+  return {
+    login: u, display: tw.display_name, description: tw.description,
+    avatar: avatarLocalUrl(newRec) || tw.profile_image_url,
+  };
+}
+
 // ── Claude prompts ────────────────────────────────────────
 const CLAUDE_PROMPTS = {
   shoutout: (user, game, bio) =>
@@ -257,18 +336,12 @@ app.get('/health', async (req, res) => {
 
 app.get('/api/twitch/user/:login', async (req, res) => {
   try {
-    const token = await getTwitchToken();
-    if (!token) return res.status(503).json({ error: 'Twitch credentials not configured' });
     const login = sanitizeUsername(req.params.login);
     if (!login) return res.status(400).json({ error: 'invalid login' });
-    const r = await fetch(`https://api.twitch.tv/helix/users?login=${login}`, {
-      headers: { 'Client-Id': process.env.TWITCH_CLIENT_ID, 'Authorization': `Bearer ${token}` },
-    });
-    if (!r.ok) return res.status(r.status).json({ error: `Twitch API ${r.status}` });
-    const j = await r.json();
-    const u = j.data?.[0];
-    if (!u) return res.status(404).json({ error: 'user not found' });
-    res.json({ login: u.login, display_name: u.display_name, profile_image_url: u.profile_image_url, description: u.description });
+    const tu = await getCachedTwitchUser(login);   // lokaler Avatar-Cache, Helix nur alle 12h
+    if (!tu) return res.status(404).json({ error: 'user not found / twitch creds' });
+    // profile_image_url = lokale URL (/alerts/avatars/<file>), spart Twitch-CDN
+    res.json({ login: tu.login, display_name: tu.display, profile_image_url: tu.avatar, description: tu.description });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -343,10 +416,18 @@ async function aggregateProfile(login, extras = {}) {
 
   const coins = Math.round((watchSec / 7200) * 100) / 100;   // 2h = 1 Coin
 
+  // Avatar/Display via Twitch nachladen, falls Streamerbot keins lieferte
+  let avatar = extras.avatar || '';
+  let display = extras.display || u;
+  if (!avatar) {
+    const tu = await getCachedTwitchUser(u);
+    if (tu) { avatar = tu.avatar || ''; if (!extras.display && tu.display) display = tu.display; }
+  }
+
   return buildProfile({
     login: u,
-    display: extras.display || u,
-    avatar: extras.avatar || '',
+    display,
+    avatar,
     followageDays: extras.followageDays,
     isSub: extras.isSub,
     subTier: extras.subTier,

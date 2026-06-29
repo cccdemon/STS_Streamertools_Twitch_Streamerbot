@@ -1177,7 +1177,7 @@ class CCOverlay {
     E.so.style.opacity = '1';
     void E.soPanel.offsetWidth;
 
-    this.playSound('snd-redeem');
+    // Shoutout spielt bewusst KEINEN Ton.
     // backdrop
     E.soBg.style.background = 'rgba(0,0,0,0.84)';
     // scan beam right -> left
@@ -1246,29 +1246,43 @@ class CCOverlay {
     }
   }
 
-  // Holt den KI-Empfehlungstext (Bordcomputer) und ersetzt den Fallback.
+  // Reichert den Shoutout an: holt IMMER Avatar (+Bio) via Twitch-API und – falls
+  // nicht schon im Payload geliefert – den KI-Empfehlungstext. Avatar ist von der
+  // Summary entkoppelt, damit er auch mit fertigem data.summary geladen wird.
   loadShoutoutSummary(user, game, data) {
-    if (data && data.summary && String(data.summary).trim()) {
-      this.setSoMsg(String(data.summary).trim(), true);
-      return;
-    }
+    const haveSummary = !!(data && data.summary && String(data.summary).trim());
+    if (haveSummary) this.setSoMsg(String(data.summary).trim(), true);
     if (this.demoMode) return;                       // im Demo kein Netzwerk
     const login = String(user || '').toLowerCase();
     const token = (this.soReq = (this.soReq || 0) + 1);   // nur jüngste Antwort gilt
-    const ask = (bio) => {
-      fetch('api/claude/summary', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'shoutout', user, game: game || '', bio: bio || '' }),
-      }).then((r) => (r.ok ? r.json() : null)).then((j) => {
-        if (token !== this.soReq) return;            // veraltete Antwort verwerfen
-        const s = j && j.summary && j.summary.trim();
-        if (s) { this.setSoMsg(s, true); this.dbg('Shoutout-Summary ✓', 'ok'); }
-      }).catch(() => {});
-    };
+
     fetch('api/twitch/user/' + encodeURIComponent(login))
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => ask(j && j.description ? j.description : ''))
-      .catch(() => ask(''));
+      .then((j) => {
+        // ── Avatar IMMER setzen wenn Twitch eine URL liefert ──
+        const url = j && (j.profile_image_url || j.avatar);
+        if (url) {
+          const av = this.els.soAv;
+          av.src = url;
+          av.style.visibility = 'visible';
+          av.classList.remove('cc-decrypt'); void av.offsetWidth; av.classList.add('cc-decrypt');
+          this.dbg('Shoutout-Avatar ✓', 'ok');
+        } else {
+          this.dbg('Shoutout-Avatar: keine URL (Twitch-Creds?)', 'warn');
+        }
+        // ── Summary nur holen, wenn nicht schon geliefert ──
+        if (haveSummary) return;
+        const bio = j && j.description ? j.description : '';
+        fetch('api/claude/summary', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'shoutout', user, game: game || '', bio }),
+        }).then((r) => (r.ok ? r.json() : null)).then((s) => {
+          if (token !== this.soReq) return;          // veraltete Antwort verwerfen
+          const txt = s && s.summary && s.summary.trim();
+          if (txt) { this.setSoMsg(txt, true); this.dbg('Shoutout-Summary ✓', 'ok'); }
+        }).catch(() => {});
+      })
+      .catch((e) => this.dbg('Shoutout-Enrich Fehler: ' + e.message, 'err'));
   }
 
   // ──────────────── PROFIL / STECKBRIEF (!id) ────────────────
