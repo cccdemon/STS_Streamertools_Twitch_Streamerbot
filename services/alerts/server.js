@@ -242,8 +242,10 @@ function avatarExt(url) {
   return m ? m[1].toLowerCase().replace('jpeg', 'jpg') : 'png';
 }
 function avatarLocalUrl(rec) {
+  // Relative URL (kein /alerts-Prefix): löst sowohl direkt (:3003 → /avatars/x)
+  // als auch via Caddy (/alerts/overlay.html → /alerts/avatars/x) korrekt auf.
   return (rec && rec.file && fs.existsSync(path.join(AVATAR_DIR, rec.file)))
-    ? `/alerts/avatars/${rec.file}` : '';
+    ? `avatars/${rec.file}` : '';
 }
 async function downloadAvatar(login, url) {
   const file = `${login}.${avatarExt(url)}`;
