@@ -1,48 +1,46 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// TEAM GIVEAWAY – Watchtime / Ticket Engine (channel-aware)
-// Multi-Channel-Kampagne: Coins pro (user, channel).
-// 7200s Viewtime = 1 Ticket. Chat (>3 Wörter) = +0.5s (selber Pott).
-// Viewtime-Multiplier (time-boxed) gilt für Tick + Chat.
-// Draw-Eligibility: opt-in via Keyword (ab ≥1 Coin) + valide Coins
-// auf ≥2 Kanälen. Gewicht = Summe Coins.
-// Testbar ohne WS/HTTP.
+// TEAM GIVEAWAY – Watchtime / Ticket Engine (multi-tenant)
+// Alles pro (team, user, channel). Redis-Keys mit t:{teamId}: Prefix.
+// Kanäle eines Teams = dessen team_members (PG, kurz gecacht).
+// 7200s = 1 Ticket. Chat (>3 Wörter) = +0.5s. Viewtime-Multiplier
+// (time-boxed) gilt Tick+Chat. Opt-in via Keyword ab ≥1 Coin.
+// Eligibility: valide Coins auf ≥2 Kanälen. Gewicht = Summe Coins.
 // ════════════════════════════════════════════════════════
 
 const { randomInt } = require('crypto');
 
-const SECS_PER_COIN  = 7200;   // 2h = 1 Coin/Ticket
-const CHAT_BONUS_SEC = 0.5;    // +0.5s pro qualifizierender Nachricht
-const CHAT_COOLDOWN  = 10;     // Sekunden zwischen zählenden Nachrichten
-const CHAT_MIN_WORDS = 4;      // >3 Wörter
-const TICK_SEC       = 60;     // server-seitiger Tick
-const PRESENCE_TTL   = 600;    // Presence gilt 10min nach letztem Heartbeat
-const JOIN_MIN_COINS = 1;      // ab 1 Coin per Keyword teilnehmen
-const MIN_CHANNELS   = 2;      // ≥2 Kanäle für Ziehung
-const DEFAULT_CHANNELS = ['justcallmedeimos', 'jerichoramirez', 'x_jazzz_x'];
+const SECS_PER_COIN  = 7200;
+const CHAT_BONUS_SEC = 0.5;
+const CHAT_COOLDOWN  = 10;
+const CHAT_MIN_WORDS = 4;    // >3 Wörter
+const TICK_SEC       = 60;
+const PRESENCE_TTL   = 600;
+const JOIN_MIN_COINS = 1;
+const MIN_CHANNELS   = 2;
+const CHANNELS_TTL   = 30;   // Cache der Team-Kanäle (s)
 
-// Redis Keys
+const TP = (t) => `t:${t}:`;
 const K = {
-  gwOpen:       () => 'gw_open',
-  gwKeyword:    () => 'gw_keyword',
-  gwSessionId:  () => 'gw_session_id',          // = Kampagnen-ID
-  gwChannels:   () => 'gw:channels',            // JSON-Array teilnehmender Kanäle
-  gwMult:       () => 'gw:mult',                // Multiplier-Faktor (TTL)
-  gwUsers:      () => 'gw:users',               // SET aller Kampagnen-User
-  gwRegistered: (u) => `gw:registered:${u}`,    // per Keyword opt-in
-  gwBanned:     (u) => `gw_banned:${u}`,        // kampagnenweit
-  // per Kanal
-  chWatch:    (ch, u) => `gw:ch:${ch}:watch:${u}`,
-  chChatTs:   (ch, u) => `gw:ch:${ch}:chat_ts:${u}`,
-  chPresent:  (ch, u) => `gw:ch:${ch}:present:${u}`,
-  chLastTick: (ch, u) => `gw:ch:${ch}:last_tick:${u}`,
-  chMsgs:     (ch, u) => `gw:ch:${ch}:msgs:${u}`,
-  chFollows:  (ch, u) => `gw:ch:${ch}:follows:${u}`,
-  chIndex:    (ch)    => `gw:ch:${ch}:index`,
+  openTeams:    () => 'gw:open_teams',                    // GLOBAL: Teams mit offenem Giveaway
+  gwOpen:       (t) => `${TP(t)}gw_open`,
+  gwKeyword:    (t) => `${TP(t)}gw_keyword`,
+  gwSessionId:  (t) => `${TP(t)}gw_session_id`,
+  gwChannels:   (t) => `${TP(t)}gw:channels`,             // Cache
+  gwMult:       (t) => `${TP(t)}gw:mult`,
+  gwUsers:      (t) => `${TP(t)}gw:users`,
+  gwRegistered: (t, u) => `${TP(t)}gw:registered:${u}`,
+  gwBanned:     (t, u) => `${TP(t)}gw_banned:${u}`,
+  chWatch:    (t, ch, u) => `${TP(t)}gw:ch:${ch}:watch:${u}`,
+  chChatTs:   (t, ch, u) => `${TP(t)}gw:ch:${ch}:chat_ts:${u}`,
+  chPresent:  (t, ch, u) => `${TP(t)}gw:ch:${ch}:present:${u}`,
+  chLastTick: (t, ch, u) => `${TP(t)}gw:ch:${ch}:last_tick:${u}`,
+  chMsgs:     (t, ch, u) => `${TP(t)}gw:ch:${ch}:msgs:${u}`,
+  chFollows:  (t, ch, u) => `${TP(t)}gw:ch:${ch}:follows:${u}`,
+  chIndex:    (t, ch)    => `${TP(t)}gw:ch:${ch}:index`,
 };
 
-// ── Input Sanitization ────────────────────────────────────
 function sanitizeUsername(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25);
 }
@@ -66,152 +64,153 @@ function coinsFromSec(watchSec) {
   return Math.round((watchSec / SECS_PER_COIN) * 10000) / 10000;
 }
 
-// ── Watchtime Engine ──────────────────────────────────────
+function sanitizeTeamId(t) {
+  return String(t || '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+}
+
 class WatchtimeEngine {
   constructor(redis, pg) {
     this.redis = redis;
     this.pg    = pg;
   }
 
-  // ── Kampagnen-Config ────────────────────────────────────
-  async getChannels() {
-    const raw = await this.redis.get(K.gwChannels());
-    if (!raw) return DEFAULT_CHANNELS.slice();
+  // ── Team-Kanäle (aus team_members, gecacht) ─────────────
+  async getChannels(teamId) {
+    const t = sanitizeTeamId(teamId);
+    const cached = await this.redis.get(K.gwChannels(t));
+    if (cached) { try { const a = JSON.parse(cached); if (Array.isArray(a)) return a; } catch { /* refetch */ } }
+    let chans = [];
     try {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr) && arr.length) return arr.map(sanitizeChannel).filter(Boolean);
-    } catch { /* fallthrough */ }
-    return DEFAULT_CHANNELS.slice();
+      const r = await this.pg.query('SELECT channel FROM team_members WHERE team_id=$1 ORDER BY joined_at', [t]);
+      chans = r.rows.map(x => sanitizeChannel(x.channel)).filter(Boolean);
+    } catch(e) { console.error('[WTE] getChannels:', e.message); }
+    await this.redis.set(K.gwChannels(t), JSON.stringify(chans), 'EX', CHANNELS_TTL);
+    return chans;
   }
 
-  async setChannels(channels) {
-    const clean = (Array.isArray(channels) ? channels : []).map(sanitizeChannel).filter(Boolean);
-    const arr = clean.length ? clean : DEFAULT_CHANNELS.slice();
-    await this.redis.set(K.gwChannels(), JSON.stringify(arr));
-    return arr;
-  }
-
-  // Primärkanal — Fallback wenn ein Event keinen channel trägt (Legacy/C# alt).
-  async primaryChannel() { return (await this.getChannels())[0]; }
-
-  async resolveChannel(channel) {
+  async resolveChannel(teamId, channel) {
     const ch = sanitizeChannel(channel);
     if (ch) return ch;
-    return this.primaryChannel();
+    return (await this.getChannels(teamId))[0] || '';
   }
 
-  // Aktueller Viewtime-Multiplier (1 = kein Boost).
-  async getMultiplier() {
-    const f = parseFloat(await this.redis.get(K.gwMult()) || '1');
+  // ── Multiplier ──────────────────────────────────────────
+  async getMultiplier(teamId) {
+    const f = parseFloat(await this.redis.get(K.gwMult(sanitizeTeamId(teamId))) || '1');
     return (isFinite(f) && f > 0) ? f : 1;
   }
-
-  // Boost setzen: factor für seconds Sekunden (0/entfernt = aus).
-  async setMultiplier(factor, seconds) {
+  async setMultiplier(teamId, factor, seconds) {
+    const t = sanitizeTeamId(teamId);
     const f = Math.max(1, Math.min(10, parseFloat(factor) || 1));
     const s = Math.max(1, Math.min(86400, parseInt(seconds) || 0));
-    if (f <= 1 || !s) { await this.redis.del(K.gwMult()); return { factor: 1, seconds: 0 }; }
-    await this.redis.set(K.gwMult(), String(f), 'EX', s);
+    if (f <= 1 || !s) { await this.redis.del(K.gwMult(t)); return { factor: 1, seconds: 0 }; }
+    await this.redis.set(K.gwMult(t), String(f), 'EX', s);
     return { factor: f, seconds: s };
   }
-
-  async multiplierState() {
-    const f = await this.getMultiplier();
-    const ttl = f > 1 ? await this.redis.ttl(K.gwMult()) : 0;
+  async multiplierState(teamId) {
+    const t = sanitizeTeamId(teamId);
+    const f = await this.getMultiplier(t);
+    const ttl = f > 1 ? await this.redis.ttl(K.gwMult(t)) : 0;
     return { factor: f, secondsLeft: ttl > 0 ? ttl : 0 };
   }
 
-  // follows-Gate: '0' blockt Coin-Accrual; fehlt/(‘1') = erlaubt (permissiv,
-  // bis Streamerbot `follows` mitschickt).
   _followAllowed(val) { return val !== '0'; }
 
+  async isOpen(teamId)      { return await this.redis.get(K.gwOpen(sanitizeTeamId(teamId))) === 'true'; }
+  async getSessionId(teamId){ return await this.redis.get(K.gwSessionId(sanitizeTeamId(teamId))); }
+  async listOpenTeams()     { return await this.redis.smembers(K.openTeams()); }
+
   // ── Presence / Tick ─────────────────────────────────────
-  async handleViewerTick(channel, username, follows) {
-    const u  = sanitizeUsername(username);
-    if (!u) return null;
-    const ch = await this.resolveChannel(channel);
+  async handleViewerTick(teamId, channel, username, follows) {
+    const t = sanitizeTeamId(teamId);
+    const u = sanitizeUsername(username);
+    if (!t || !u) return null;
+    const ch = await this.resolveChannel(t, channel);
+    if (!ch) return null;
     const now = Math.floor(Date.now() / 1000);
-    await this.redis.set(K.chLastTick(ch, u), String(now), 'EX', 86400);
-    await this.redis.set(K.chPresent(ch, u), '1', 'EX', PRESENCE_TTL);
-    if (follows !== undefined) await this.redis.set(K.chFollows(ch, u), follows ? '1' : '0');
-    await this.redis.sadd(K.gwUsers(), u);
-    await this.redis.sadd(K.chIndex(ch), u);
+    await this.redis.set(K.chLastTick(t, ch, u), String(now), 'EX', 86400);
+    await this.redis.set(K.chPresent(t, ch, u), '1', 'EX', PRESENCE_TTL);
+    if (follows !== undefined) await this.redis.set(K.chFollows(t, ch, u), follows ? '1' : '0');
+    await this.redis.sadd(K.gwUsers(t), u);
+    await this.redis.sadd(K.chIndex(t, ch), u);
     return null;
   }
 
-  // Server-Tick: +TICK_SEC*mult für anwesende, folgende, nicht gebannte User
-  // je Kanal. Gibt Updates zurück.
-  async tickPresentUsers(sessionId) {
-    if (await this.redis.get(K.gwOpen()) !== 'true') return [];
-    const channels = await this.getChannels();
-    const mult = await this.getMultiplier();
-    const inc  = TICK_SEC * mult;
+  async tickPresentUsers() {
+    const teams = await this.listOpenTeams();
     const updates = [];
-    for (const ch of channels) {
-      const users = await this.redis.smembers(K.chIndex(ch));
-      for (const u of users) {
-        if (await this.redis.get(K.gwBanned(u)) === '1') continue;
-        if (!await this.redis.get(K.chPresent(ch, u))) continue;
-        if (!this._followAllowed(await this.redis.get(K.chFollows(ch, u)))) continue;
-        const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(ch, u), inc));
-        await this._logEvent(u, 'tick', inc, sessionId, ch);
-        updates.push({ username: u, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec) });
+    for (const t of teams) {
+      if (await this.redis.get(K.gwOpen(t)) !== 'true') { await this.redis.srem(K.openTeams(), t); continue; }
+      const sid = await this.redis.get(K.gwSessionId(t));
+      const channels = await this.getChannels(t);
+      const mult = await this.getMultiplier(t);
+      const inc  = TICK_SEC * mult;
+      for (const ch of channels) {
+        const users = await this.redis.smembers(K.chIndex(t, ch));
+        for (const u of users) {
+          if (await this.redis.get(K.gwBanned(t, u)) === '1') continue;
+          if (!await this.redis.get(K.chPresent(t, ch, u))) continue;
+          if (!this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)))) continue;
+          const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), inc));
+          await this._logEvent(t, u, 'tick', inc, sid, ch);
+          updates.push({ teamId: t, username: u, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec) });
+        }
       }
     }
     return updates;
   }
 
   // ── Chat ────────────────────────────────────────────────
-  async handleChatMessage(channel, username, message, sessionId, follows) {
+  async handleChatMessage(teamId, channel, username, message, follows) {
+    const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
-    if (!u) return null;
-    if (await this.redis.get(K.gwOpen()) !== 'true') return null;
+    if (!t || !u) return null;
+    if (await this.redis.get(K.gwOpen(t)) !== 'true') return null;
 
-    const ch = await this.resolveChannel(channel);
+    const ch = await this.resolveChannel(t, channel);
+    if (!ch) return null;
     const cleanMsg = sanitizeStr(message, 500).trim();
+    const sid = await this.redis.get(K.gwSessionId(t));
 
-    await this.redis.set(K.chPresent(ch, u), '1', 'EX', PRESENCE_TTL);
-    if (follows !== undefined) await this.redis.set(K.chFollows(ch, u), follows ? '1' : '0');
-    await this.redis.sadd(K.gwUsers(), u);
-    await this.redis.sadd(K.chIndex(ch), u);
+    await this.redis.set(K.chPresent(t, ch, u), '1', 'EX', PRESENCE_TTL);
+    if (follows !== undefined) await this.redis.set(K.chFollows(t, ch, u), follows ? '1' : '0');
+    await this.redis.sadd(K.gwUsers(t), u);
+    await this.redis.sadd(K.chIndex(t, ch), u);
 
-    // Keyword → opt-in (ab ≥1 Coin)
-    const keyword = await this.redis.get(K.gwKeyword());
+    const keyword = await this.redis.get(K.gwKeyword(t));
     if (keyword && cleanMsg.toLowerCase() === keyword.toLowerCase()) {
-      await this.redis.incr(K.chMsgs(ch, u));
-      return this._tryRegister(u, username, sessionId);
+      await this.redis.incr(K.chMsgs(t, ch, u));
+      return this._tryRegister(t, u, username);
     }
 
-    if (await this.redis.get(K.gwBanned(u)) === '1') return null;
-    await this.redis.incr(K.chMsgs(ch, u));
+    if (await this.redis.get(K.gwBanned(t, u)) === '1') return null;
+    await this.redis.incr(K.chMsgs(t, ch, u));
 
-    // Coin-Bonus nur bei Follow des Kanals + genug Wörter + Cooldown
-    if (!this._followAllowed(await this.redis.get(K.chFollows(ch, u)))) return { channel: ch, followed: false };
+    if (!this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)))) return { channel: ch, followed: false };
     if (countWords(cleanMsg) < CHAT_MIN_WORDS) return null;
 
-    const chatKey  = K.chChatTs(ch, u);
+    const chatKey = K.chChatTs(t, ch, u);
     const now = Math.floor(Date.now() / 1000);
     const lastTs = await this.redis.get(chatKey);
     if (lastTs && (now - parseInt(lastTs)) < CHAT_COOLDOWN) return null;
 
-    const mult = await this.getMultiplier();
+    const mult = await this.getMultiplier(t);
     const inc  = CHAT_BONUS_SEC * mult;
     await this.redis.set(chatKey, String(now), 'EX', 86400);
-    const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(ch, u), inc));
-    await this._logEvent(u, 'chat_bonus', inc, sessionId, ch);
+    const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), inc));
+    await this._logEvent(t, u, 'chat_bonus', inc, sid, ch);
 
     return { added: inc, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec) };
   }
 
-  // Opt-in via Keyword — nur ab JOIN_MIN_COINS Gesamt-Coins.
-  async _tryRegister(username, displayName, sessionId) {
-    const agg = await this.getUserAggregate(username);
+  async _tryRegister(teamId, username, displayName) {
+    const agg = await this.getUserAggregate(teamId, username);
     if (agg.totalCoins < JOIN_MIN_COINS) {
       return { registered: false, needCoins: JOIN_MIN_COINS, haveCoins: agg.totalCoins };
     }
-    const already = await this.redis.get(K.gwRegistered(username));
-    await this.redis.set(K.gwRegistered(username), '1');
-    await this.redis.sadd(K.gwUsers(), username);
+    const already = await this.redis.get(K.gwRegistered(teamId, username));
+    await this.redis.set(K.gwRegistered(teamId, username), '1');
+    await this.redis.sadd(K.gwUsers(teamId), username);
     await this.pg.query(`
       INSERT INTO users (username, display) VALUES ($1, $2)
       ON CONFLICT (username) DO UPDATE SET display = EXCLUDED.display, last_seen = NOW()
@@ -219,102 +218,105 @@ class WatchtimeEngine {
     return { registered: true, isNew: !already, coins: agg.totalCoins };
   }
 
-  // Manuelle Admin-Registrierung/-Optin (z.B. gw_add_ticket auf neuen User).
-  async registerUser(username, sessionId) {
+  async registerUser(teamId, username) {
+    const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
-    if (!u) return null;
-    await this.redis.set(K.gwRegistered(u), '1');
-    await this.redis.sadd(K.gwUsers(), u);
-    await this.pg.query(`
-      INSERT INTO users (username, display) VALUES ($1, $1)
-      ON CONFLICT (username) DO UPDATE SET last_seen = NOW()
-    `, [u]);
+    if (!t || !u) return null;
+    await this.redis.set(K.gwRegistered(t, u), '1');
+    await this.redis.sadd(K.gwUsers(t), u);
+    await this.pg.query(`INSERT INTO users (username, display) VALUES ($1,$1)
+                         ON CONFLICT (username) DO UPDATE SET last_seen = NOW()`, [u]);
     return { registered: true };
   }
 
-  // Admin-Ticketkorrektur auf einem Kanal (+/- watchSec).
-  async adjustWatch(username, channel, deltaSec, sessionId) {
+  async adjustWatch(teamId, username, channel, deltaSec) {
+    const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
-    if (!u) return null;
-    const ch = await this.resolveChannel(channel);
-    await this.redis.sadd(K.gwUsers(), u);
-    await this.redis.sadd(K.chIndex(ch), u);
-    let after = parseFloat(await this.redis.incrbyfloat(K.chWatch(ch, u), deltaSec));
-    if (after < 0) { await this.redis.set(K.chWatch(ch, u), '0'); after = 0; }
-    await this._logEvent(u, deltaSec >= 0 ? 'admin_add' : 'admin_sub', deltaSec, sessionId, ch);
+    if (!t || !u) return null;
+    const ch = await this.resolveChannel(t, channel);
+    const sid = await this.redis.get(K.gwSessionId(t));
+    await this.redis.sadd(K.gwUsers(t), u);
+    await this.redis.sadd(K.chIndex(t, ch), u);
+    let after = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), deltaSec));
+    if (after < 0) { await this.redis.set(K.chWatch(t, ch, u), '0'); after = 0; }
+    await this._logEvent(t, u, deltaSec >= 0 ? 'admin_add' : 'admin_sub', deltaSec, sid, ch);
     return { username: u, channel: ch, watchSec: after };
   }
 
+  async setBanned(teamId, username, banned) {
+    const t = sanitizeTeamId(teamId), u = sanitizeUsername(username);
+    if (!t || !u) return;
+    if (banned) await this.redis.set(K.gwBanned(t, u), '1');
+    else await this.redis.del(K.gwBanned(t, u));
+  }
+
   // ── Aggregation ─────────────────────────────────────────
-  async getUserAggregate(username) {
+  async getUserAggregate(teamId, username) {
+    const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
-    const channels = await this.getChannels();
+    const channels = await this.getChannels(t);
     const perChannel = {};
     let totalWatch = 0, totalMsgs = 0, qualified = 0;
     for (const ch of channels) {
-      const watchSec = parseFloat(await this.redis.get(K.chWatch(ch, u)) || '0');
-      const msgs     = parseInt(await this.redis.get(K.chMsgs(ch, u)) || '0');
-      const follows  = this._followAllowed(await this.redis.get(K.chFollows(ch, u)));
+      const watchSec = parseFloat(await this.redis.get(K.chWatch(t, ch, u)) || '0');
+      const msgs     = parseInt(await this.redis.get(K.chMsgs(t, ch, u)) || '0');
+      const follows  = this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)));
       const coins    = coinsFromSec(watchSec);
       perChannel[ch] = { watchSec, coins, msgs, follows };
-      totalWatch += watchSec;
-      totalMsgs  += msgs;
+      totalWatch += watchSec; totalMsgs += msgs;
       if (follows && coins > 0) qualified++;
     }
     const totalCoins = coinsFromSec(totalWatch);
-    const registered = await this.redis.get(K.gwRegistered(u)) === '1';
-    const banned     = await this.redis.get(K.gwBanned(u)) === '1';
+    const registered = await this.redis.get(K.gwRegistered(t, u)) === '1';
+    const banned     = await this.redis.get(K.gwBanned(t, u)) === '1';
     const eligible   = registered && !banned && qualified >= MIN_CHANNELS && totalCoins > 0;
     return {
       username: u, perChannel, totalWatchSec: totalWatch, totalCoins,
       channelsQualified: qualified, registered, banned, eligible,
-      // Backward-compat Aliase (Admin-Panel / REST erwarten coins/watchSec/msgs)
       coins: totalCoins, watchSec: totalWatch, msgs: totalMsgs,
     };
   }
+  async getUserState(teamId, username) { return this.getUserAggregate(teamId, username); }
 
-  // server.js / REST nutzen getUserState (= Aggregat inkl. Aliase).
-  async getUserState(username) { return this.getUserAggregate(username); }
-
-  async getAllParticipants() {
-    const users = await this.redis.smembers(K.gwUsers());
+  async getAllParticipants(teamId) {
+    const t = sanitizeTeamId(teamId);
+    const users = await this.redis.smembers(K.gwUsers(t));
     const result = [];
-    for (const u of users) result.push(await this.getUserAggregate(u));
+    for (const u of users) result.push(await this.getUserAggregate(t, u));
     return result.sort((a, b) => b.totalCoins - a.totalCoins);
   }
 
-  async _logEvent(username, eventType, deltaSec, sessionId, channel) {
+  async _logEvent(teamId, username, eventType, deltaSec, sessionId, channel) {
     try {
       await this.pg.query(`
-        INSERT INTO watchtime_events (username, event_type, delta_sec, session_id, channel)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [username, eventType, Math.round(deltaSec), sessionId || null, channel || null]);
-    } catch(e) {
-      console.error('[WTE] PG log error:', e.message);
-    }
+        INSERT INTO watchtime_events (username, event_type, delta_sec, session_id, channel, team_id)
+        VALUES ($1,$2,$3,$4,$5,$6)
+      `, [username, eventType, Math.round(deltaSec), sessionId || null, channel || null, teamId || null]);
+    } catch(e) { console.error('[WTE] PG log error:', e.message); }
   }
 
   validateSessionId(id) {
     if (!id || typeof id !== 'string' || !/^sess_\d+$/i.test(id)) throw new Error('Invalid sessionId');
   }
 
-  async openGiveaway(keyword, sessionId, channels) {
+  async openGiveaway(teamId, keyword, sessionId) {
+    const t = sanitizeTeamId(teamId);
     this.validateSessionId(sessionId);
-    await this.redis.set(K.gwOpen(), 'true');
-    if (keyword) await this.redis.set(K.gwKeyword(), keyword);
-    else await this.redis.del(K.gwKeyword());
-    if (sessionId) await this.redis.set(K.gwSessionId(), sessionId);
-    if (channels) await this.setChannels(channels);
-    else if (!await this.redis.get(K.gwChannels())) await this.setChannels(DEFAULT_CHANNELS);
-    console.log(`[WTE] Giveaway opened, keyword="${keyword}", session=${sessionId}`);
+    if (!t) throw new Error('Invalid teamId');
+    await this.redis.set(K.gwOpen(t), 'true');
+    await this.redis.sadd(K.openTeams(), t);
+    if (keyword) await this.redis.set(K.gwKeyword(t), keyword);
+    else await this.redis.del(K.gwKeyword(t));
+    await this.redis.set(K.gwSessionId(t), sessionId);
+    await this.redis.del(K.gwChannels(t)); // Kanal-Cache invalidieren
+    console.log(`[WTE] [${t}] opened, keyword="${keyword}", session=${sessionId}`);
   }
 
-  // ── Winner-Ziehung ──────────────────────────────────────
-  // Nur eligible (opt-in + ≥2 Kanäle valide). Gewicht = totalCoins.
-  async drawWinner(sessionId, opts = {}) {
+  async drawWinner(teamId, sessionId, opts = {}) {
+    const t = sanitizeTeamId(teamId);
     const isTest = !!opts.test;
     const prize  = opts.prize ? sanitizeStr(opts.prize, 100) : null;
-    const participants = await this.getAllParticipants();
+    const participants = await this.getAllParticipants(t);
     const eligible = participants.filter(p => p.eligible);
     if (!eligible.length) return null;
 
@@ -335,69 +337,49 @@ class WatchtimeEngine {
     try {
       await client.query('BEGIN');
       const idxRes = await client.query(
-        sessionId
-          ? `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id = $1`
-          : `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id IS NULL AND drawn_at > NOW() - INTERVAL '1 day'`,
-        sessionId ? [sessionId] : []
-      );
+        sessionId ? `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id=$1`
+                  : `SELECT COUNT(*)::int AS n FROM giveaway_draws WHERE session_id IS NULL AND drawn_at > NOW() - INTERVAL '1 day'`,
+        sessionId ? [sessionId] : []);
       drawIndex = (idxRes.rows[0]?.n || 0) + 1;
-
       const ins = await client.query(`
         INSERT INTO giveaway_draws
           (session_id, winner, winner_coins, winner_watch_sec, total_coins,
            eligible_count, rand_value, draw_index, is_test, prize, eligible_snapshot)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-        RETURNING id
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id
       `, [sessionId || null, winner.username, winner.totalCoins, Math.round(winner.totalWatchSec),
-          totalRounded, eligible.length, randRounded, drawIndex, isTest, prize,
-          JSON.stringify(snapshot)]);
+          totalRounded, eligible.length, randRounded, drawIndex, isTest, prize, JSON.stringify(snapshot)]);
       drawId = ins.rows[0].id;
-
       if (!isTest) {
         let prevWinner = null;
-        if (sessionId) {
-          const sres = await client.query(`SELECT winner FROM sessions WHERE id = $1`, [sessionId]);
-          prevWinner = sres.rows[0]?.winner || null;
-        }
+        if (sessionId) prevWinner = (await client.query(`SELECT winner FROM sessions WHERE id=$1`, [sessionId])).rows[0]?.winner || null;
         if (prevWinner !== winner.username) {
-          if (prevWinner) await client.query(`UPDATE users SET times_won = GREATEST(times_won - 1, 0) WHERE username = $1`, [prevWinner]);
-          await client.query(`
-            INSERT INTO users (username, display, times_won, last_seen)
-            VALUES ($1, $2, 1, NOW())
-            ON CONFLICT (username) DO UPDATE SET times_won = users.times_won + 1, last_seen = NOW()
-          `, [winner.username, winner.username]);
+          if (prevWinner) await client.query(`UPDATE users SET times_won = GREATEST(times_won-1,0) WHERE username=$1`, [prevWinner]);
+          await client.query(`INSERT INTO users (username, display, times_won, last_seen) VALUES ($1,$2,1,NOW())
+                              ON CONFLICT (username) DO UPDATE SET times_won = users.times_won+1, last_seen=NOW()`,
+                              [winner.username, winner.username]);
         }
-        if (sessionId) {
-          await client.query(
-            `UPDATE sessions SET winner = $1, winner_watch_sec = $2, winner_coins = $3 WHERE id = $4`,
-            [winner.username, Math.round(winner.totalWatchSec), winner.totalCoins, sessionId]
-          );
-        }
+        if (sessionId) await client.query(`UPDATE sessions SET winner=$1, winner_watch_sec=$2, winner_coins=$3 WHERE id=$4`,
+                                           [winner.username, Math.round(winner.totalWatchSec), winner.totalCoins, sessionId]);
       }
       await client.query('COMMIT');
     } catch (e) {
-      await client.query('ROLLBACK');
-      console.error('[WTE] drawWinner error:', e.message);
-      throw e;
-    } finally {
-      client.release();
-    }
+      await client.query('ROLLBACK'); console.error('[WTE] drawWinner error:', e.message); throw e;
+    } finally { client.release(); }
 
-    console.log(`[WTE] Draw #${drawId} (idx ${drawIndex}): ${winner.username} won, coins=${winner.totalCoins}, pool=${totalRounded}, eligible=${eligible.length}, test=${isTest}`);
-    return {
-      winner: winner.username, coins: winner.totalCoins, watchSec: Math.round(winner.totalWatchSec),
-      drawId, drawIndex, eligibleCount: eligible.length, total: totalRounded, rand: randRounded, isTest, prize,
-    };
+    console.log(`[WTE] [${t}] Draw #${drawId}: ${winner.username} won, coins=${winner.totalCoins}, eligible=${eligible.length}, test=${isTest}`);
+    return { winner: winner.username, coins: winner.totalCoins, watchSec: Math.round(winner.totalWatchSec),
+             drawId, drawIndex, eligibleCount: eligible.length, total: totalRounded, rand: randRounded, isTest, prize };
   }
 
-  // Giveaway schließen – Per-Kanal-Snapshot in PG.
-  async closeGiveaway(sessionId) {
-    await this.redis.set(K.gwOpen(), 'false');
+  async closeGiveaway(teamId, sessionId) {
+    const t = sanitizeTeamId(teamId);
+    await this.redis.set(K.gwOpen(t), 'false');
+    await this.redis.srem(K.openTeams(), t);
     if (!sessionId) return;
-    const participants = await this.getAllParticipants();
+    const participants = await this.getAllParticipants(t);
     const active = participants.filter(p => !p.banned);
     const totalCoins = active.reduce((s, p) => s + p.totalCoins, 0);
-    const channels = await this.getChannels();
+    const channels = await this.getChannels(t);
 
     const client = await this.pg.connect();
     try {
@@ -410,62 +392,56 @@ class WatchtimeEngine {
             INSERT INTO campaign_participation (session_id, username, channel, watch_sec, msgs, coins, follows, valid)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
             ON CONFLICT (session_id, username, channel) DO UPDATE SET
-              watch_sec = EXCLUDED.watch_sec, msgs = EXCLUDED.msgs, coins = EXCLUDED.coins,
-              follows = EXCLUDED.follows, valid = EXCLUDED.valid
+              watch_sec=EXCLUDED.watch_sec, msgs=EXCLUDED.msgs, coins=EXCLUDED.coins,
+              follows=EXCLUDED.follows, valid=EXCLUDED.valid
           `, [sessionId, p.username, ch, Math.round(pc.watchSec), pc.msgs, pc.coins, pc.follows, pc.follows && pc.coins > 0]);
         }
       }
       const upd = await client.query(`
-        UPDATE sessions SET total_participants = $1, total_coins = $2, channels = $3, closed_at = NOW()
-        WHERE id = $4 AND closed_at IS NULL
+        UPDATE sessions SET total_participants=$1, total_coins=$2, channels=$3, closed_at=NOW()
+        WHERE id=$4 AND closed_at IS NULL
       `, [active.length, Math.round(totalCoins * 10000) / 10000, JSON.stringify(channels), sessionId]);
-
       if (upd.rowCount > 0) {
         for (const p of participants) {
-          await client.query(`
-            INSERT INTO users (username, display, total_watch_sec, last_seen)
-            VALUES ($1, $1, $2, NOW())
-            ON CONFLICT (username) DO UPDATE SET
-              total_watch_sec = users.total_watch_sec + $2, last_seen = NOW()
-          `, [p.username, Math.round(p.totalWatchSec)]);
+          await client.query(`INSERT INTO users (username, display, total_watch_sec, last_seen) VALUES ($1,$1,$2,NOW())
+                              ON CONFLICT (username) DO UPDATE SET total_watch_sec = users.total_watch_sec+$2, last_seen=NOW()`,
+                              [p.username, Math.round(p.totalWatchSec)]);
         }
       }
       await client.query('COMMIT');
-      console.log(`[WTE] Session ${sessionId} closed, ${participants.length} participants`);
-    } catch(e) {
-      await client.query('ROLLBACK');
-      console.error('[WTE] closeGiveaway error:', e.message);
-    } finally {
-      client.release();
-    }
+      console.log(`[WTE] [${t}] session ${sessionId} closed, ${participants.length} participants`);
+    } catch(e) { await client.query('ROLLBACK'); console.error('[WTE] closeGiveaway error:', e.message); }
+    finally { client.release(); }
   }
 
-  // Reset – alle Kampagnen-Keys löschen (nicht PG).
-  async resetGiveaway() {
-    const channels = await this.getChannels();
-    const users = await this.redis.smembers(K.gwUsers());
+  async resetGiveaway(teamId) {
+    const t = sanitizeTeamId(teamId);
+    const channels = await this.getChannels(t);
+    const users = await this.redis.smembers(K.gwUsers(t));
     const pipeline = this.redis.pipeline();
     for (const u of users) {
-      pipeline.del(K.gwRegistered(u));
-      pipeline.del(K.gwBanned(u));
+      pipeline.del(K.gwRegistered(t, u));
+      pipeline.del(K.gwBanned(t, u));
       for (const ch of channels) {
-        pipeline.del(K.chWatch(ch, u), K.chChatTs(ch, u), K.chPresent(ch, u),
-                     K.chLastTick(ch, u), K.chMsgs(ch, u), K.chFollows(ch, u));
+        pipeline.del(K.chWatch(t, ch, u), K.chChatTs(t, ch, u), K.chPresent(t, ch, u),
+                     K.chLastTick(t, ch, u), K.chMsgs(t, ch, u), K.chFollows(t, ch, u));
       }
     }
-    for (const ch of channels) pipeline.del(K.chIndex(ch));
-    pipeline.del(K.gwUsers());
-    pipeline.set(K.gwOpen(), 'false');
-    pipeline.del(K.gwKeyword());
-    pipeline.del(K.gwSessionId());
-    pipeline.del(K.gwMult());
+    for (const ch of channels) pipeline.del(K.chIndex(t, ch));
+    pipeline.del(K.gwUsers(t));
+    pipeline.set(K.gwOpen(t), 'false');
+    pipeline.srem(K.openTeams(), t);
+    pipeline.del(K.gwKeyword(t));
+    pipeline.del(K.gwSessionId(t));
+    pipeline.del(K.gwMult(t));
+    pipeline.del(K.gwChannels(t));
     await pipeline.exec();
-    console.log('[WTE] Giveaway reset');
+    console.log(`[WTE] [${t}] reset`);
   }
 }
 
 module.exports = {
-  WatchtimeEngine, K, sanitizeUsername, sanitizeChannel, sanitizeStr, countWords, coinsFromSec,
+  WatchtimeEngine, K, sanitizeUsername, sanitizeChannel, sanitizeStr, sanitizeTeamId, countWords, coinsFromSec,
   SECS_PER_COIN, CHAT_BONUS_SEC, CHAT_COOLDOWN, CHAT_MIN_WORDS, TICK_SEC, PRESENCE_TTL,
-  JOIN_MIN_COINS, MIN_CHANNELS, DEFAULT_CHANNELS,
+  JOIN_MIN_COINS, MIN_CHANNELS,
 };

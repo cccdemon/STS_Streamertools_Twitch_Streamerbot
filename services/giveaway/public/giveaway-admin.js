@@ -10,6 +10,8 @@ function parseDec(v) {
 }
 
 // ── State ─────────────────────────────────────────────────
+let currentTeam  = null;
+const TEAM_EVENTS = { gw_cmd:1, gw_get_all:1, gw_subscribe:1, gw_overlay:1, viewer_tick:1, chat_msg:1, time_cmd:1 };
 let participants = {};
 let gwIsOpen     = false;
 let sortField    = 'coins';
@@ -43,9 +45,7 @@ function connectWS() {
     gwWsRetry = 1000;
     log('WebSocket verbunden', 'cyan');
     send({ event: 'cc_identify', role: 'giveaway-admin' });
-    requestData();
-    loadKeyword();
-    loadHistory();
+    loadTeams();
   };
   gwWs.onmessage = (e) => { const msg = CC.validate.safeJsonParse(e.data); if (msg) handle(msg); };
   gwWs.onclose = gwWs.onerror = () => { setBadge(false); scheduleReconnect(); };
@@ -68,10 +68,43 @@ function setBadge(on) {
 }
 
 function send(obj) {
+  if (obj && TEAM_EVENTS[obj.event]) {
+    if (!currentTeam) { log('Kein Team gewählt', 'red'); return; }
+    obj.teamId = currentTeam;
+  }
   if (!CC.validate.validateWsPayload(obj)) { log('Payload blockiert: ' + JSON.stringify(obj).slice(0,60), 'red'); return; }
   if (gwWs && gwWs.readyState === 1) gwWs.send(JSON.stringify(obj));
   else log('WS nicht verbunden', 'red');
 }
+
+async function loadTeams() {
+  try {
+    var teams = await (await fetch('/admin/api/teams/mine')).json();
+    var sel = document.getElementById('team-select');
+    if (!Array.isArray(teams) || !teams.length) {
+      if (sel) sel.innerHTML = '<option>— kein Team —</option>';
+      log('Du bist in keinem Team. Lege unter MEINE TEAMS eins an.', 'gold');
+      return;
+    }
+    if (sel) {
+      sel.innerHTML = teams.map(function(t){ return '<option value="'+esc(t.id)+'">'+esc(t.name)+(t.role==='owner'?' ★':'')+'</option>'; }).join('');
+      if (!currentTeam || !teams.some(function(t){return t.id===currentTeam;})) currentTeam = teams[0].id;
+      sel.value = currentTeam;
+    } else if (!currentTeam) { currentTeam = teams[0].id; }
+    refresh();
+  } catch(e) { log('Teams laden fehlgeschlagen: ' + e.message, 'red'); }
+}
+
+function onTeamChange() {
+  var sel = document.getElementById('team-select');
+  if (!sel) return;
+  currentTeam = sel.value;
+  participants = {};
+  log('Team gewechselt: ' + currentTeam, 'cyan');
+  refresh();
+}
+
+function refresh() { requestData(); loadKeyword(); loadHistory(); }
 
 function requestData() {
   send({ event: 'gw_get_all' });
@@ -382,7 +415,8 @@ function clearOverlay() {
 
 // ── Gewinner-Historie ─────────────────────────────────────
 function loadHistory() {
-  fetch('api/draws?limit=50')
+  if (!currentTeam) return;
+  fetch('/giveaway/api/draws?limit=50&team=' + encodeURIComponent(currentTeam))
     .then(function(r) { return r.json(); })
     .then(function(rows) { historyDraws = Array.isArray(rows) ? rows : []; renderHistory(); })
     .catch(function() {

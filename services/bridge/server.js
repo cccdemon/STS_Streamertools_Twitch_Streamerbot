@@ -80,7 +80,7 @@ function connectedChannels() {
 }
 
 wss.on('connection', (ws, req) => {
-  const meta = { channel: null, ip: req.socket.remoteAddress, authed: false, connectedAt: Date.now() };
+  const meta = { team: null, channel: null, ip: req.socket.remoteAddress, authed: false, connectedAt: Date.now() };
   clients.set(ws, meta);
   log('Ingest', `Connect ${meta.ip} (${clients.size} total)`);
 
@@ -95,27 +95,30 @@ wss.on('connection', (ws, req) => {
     if (!meta.authed) {
       if (msg.event !== 'ingest_auth') return;   // ignore until authed
       const token = String(msg.token || '');
-      const channel = token ? await redis.hget('ingest:tokens', token) : null;
-      if (!channel) {
+      const value = token ? await redis.hget('ingest:tokens', token) : null;   // "teamId::channel"
+      const [team, channel] = String(value || '').split('::');
+      if (!team || !channel) {
         log('Ingest', `Auth denied from ${meta.ip}`);
         safeSend(ws, { event: 'ingest_denied' });
         try { ws.close(); } catch(e) {}
         return;
       }
       meta.authed = true;
+      meta.team = team;
       meta.channel = channel;
       clearTimeout(authTimer);
-      log('Ingest', `Auth OK ${meta.ip} → channel "${channel}"`);
-      safeSend(ws, { event: 'ingest_ok', channel });
+      log('Ingest', `Auth OK ${meta.ip} → team "${team}" channel "${channel}"`);
+      safeSend(ws, { event: 'ingest_ok', team, channel });
       return;
     }
 
-    // authenticated: inject channel from the TOKEN (never the payload)
+    // authenticated: inject team+channel from the TOKEN (never the payload)
     const channels = ROUTES[msg.event];
     if (!channels) { log('Ingest', `${msg.event} (unrouted)`); return; }
+    msg.team = meta.team;
     msg.channel = meta.channel;
     const payload = JSON.stringify(msg);
-    log('Ingest', `← [${meta.channel}] ${msg.event}${msg.user ? ' (' + msg.user + ')' : ''}`);
+    log('Ingest', `← [${meta.team}/${meta.channel}] ${msg.event}${msg.user ? ' (' + msg.user + ')' : ''}`);
     for (const ch of channels) redisPub.publish(ch, payload).catch(e => logErr('Pub', ch, e.message));
   });
 

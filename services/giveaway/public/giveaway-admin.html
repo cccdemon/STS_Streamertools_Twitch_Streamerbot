@@ -16,6 +16,10 @@
     <div class="hstat"><span id="s-msgs">0</span><label>MSGS</label></div>
   </div>
   <div class="header-right">
+    <select id="team-select" onchange="onTeamChange()" title="Team"
+            style="background:#060a11;border:1px solid rgba(0,212,255,0.3);color:#c8dce8;padding:8px 10px;border-radius:6px;font-size:12px;margin-right:8px;">
+      <option>— lädt —</option>
+    </select>
     <div id="ws-badge" class="ws-badge off" onclick="reconnect()">WS: OFFLINE</div>
   </div>
 </div>
