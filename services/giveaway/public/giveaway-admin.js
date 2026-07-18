@@ -230,23 +230,77 @@ function updateMultiplierUI(factor, secondsLeft) {
 var ingestChannels = [];
 var ingestTokens = {};
 
+function ingestUrl() { return 'wss://' + location.host + '/ingest'; }
+
+// Copy any string to clipboard, flash the triggering button.
+function copyVal(val, btn) {
+  var done = function () {
+    if (!btn) return;
+    var old = btn.textContent; btn.textContent = '✓'; btn.classList.add('copied');
+    setTimeout(function () { btn.textContent = old; btn.classList.remove('copied'); }, 1100);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(val).then(done).catch(function () { legacyCopy(val); done(); });
+  } else { legacyCopy(val); done(); }
+}
+function legacyCopy(val) {
+  var t = document.createElement('textarea'); t.value = val;
+  t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t);
+  t.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(t);
+}
+
+// One "copy field": readonly value + copy button. `code`=monospace styling.
+function copyField(val, code) {
+  var safe = esc(val);
+  return '<div class="cf">'
+    + '<input class="cf-val' + (code ? ' mono' : '') + '" readonly value="' + safe + '" onclick="this.select()">'
+    + '<button class="btn btn-cyan btn-sm cf-btn" onclick="copyVal(' + "'" + jsStr(val) + "'" + ',this)">COPY</button>'
+    + '</div>';
+}
+function jsStr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
 function renderIngest() {
-  var urlEl = document.getElementById('ingest-url');
-  if (urlEl) urlEl.textContent = 'wss://' + location.host + '/ingest';
   var el = document.getElementById('ingest-list');
   if (!el) return;
+  var url = ingestUrl();
   var chans = ingestChannels.length ? ingestChannels : Object.keys(ingestTokens);
-  if (!chans.length) { el.innerHTML = '<div class="wsc-empty">Keine Kanäle konfiguriert</div>'; return; }
-  el.innerHTML = chans.map(function(ch) {
-    var tok = ingestTokens[ch];
-    var right = tok
-      ? '<input class="ingest-tok" readonly value="' + tok + '" onclick="this.select()" style="flex:1;min-width:0;font-size:11px;">'
-        + '<button class="btn btn-gold btn-sm" onclick="genIngestToken(\'' + ch + '\')">NEU</button>'
-      : '<span style="flex:1;opacity:.5">kein Token</span>'
-        + '<button class="btn btn-cyan btn-sm" onclick="genIngestToken(\'' + ch + '\')">GENERIEREN</button>';
-    return '<div class="ingest-row" style="display:flex;gap:6px;align-items:center;margin:5px 0;">'
-      + '<b style="width:118px;overflow:hidden;text-overflow:ellipsis">' + ch + '</b>' + right + '</div>';
-  }).join('');
+
+  // ── Step 1: WebSocket-Client-Endpoint ──
+  var html = ''
+    + '<div class="ig-step"><div class="ig-step-h"><span class="ig-num">1</span>Streamerbot → Settings → WebSocket <b>Client</b> → Add</div>'
+    + '<div class="ig-lbl">Endpoint</div>' + copyField(url, true)
+    + '<div class="ig-hint">Auto Connect ✓ · Reconnect ✓ · TLS 1.2 ✓ — <b>kein</b> ws:// selbst tippen, volle URL einfügen.</div>'
+    + '</div>';
+
+  // ── Step 2: Token je Kanal ──
+  html += '<div class="ig-step"><div class="ig-step-h"><span class="ig-num">2</span>Kanal-Token als globale Variable setzen</div>'
+    + '<div class="ig-lbl">Variablen-Name (persistent!)</div>' + copyField('cc_ingest_token', true);
+
+  if (!chans.length) {
+    html += '<div class="wsc-empty" style="margin-top:8px">Keine Kanäle konfiguriert</div>';
+  } else {
+    html += chans.map(function (ch) {
+      var tok = ingestTokens[ch];
+      var body = tok
+        ? '<div class="ig-lbl">Token · ' + esc(ch) + '</div>'
+          + '<div class="cf">'
+          + '<input class="cf-val mono" readonly value="' + esc(tok) + '" onclick="this.select()">'
+          + '<button class="btn btn-cyan btn-sm cf-btn" onclick="copyVal(' + "'" + jsStr(tok) + "'" + ',this)">COPY</button>'
+          + '<button class="btn btn-gold btn-sm" onclick="genIngestToken(\'' + jsStr(ch) + '\')">NEU</button>'
+          + '</div>'
+        : '<div class="ig-lbl">' + esc(ch) + '</div>'
+          + '<div class="cf"><span class="cf-val" style="opacity:.5;padding:6px 8px">kein Token</span>'
+          + '<button class="btn btn-cyan btn-sm" onclick="genIngestToken(\'' + jsStr(ch) + '\')">GENERIEREN</button></div>';
+      return '<div class="ig-chan">' + body + '</div>';
+    }).join('');
+  }
+  html += '<div class="ig-hint">Variable muss <b>persistent</b> sein (sonst findet die Action sie nicht). NEU rotiert den Token → danach im Streamerbot neu einfügen.</div></div>';
+
+  // ── Step 3: Trigger ──
+  html += '<div class="ig-step"><div class="ig-step-h"><span class="ig-num">3</span>Action-Trigger prüfen</div>'
+    + '<div class="ig-hint"><code>CC_IngestConnect</code> muss am Trigger <b>Core → WebSocket Client → Connected</b> hängen — sonst wird der Token nie gesendet und der Kanal bleibt <b>Closed</b>.</div></div>';
+
+  el.innerHTML = html;
 }
 
 function genIngestToken(ch) {
@@ -290,9 +344,9 @@ function gwResume() { send({ event:'gw_cmd', cmd:'gw_resume' }); gwPaused=false;
 
 function updateGwStatus() {
   const el = document.getElementById('gw-txt');
-  if (!gwIsOpen)      { el.textContent='CLOSED';   el.className='gw-status closed'; }
-  else if (gwPaused)  { el.textContent='PAUSIERT'; el.className='gw-status closed'; }
-  else                { el.textContent='OPEN';     el.className='gw-status open'; }
+  if (!gwIsOpen)      { el.textContent='CLOSED';   el.className='state-chip closed'; }
+  else if (gwPaused)  { el.textContent='PAUSIERT'; el.className='state-chip paused'; }
+  else                { el.textContent='OPEN';     el.className='state-chip open'; }
 }
 
 function drawWinner() {
@@ -397,7 +451,7 @@ function renderTable(hlKey=null) {
       <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       <td class="watchtime">${fmtTime(p.watchSec)}</td>
-      <td style="display:flex;gap:4px;">
+      <td style="display:flex;gap:4px;justify-content:flex-end;">
         <button class="mini-btn add" onclick="addTicketTo('${esc(key)}')">+1</button>
         <button class="mini-btn sub" onclick="subTicketFrom('${esc(key)}')">-1</button>
         <button class="mini-btn ban" onclick="toggleBan('${esc(key)}')">${p.banned?'UN':'BAN'}</button>

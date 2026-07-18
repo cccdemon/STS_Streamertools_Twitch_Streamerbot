@@ -8,171 +8,142 @@
 <body>
 <script src="giveaway-shared.js"></script>
 
-<div class="page-header">
-  <div class="page-title">CHAOS<span> //</span> <em>GIVEAWAY</em> ADMIN</div>
-  <div class="header-stats">
-    <div class="hstat"><span id="s-total">0</span><label>CREW</label></div>
-    <div class="hstat"><span id="s-tickets">0</span><label>COINS</label></div>
-    <div class="hstat"><span id="s-msgs">0</span><label>MSGS</label></div>
-  </div>
-  <div class="header-right">
-    <select id="team-select" onchange="onTeamChange()" title="Team"
-            style="background:#060a11;border:1px solid rgba(0,212,255,0.3);color:#c8dce8;padding:8px 10px;border-radius:6px;font-size:12px;margin-right:8px;">
-      <option>— lädt —</option>
-    </select>
-    <div id="ws-badge" class="ws-badge off" onclick="reconnect()">WS: OFFLINE</div>
-  </div>
-</div>
+<div class="gw-app">
 
-<div class="gw-layout">
-
-  <!-- ── Main: Participants ───────────────────────────── -->
-  <div class="gw-main">
-    <div class="gw-main-head">
-      <span class="panel-label">TEILNEHMER <em id="list-count">0</em></span>
-      <input type="text" id="search" placeholder="Suche..." oninput="renderTable()">
+  <!-- ── Command bar (immer sichtbar) ─────────────────── -->
+  <div class="cmdbar">
+    <div class="cb-left">
+      <select id="team-select" onchange="onTeamChange()" title="Team"><option>— lädt —</option></select>
+      <div class="state-chip idle" id="gw-txt">IDLE</div>
     </div>
-    <div class="gw-table-wrap">
-      <table>
-        <thead><tr>
-          <th onclick="sortBy('rank')">#</th>
-          <th onclick="sortBy('name')">NAME</th>
-          <th onclick="sortBy('coins')" class="sorted">COINS</th>
-          <th onclick="sortBy('watchSec')">WATCHTIME</th>
-          <th>AKTIONEN</th>
-        </tr></thead>
-        <tbody id="tbl"></tbody>
-      </table>
+    <div class="cb-stats">
+      <div class="stat"><span id="s-total">0</span><label>CREW</label></div>
+      <div class="stat gold"><span id="s-tickets">0</span><label>COINS</label></div>
+      <div class="stat plain"><span id="s-msgs">0</span><label>MSGS</label></div>
+    </div>
+    <div class="cb-right">
+      <div id="ws-badge" class="ws-badge off" onclick="reconnect()">WS: OFFLINE</div>
     </div>
   </div>
 
-  <!-- ── Sidebar ──────────────────────────────────────── -->
-  <div class="gw-sidebar">
+  <!-- ── Primäraktionen ───────────────────────────────── -->
+  <div class="actionstrip">
+    <input type="text" id="prize-input" placeholder="Preis (z.B. Steam-Key, 10€ …)">
+    <button class="btn btn-gold" onclick="verifyFollows()">FOLLOWS PRÜFEN</button>
+    <button class="btn btn-solid" onclick="drawWinner()">★ GEWINNER ZIEHEN</button>
+    <span class="as-spacer"></span>
+    <button class="btn btn-green" onclick="gwOpen()">ÖFFNEN</button>
+    <button class="btn btn-gold"  onclick="gwPause()">PAUSE</button>
+    <button class="btn btn-cyan"  onclick="gwResume()">FORTSETZEN</button>
+    <button class="btn btn-red"   onclick="gwClose()">SCHLIESSEN</button>
+  </div>
 
-    <!-- Status & Controls -->
-    <div class="card">
-      <div class="card-title">GIVEAWAY STATUS</div>
-      <div class="gw-status idle" id="gw-txt">IDLE</div>
-      <div class="btn-group mt-6">
-        <button class="btn btn-green" onclick="gwOpen()">ÖFFNEN</button>
-        <button class="btn btn-gold"  onclick="gwPause()">PAUSE</button>
-        <button class="btn btn-cyan"  onclick="gwResume()">FORTSETZEN</button>
-        <button class="btn btn-red"   onclick="gwClose()">SCHLIESSEN</button>
-      </div>
-      <input type="text" id="prize-input" class="mt-6" placeholder="Preis (z.B. Steam-Key, 10€ ...)" style="width:100%;">
-      <button class="btn btn-gold btn-full mt-6" onclick="verifyFollows()">FOLLOWS PRÜFEN (Helix)</button>
-      <button class="btn btn-cyan btn-full mt-6" onclick="drawWinner()">GEWINNER ZIEHEN</button>
-    </div>
+  <!-- ── Zwei-Spalten ─────────────────────────────────── -->
+  <div class="gw-grid">
 
-    <!-- Winner -->
-    <div class="card" id="winner-card" style="display:none;">
-      <div class="card-title">LETZTER GEWINNER</div>
-      <div class="winner-label">// GEWINNER //</div>
-      <div class="winner-name" id="w-name">-</div>
-      <div class="winner-info" id="w-info"></div>
-      <div class="btn-group mt-10">
-        <button class="btn btn-cyan btn-sm" onclick="reroll()">REROLL</button>
-        <button class="btn btn-red btn-sm"  onclick="clearWinner()">SCHLIESSEN</button>
+    <!-- Teilnehmer -->
+    <div class="gw-main">
+      <div class="gw-main-head">
+        <span class="panel-label">TEILNEHMER <em id="list-count">0</em></span>
+        <input type="text" id="search" placeholder="Suche..." oninput="renderTable()">
       </div>
-    </div>
-
-    <!-- Winner History -->
-    <div class="card">
-      <div class="card-title">
-        GEWINNER-HISTORIE
-        <span class="link-dim" onclick="loadHistory()">↻</span>
-      </div>
-      <label class="hist-toggle"><input type="checkbox" id="hist-show-tests" onchange="renderHistory()"> Tests zeigen</label>
-      <div class="hist-list" id="history-list"><div class="wsc-empty">Lade Historie...</div></div>
-    </div>
-
-    <!-- Keyword -->
-    <div class="card">
-      <div class="card-title">KEYWORD // TEILNAHME</div>
-      <div class="kw-current">
-        <span class="kw-label">AKTUELL:</span>
-        <span class="kw-val" id="kw-current">-</span>
-      </div>
-      <div class="input-row">
-        <input type="text" id="kw-input" placeholder="z.B. !mitmachen">
-        <button class="btn btn-cyan btn-sm" onclick="setKeyword()">SETZEN</button>
-      </div>
-      <button class="btn btn-gold btn-full mt-6" onclick="clearKeyword()">DEAKTIVIEREN</button>
-    </div>
-
-    <!-- Manual Tickets -->
-    <div class="card">
-      <div class="card-title">MANUELL // TICKETS</div>
-      <div class="input-row">
-        <input type="text"   id="m-name"   placeholder="Username">
-        <input type="number" id="m-amount" value="1" min="1" max="99" style="width:62px;">
-      </div>
-      <div class="btn-group mt-6">
-        <button class="btn btn-cyan" onclick="manualAdd()">+ HINZUFÜGEN</button>
-        <button class="btn btn-gold" onclick="manualSub()">– ENTFERNEN</button>
+      <div class="gw-table-wrap">
+        <table>
+          <thead><tr>
+            <th class="num" onclick="sortBy('rank')">#</th>
+            <th onclick="sortBy('name')">NAME</th>
+            <th class="num sorted" onclick="sortBy('coins')">COINS</th>
+            <th class="num" onclick="sortBy('watchSec')">WATCHTIME</th>
+            <th class="num">AKTIONEN</th>
+          </tr></thead>
+          <tbody id="tbl"></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Viewtime-Multiplier -->
-    <div class="card">
-      <div class="card-title">
-        VIEWTIME-BOOST
-        <div id="mult-status">1× (aus)</div>
-      </div>
-      <div class="manual-row">
-        <input type="number" id="mult-factor"  value="2"  min="1" max="10" step="1"  style="width:56px;" title="Faktor">
-        <span style="opacity:.6">× für</span>
-        <input type="number" id="mult-minutes" value="15" min="1" max="1440" style="width:62px;" title="Minuten">
-        <span style="opacity:.6">min</span>
-        <button class="btn btn-cyan" onclick="startMultiplier()">START</button>
-        <button class="btn btn-gold" onclick="stopMultiplier()">STOP</button>
-      </div>
-    </div>
+    <!-- Steuer-Rail -->
+    <div class="gw-rail">
 
-    <!-- Stream-Verbindungen (Ingest-Token je Kanal) -->
-    <div class="card">
-      <div class="card-title">
-        STREAM-VERBINDUNGEN
-        <div id="ingest-url" style="font-size:10px;opacity:.55">wss://…/ingest</div>
+      <!-- Letzter Gewinner -->
+      <div class="card winner-card" id="winner-card" style="display:none;">
+        <div class="card-title">LETZTER GEWINNER</div>
+        <div class="winner-label">// GEWINNER //</div>
+        <div class="winner-name" id="w-name">-</div>
+        <div class="winner-info" id="w-info"></div>
+        <div class="btn-group mt-10">
+          <button class="btn btn-cyan btn-sm" onclick="reroll()">REROLL</button>
+          <button class="btn btn-red btn-sm"  onclick="clearWinner()">SCHLIESSEN</button>
+        </div>
       </div>
-      <div id="ingest-list"><div class="wsc-empty">Lade…</div></div>
-    </div>
 
-    <!-- Export -->
-    <div class="card">
-      <div class="card-title">EXPORT</div>
-      <div class="btn-group">
-        <button class="btn btn-cyan" onclick="exportCSV()">CSV</button>
-        <button class="btn btn-gold" onclick="exportChances()">CHANCEN</button>
+      <!-- Keyword -->
+      <div class="card">
+        <div class="card-title">KEYWORD // TEILNAHME</div>
+        <div class="kw-current"><span class="kw-label">AKTUELL:</span><span class="kw-val" id="kw-current">-</span></div>
+        <div class="input-row">
+          <input type="text" id="kw-input" placeholder="z.B. !mitmachen">
+          <button class="btn btn-cyan btn-sm" onclick="setKeyword()">SETZEN</button>
+        </div>
+        <button class="btn btn-gold btn-full mt-6" onclick="clearKeyword()">DEAKTIVIEREN</button>
       </div>
-    </div>
 
-    <!-- Reset -->
-    <div class="card">
-      <div class="card-title">VERWALTUNG</div>
-      <button class="btn btn-red btn-full" onclick="resetAll()">GIVEAWAY RESET</button>
-    </div>
-
-    <!-- Event Log -->
-    <div class="card">
-      <div class="card-title">
-        EVENT LOG
-        <span class="link-dim" onclick="clearLog()">CLR</span>
+      <!-- Manuelle Tickets -->
+      <div class="card">
+        <div class="card-title">MANUELL // TICKETS</div>
+        <div class="input-row">
+          <input type="text" id="m-name" placeholder="Username">
+          <input type="number" id="m-amount" value="1" min="1" max="99" class="in-narrow">
+          <button class="btn btn-cyan btn-sm" onclick="manualAdd()">+</button>
+          <button class="btn btn-gold btn-sm" onclick="manualSub()">–</button>
+        </div>
       </div>
-      <div class="event-log" id="log"></div>
-    </div>
 
-    <!-- WS Clients -->
-    <div class="card">
-      <div class="card-title">WS CLIENTS</div>
-      <div id="ws-clients-list"><div class="wsc-empty">Keine Clients verbunden</div></div>
-      <div class="card-title mt-8">
-        TRAFFIC
-        <span class="link-dim" onclick="document.getElementById('ws-traffic-log').innerHTML=''">CLR</span>
+      <!-- Viewtime-Boost -->
+      <div class="card">
+        <div class="card-title">VIEWTIME-BOOST <div id="mult-status">1× (aus)</div></div>
+        <div class="manual-row">
+          <input type="number" id="mult-factor" value="2" min="1" max="10" step="1" class="in-narrow" title="Faktor">
+          <span class="mr-lbl">× für</span>
+          <input type="number" id="mult-minutes" value="15" min="1" max="1440" class="in-narrow" title="Minuten">
+          <span class="mr-lbl">min</span>
+          <button class="btn btn-cyan btn-sm" onclick="startMultiplier()">START</button>
+          <button class="btn btn-gold btn-sm" onclick="stopMultiplier()">STOP</button>
+        </div>
       </div>
-      <div class="traffic-log" id="ws-traffic-log"></div>
-    </div>
 
+      <!-- Stream-Verbindungen · Setup (Ingest) -->
+      <div class="card setup">
+        <div class="card-title">STREAM-VERBINDUNGEN · SETUP <span class="ct-badge">STREAMERBOT</span></div>
+        <div id="ingest-list"><div class="wsc-empty">Lade…</div></div>
+      </div>
+
+      <!-- Gewinner-Historie -->
+      <div class="card">
+        <div class="card-title">GEWINNER-HISTORIE <span class="link-cyan" onclick="loadHistory()">↻</span></div>
+        <label class="hist-toggle"><input type="checkbox" id="hist-show-tests" onchange="renderHistory()"> Tests zeigen</label>
+        <div class="hist-list" id="history-list"><div class="wsc-empty">Lade Historie...</div></div>
+      </div>
+
+      <!-- Export & Verwaltung -->
+      <div class="card">
+        <div class="card-title">EXPORT &amp; VERWALTUNG</div>
+        <div class="btn-group">
+          <button class="btn btn-cyan" onclick="exportCSV()">CSV</button>
+          <button class="btn btn-gold" onclick="exportChances()">CHANCEN</button>
+        </div>
+        <button class="btn btn-red btn-full mt-6" onclick="resetAll()">GIVEAWAY RESET</button>
+      </div>
+
+      <!-- Live: Log + Clients + Traffic -->
+      <div class="card">
+        <div class="card-title">LIVE <span class="link-cyan" onclick="clearLog()">CLR LOG</span></div>
+        <div id="ws-clients-list"><div class="wsc-empty">Keine Clients verbunden</div></div>
+        <div class="event-log mt-8" id="log"></div>
+        <div class="card-title mt-8">TRAFFIC <span class="link-cyan" onclick="document.getElementById('ws-traffic-log').innerHTML=''">CLR</span></div>
+        <div class="traffic-log" id="ws-traffic-log"></div>
+      </div>
+
+    </div>
   </div>
 </div>
 
