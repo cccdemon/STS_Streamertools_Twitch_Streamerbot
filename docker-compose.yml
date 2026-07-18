@@ -145,6 +145,9 @@ services:
       ADMIN_BOOTSTRAP_USER: ${ADMIN_BOOTSTRAP_USER:-admin}
       ADMIN_BOOTSTRAP_PASS: ${ADMIN_BOOTSTRAP_PASS:-}
       COOKIE_SECURE:        ${COOKIE_SECURE:-true}
+      TWITCH_CLIENT_ID:     ${TWITCH_CLIENT_ID:-}
+      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
+      ADMIN_PUBLIC_URL:     ${ADMIN_PUBLIC_URL:-https://team.raumdock.org}
       TZ: Europe/Berlin
     depends_on:
       giveaway:

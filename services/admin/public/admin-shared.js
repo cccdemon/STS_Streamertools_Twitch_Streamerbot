@@ -189,6 +189,7 @@
 // ── Navigation ────────────────────────────────────────────
 (function() {
   var PAGES = [
+    { href: '/admin/teams.html',             label: 'MEINE TEAMS',  group: 'giveaway' },
     { href: '/giveaway/giveaway-admin.html', label: 'GW ADMIN',     group: 'giveaway' },
     { sep: true },
     { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },

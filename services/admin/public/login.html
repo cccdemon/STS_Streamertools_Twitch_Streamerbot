@@ -29,6 +29,10 @@
   <form class="card" id="loginForm" autocomplete="on">
     <div class="logo">TEAM <b>//</b> GIVEAWAY</div>
     <div class="sub">Control Center · Login</div>
+
+    <a href="/admin/auth/twitch" style="display:block;text-align:center;background:#9146FF;color:#fff;padding:12px;border-radius:6px;font-weight:700;letter-spacing:.5px;text-decoration:none;margin-bottom:6px;">Mit Twitch anmelden</a>
+    <div style="text-align:center;font-size:11px;color:var(--dim);margin:10px 0;">— oder —</div>
+
     <label for="u">Benutzername</label>
     <input id="u" name="username" autocomplete="username" autofocus required>
     <label for="p">Passwort</label>
@@ -40,6 +44,9 @@
   var f = document.getElementById('loginForm');
   var err = document.getElementById('err');
   var btn = document.getElementById('btn');
+  var ERRMAP = { state:'Sitzung abgelaufen, bitte erneut.', token:'Twitch-Login fehlgeschlagen.', profile:'Twitch-Profil nicht lesbar.', notadmin:'Kein Zugang für diesen Account.', server:'Serverfehler beim Login.' };
+  var qe = new URLSearchParams(location.search).get('err');
+  if (qe) err.textContent = ERRMAP[qe] || ('Fehler: ' + qe);
   f.addEventListener('submit', async function(e) {
     e.preventDefault();
     err.textContent = '';
