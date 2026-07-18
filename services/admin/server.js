@@ -330,7 +330,7 @@ app.delete('/api/teams/:id/members/:login', async (req, res) => {
 app.get('/api/teams/:id/terms', async (req, res) => {
   const s = requireSession(req, res); if (!s) return;
   const id = req.params.id;
-  if (!await isMember(s.user, id)) return res.status(403).json({ error: 'forbidden' });
+  if (!await isTeamMember(id, s.user)) return res.status(403).json({ error: 'forbidden' });
   try {
     const r = await pg.query('SELECT terms FROM teams WHERE id=$1', [id]);
     if (!r.rowCount) return res.status(404).json({ error: 'not_found' });
