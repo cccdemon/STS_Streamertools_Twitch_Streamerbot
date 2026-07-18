@@ -141,7 +141,7 @@ td { padding: 6px 10px; }
 
 .gw-layout {
   display: grid;
-  grid-template-columns: 1fr 298px;
+  grid-template-columns: 1fr 420px;
   height: calc(100vh - 34px - 54px);
   overflow: hidden;
 }
