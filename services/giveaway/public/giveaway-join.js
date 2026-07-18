@@ -1,159 +1,72 @@
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Giveaway Join Animation JS
+// TEAM GIVEAWAY – Join Animation (team+key, public /overlay-ws)
+// Slides in a card per gw_join. URL:
+//   /giveaway/giveaway-join.html?team=<id>&key=<overlay_key>[&test=1]
 // ════════════════════════════════════════════════════════
 
-var HOLD_MS  = 4200;
+var _q      = new URLSearchParams(location.search);
+var OV_TEAM = _q.get('team') || '';
+var OV_KEY  = _q.get('key')  || '';
+var reduce  = matchMedia('(prefers-reduced-motion:reduce)').matches;
 
-var ws          = null;
-var wsRetry     = 2000;
-var queue       = [];
-var isPlaying   = false;
-var totalJoined = 0;
+var STATUS = ['BETRITT DIE WARTESCHLANGE','MELDET SICH FREIWILLIG','NIMMT POSITION EIN',
+  'REGISTRIERUNG LAEUFT','SLOT WIRD GESICHERT','ZUGANG BESTAETIGT','TICKET WIRD AUSGESTELLT','IDENTITAET VERIFIZIERT'];
 
-var STATUS_LINES = [
-  'BETRITT DIE WARTESCHLANGE',
-  'MELDET SICH FREIWILLIG',
-  'NIMMT POSITION EIN',
-  'REGISTRIERUNG LAEUFT',
-  'SLOT WIRD GESICHERT',
-  'ZUGANG BESTAETIGT',
-  'TICKET WIRD AUSGESTELLT',
-  'IDENTITAET VERIFIZIERT'
-];
+var ws = null, wsRetry = 2000, lane, nr = 0, queue = [], playing = false;
+
+function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function pad(n) { var s = '' + n; while (s.length < 3) s = '0' + s; return s; }
+function bar(n) { var f = Math.min(n, 16), s = '['; for (var i = 0; i < 16; i++) s += (i < f-1 ? '-' : i === f-1 ? '>' : '.'); return s + ']'; }
 
 function connect() {
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  try { ws = new WebSocket(proto + '//' + location.host + '/giveaway/ws'); }
-  catch(e) { scheduleReconnect(); return; }
-  ws.onopen = function() {
-    wsRetry = 2000;
-    ws.send(JSON.stringify({ event: 'gw_join_register' }));
-  };
-  ws.onmessage = function(e) {
-    try { handle(JSON.parse(e.data)); } catch(x) {}
-  };
-  ws.onclose = ws.onerror = function() { scheduleReconnect(); };
+  try { ws = new WebSocket(proto + '//' + location.host + '/giveaway/overlay-ws'); }
+  catch (e) { schedule(); return; }
+  ws.onopen = function () { wsRetry = 2000; ws.send(JSON.stringify({ event: 'overlay_subscribe', teamId: OV_TEAM, key: OV_KEY })); };
+  ws.onmessage = function (e) { var m = safeParse(e.data); if (m) handle(m); };
+  ws.onclose = ws.onerror = function () { schedule(); };
 }
+function schedule() { setTimeout(connect, wsRetry); wsRetry = Math.min(wsRetry * 2, 15000); }
 
-function scheduleReconnect() {
-  setTimeout(connect, wsRetry);
-  wsRetry = Math.min(wsRetry * 2, 15000);
-}
+function handle(msg) { if (msg && msg.event === 'gw_join') enqueue(msg.user); }
 
-function handle(msg) {
-  if (msg && msg.event === 'gw_join') {
-    totalJoined++;
-    queue.push({ user: msg.user, nr: totalJoined });
-    if (!isPlaying) next();
-  }
-}
+function enqueue(name) { nr++; queue.push({ name: name, nr: nr }); if (!playing) play(); }
+function play() { if (!queue.length) { playing = false; return; } playing = true; var it = queue.shift(); show(it.name, it.nr); }
 
-function next() {
-  if (queue.length === 0) { isPlaying = false; return; }
-  isPlaying = true;
-  var item = queue.shift();
-  showCard(item.user, item.nr);
-}
-
-function showCard(username, nr) {
-  var container = document.getElementById('container');
+function show(name, n) {
+  lane = lane || document.getElementById('lane');
   var card = document.createElement('div');
-  card.className = 'join-card';
-
-  var nrStr      = '#' + pad(nr, 3);
-  var statusText = STATUS_LINES[Math.floor(Math.random() * STATUS_LINES.length)];
-
+  card.className = 'card';
   card.innerHTML =
-    '<div class="queue-nr">' + nrStr + '</div>' +
-    '<div class="divider"></div>' +
-    '<div class="join-text">' +
-      '<div class="join-username">' + esc(username) + '</div>' +
-      '<div class="join-status" id="jst' + nr + '"></div>' +
-    '</div>' +
-    '<div class="queue-bar">' + buildBar(nr) + ' <span class="queue-count">' + nr + '</span></div>' +
-    '<div class="ticket-badge">TICKET +1</div>' +
-    '<div class="drain-bar" id="jdb' + nr + '"></div>';
-
-  container.appendChild(card);
-
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      card.classList.add('enter');
-
-      setTimeout(function() {
-        var el = document.getElementById('jst' + nr);
-        if (el) typewriter(el, statusText, 38, null);
-
-        var db = document.getElementById('jdb' + nr);
-        if (db) {
-          db.style.animationDuration = HOLD_MS + 'ms';
-          db.classList.add('running');
-        }
-
-        setTimeout(function() {
-          card.classList.remove('enter');
-          card.classList.add('exit');
-          setTimeout(function() {
-            if (card.parentNode) card.parentNode.removeChild(card);
-            next();
-          }, 320);
-        }, HOLD_MS);
-
-      }, 420);
-    });
-  });
+    '<div class="qnr">#' + pad(n) + '</div><div class="dv"></div>' +
+    '<div class="txt"><div class="uname">' + esc(name) + '</div><div class="status" id="s' + n + '"></div></div>' +
+    '<div class="qbar">' + bar(n) + '<span class="c">' + n + '</span></div>' +
+    '<div class="badge">TICKET +1</div><div class="drain"></div>';
+  lane.appendChild(card);
+  var txt = STATUS[Math.floor(Math.random() * STATUS.length)];
+  setTimeout(function () { type(document.getElementById('s' + n), txt); }, 420);
+  var hold = reduce ? 1400 : 4200;
+  setTimeout(function () {
+    card.classList.add('out');
+    setTimeout(function () { if (card.parentNode) card.parentNode.removeChild(card); play(); }, 340);
+  }, hold);
 }
 
-function typewriter(el, text, speed, cb) {
+function type(el, text) {
+  if (!el) return;
+  if (reduce) { el.innerHTML = text + '...'; return; }
   var i = 0;
-  function tick() {
-    if (i <= text.length) {
-      el.innerHTML = text.slice(0, i) + '<span class="cur"></span>';
-      i++;
-      setTimeout(tick, speed);
-    } else {
-      el.innerHTML = text + '...';
-      if (cb) cb();
-    }
-  }
-  tick();
+  (function tick() {
+    if (i <= text.length) { el.innerHTML = text.slice(0, i) + '<span class="cur"></span>'; i++; setTimeout(tick, 38); }
+    else el.innerHTML = text + '...';
+  })();
 }
 
-function buildBar(n) {
-  var filled = Math.min(n, 16);
-  var s = '[';
-  for (var i = 0; i < 16; i++) {
-    if (i < filled - 1)      s += '-';
-    else if (i === filled-1) s += '>';
-    else                     s += '.';
-  }
-  return s + ']';
-}
-
-function pad(n, len) {
-  var s = String(n);
-  while (s.length < len) s = '0' + s;
-  return s;
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// Test mode: ?test=1
-var params = new URLSearchParams(location.search);
-if (params.get('test') === '1') {
-  var testUsers = ['JerichoRamirez','HEADWiG','jazZz','HolderDiePolder','JustCallMeDeimos'];
-  var ti = 0;
-  function testNext() {
-    if (ti < testUsers.length) {
-      totalJoined++;
-      queue.push({ user: testUsers[ti++], nr: totalJoined });
-      if (!isPlaying) next();
-      setTimeout(testNext, 1800);
-    }
-  }
-  setTimeout(testNext, 600);
+// Test: ?test=1
+if (_q.get('test') === '1') {
+  var TU = ['JerichoRamirez','x_jazzz_x','HEADWiG','HolderDiePolder','JustCallMeDeimos'], ti = 0;
+  (function tn() { if (ti < TU.length) { enqueue(TU[ti++]); setTimeout(tn, 1800); } })();
 }
 
 connect();
