@@ -95,6 +95,7 @@
   var ALLOWED_EVENTS = [
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
+    'gw_multiplier', 'wt_update',
     'chat_msg', 'viewer_tick',
     'cc_identify',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
@@ -105,7 +106,9 @@
     'gw_draw_winner',
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
-    'gw_set_keyword', 'gw_get_keyword'
+    'gw_set_keyword', 'gw_get_keyword',
+    'gw_set_multiplier', 'gw_get_multiplier',
+    'gw_set_channels', 'gw_get_channels'
   ];
 
   function validateWsPayload(obj) {

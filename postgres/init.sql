@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
     id              TEXT PRIMARY KEY,          -- z.B. sess_1234567890
     keyword         TEXT NOT NULL DEFAULT '',
+    channels        JSONB,                     -- teilnehmende Kanäle der Kampagne
     opened_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     closed_at       TIMESTAMPTZ,
     winner          TEXT,                      -- FK users.username, nullable
@@ -52,14 +53,30 @@ CREATE TABLE IF NOT EXISTS session_participants (
 CREATE TABLE IF NOT EXISTS watchtime_events (
     id          BIGSERIAL PRIMARY KEY,
     username    TEXT NOT NULL,
-    event_type  TEXT NOT NULL CHECK (event_type IN ('tick','chat_bonus')),
+    event_type  TEXT NOT NULL CHECK (event_type IN ('tick','chat_bonus','admin_add','admin_sub')),
     delta_sec   INTEGER NOT NULL,
     session_id  TEXT,
+    channel     TEXT,
     ts          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_wt_username ON watchtime_events(username);
 CREATE INDEX IF NOT EXISTS idx_wt_session  ON watchtime_events(session_id);
 CREATE INDEX IF NOT EXISTS idx_wt_ts       ON watchtime_events(ts);
+
+-- ── Campaign Participation (per user × channel, Snapshot bei close) ──
+CREATE TABLE IF NOT EXISTS campaign_participation (
+    session_id  TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+    username    TEXT NOT NULL,
+    channel     TEXT NOT NULL,
+    watch_sec   BIGINT NOT NULL DEFAULT 0,
+    msgs        INTEGER NOT NULL DEFAULT 0,
+    coins       NUMERIC(10,4) NOT NULL DEFAULT 0,
+    follows     BOOLEAN NOT NULL DEFAULT FALSE,
+    valid       BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (session_id, username, channel)
+);
+CREATE INDEX IF NOT EXISTS idx_cp_session ON campaign_participation(session_id);
+CREATE INDEX IF NOT EXISTS idx_cp_user    ON campaign_participation(username);
 
 -- ── Debug Log ─────────────────────────────────────────────
 -- Stage-level events from Streamerbot actions / services.

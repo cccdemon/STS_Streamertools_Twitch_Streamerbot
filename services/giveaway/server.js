@@ -82,17 +82,18 @@ const wte = new WatchtimeEngine(redis, pg);
 let currentSessionId = null;
 
 // ── Session Management ────────────────────────────────────
-async function openGiveaway(keyword) {
-  // Jedes Öffnen startet eine frische Session (neues Giveaway = neue Session).
+async function openGiveaway(keyword, channels) {
+  // Öffnen = Kampagnenstart (bleibt über mehrere Streams offen bis close).
   currentSessionId = `sess_${Date.now()}`;
+  await wte.openGiveaway(keyword, currentSessionId, channels);
+  const chans = await wte.getChannels();
   await pg.query(
-    `INSERT INTO sessions (id, keyword) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-    [currentSessionId, keyword || '']
+    `INSERT INTO sessions (id, keyword, channels) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING`,
+    [currentSessionId, keyword || '', JSON.stringify(chans)]
   );
   await redis.set(K.gwSessionId(), currentSessionId);
-  await wte.openGiveaway(keyword, currentSessionId);
   broadcastAll({ event: 'gw_status', status: 'open' });
-  log('GW', 'Opened, session:', currentSessionId, 'keyword:', keyword);
+  log('GW', 'Opened, session:', currentSessionId, 'keyword:', keyword, 'channels:', chans.join(','));
 }
 
 async function closeGiveaway() {
@@ -190,7 +191,7 @@ async function handleClientMessage(ws, msg) {
 async function handleAdminCmd(send, msg) {
   switch (msg.cmd) {
     case 'gw_open': {
-      await openGiveaway(msg.keyword || '');
+      await openGiveaway(msg.keyword || '', Array.isArray(msg.channels) ? msg.channels : undefined);
       send({ event: 'gw_status', status: 'open' });
       break;
     }
@@ -214,25 +215,19 @@ async function handleAdminCmd(send, msg) {
     case 'gw_add_ticket': {
       const u = sanitizeUsername(msg.user);
       if (!u) return;
-      // User registrieren, sonst taucht er nicht in gwIndex auf → unsichtbar
-      // für Teilnehmerliste und Ziehung (verwaiste watchSec).
+      // 1 Ticket = 7200s auf dem angegebenen (oder primären) Kanal.
       const sid = currentSessionId || await redis.get(K.gwSessionId());
       await wte.registerUser(u, sid);
-      const newSec = await redis.incrby(K.gwWatchSec(u), 7200);
-      await wte.logManualAdjust(u, 7200, sid);   // Audit-Trail
-      send({ event: 'gw_ack', type: 'ticket_added', user: u, watchSec: newSec });
+      const r = await wte.adjustWatch(u, msg.channel, 7200, sid);
+      send({ event: 'gw_ack', type: 'ticket_added', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }
     case 'gw_sub_ticket': {
       const u = sanitizeUsername(msg.user);
       if (!u) return;
-      // Atomar abziehen, dann auf >=0 klemmen (vermeidet Race mit Ticker-incrby).
-      const after = await redis.decrby(K.gwWatchSec(u), 7200);
-      let newSec = after;
-      if (after < 0) { await redis.set(K.gwWatchSec(u), '0'); newSec = 0; }
       const sid = currentSessionId || await redis.get(K.gwSessionId());
-      await wte.logManualAdjust(u, -7200, sid);  // Audit-Trail
-      send({ event: 'gw_ack', type: 'ticket_removed', user: u, watchSec: newSec });
+      const r = await wte.adjustWatch(u, msg.channel, -7200, sid);
+      send({ event: 'gw_ack', type: 'ticket_removed', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }
     case 'gw_ban': {
@@ -254,6 +249,29 @@ async function handleAdminCmd(send, msg) {
       await wte.resetGiveaway();
       currentSessionId = null;
       send({ event: 'gw_ack', type: 'reset' });
+      break;
+    }
+    case 'gw_set_multiplier': {
+      // Viewtime-Boost: factor für minutes Minuten (gilt Tick + Chat).
+      const r = await wte.setMultiplier(msg.factor, (parseInt(msg.minutes) || 0) * 60);
+      broadcastAll({ event: 'gw_multiplier', factor: r.factor, secondsLeft: r.seconds });
+      send({ event: 'gw_ack', type: 'multiplier_set', factor: r.factor, seconds: r.seconds });
+      log('GW', `Multiplier ${r.factor}× für ${r.seconds}s`);
+      break;
+    }
+    case 'gw_get_multiplier': {
+      const st = await wte.multiplierState();
+      send({ event: 'gw_multiplier', factor: st.factor, secondsLeft: st.secondsLeft });
+      break;
+    }
+    case 'gw_set_channels': {
+      const arr = await wte.setChannels(Array.isArray(msg.channels) ? msg.channels : []);
+      if (currentSessionId) await pg.query('UPDATE sessions SET channels=$1 WHERE id=$2', [JSON.stringify(arr), currentSessionId]);
+      send({ event: 'gw_ack', type: 'channels_set', channels: arr });
+      break;
+    }
+    case 'gw_get_channels': {
+      send({ event: 'gw_ack', type: 'channels', channels: await wte.getChannels() });
       break;
     }
     case 'gw_draw_winner': {
@@ -292,7 +310,7 @@ function subscribeToGiveaway() {
     switch (msg.event) {
       case 'viewer_tick': {
         // Nur Presence markieren – Accumulation macht der 60s-Ticker
-        await wte.handleViewerTick(msg.user, sid);
+        await wte.handleViewerTick(msg.channel, msg.user, msg.follows);
         break;
       }
       case 'stream_online': {
@@ -318,35 +336,46 @@ function subscribeToGiveaway() {
         break;
       }
       case 'chat_msg': {
-        const result = await wte.handleChatMessage(msg.user, msg.message, sid);
-        if (result && result.isNew) {
-          log('GW', 'New registration:', msg.user);
-          broadcastAll({ event: 'gw_join', user: msg.user });
+        const result = await wte.handleChatMessage(msg.channel, msg.user, msg.message, sid, msg.follows);
+        const u = sanitizeUsername(msg.user);
+        if (result && result.registered === true) {
+          if (result.isNew) {
+            log('GW', 'Opt-in:', u);
+            broadcastAll({ event: 'gw_join', user: u });
+            redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply',
+              message: `@${u} Du bist im Giveaway-Lostopf! 🎟 ${result.coins.toFixed(2)} Punkte.` }));
+          }
+        } else if (result && result.registered === false && result.needCoins) {
+          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply',
+            message: `@${u} Noch nicht genug: ${result.haveCoins.toFixed(2)}/${result.needCoins} Punkt. Schau weiter zu & schreib sinnvoll im Chat!` }));
         }
         if (result && result.added) {
-          broadcastAll({ event: 'wt_update', user: msg.user, watchSec: result.watchSec, coins: result.coins });
+          broadcastAll({ event: 'wt_update', user: u, channel: result.channel, watchSec: result.watchSec, coins: result.coins });
         }
         break;
       }
       case 'time_cmd': {
         const u = sanitizeUsername(msg.user);
-        const state = await wte.getUserState(u);
-        const open  = await redis.get(K.gwOpen()) === 'true';
+        const open = await redis.get(K.gwOpen()) === 'true';
         let reply;
         if (!open) {
           reply = `@${u} Kein Giveaway aktiv.`;
-        } else if (!state.registered) {
-          reply = `@${u} Du bist noch nicht registriert!`;
         } else {
-          const h = Math.floor(state.watchSec / 3600);
-          const m = Math.floor((state.watchSec % 3600) / 60);
-          const s = state.watchSec % 60;
-          const timeStr = h > 0 ? `${h}h ${m}m` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-          const nextFull = Math.floor(state.coins) + 1;
-          const secsLeft = Math.round((nextFull - state.coins) * 7200);
-          const minsLeft = Math.floor(secsLeft / 60);
-          const nextStr  = minsLeft >= 60 ? `${Math.floor(minsLeft / 60)}h ${minsLeft % 60}m` : `${minsLeft}m`;
-          reply = `@${u} Watchtime: ${timeStr} | Coins: ${state.coins.toFixed(2)} | Nächstes Coin in ca. ${nextStr}`;
+          const a = await wte.getUserAggregate(u);
+          const kw = await redis.get(K.gwKeyword()) || '';
+          if (a.eligible) {
+            // Gewinnchance = eigene Punkte / Gesamtpool der Berechtigten
+            const all = await wte.getAllParticipants();
+            const pool = all.filter(p => p.eligible).reduce((s, p) => s + p.totalCoins, 0);
+            const chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte | Kanäle ${a.channelsQualified}/2 ✓ | Chance ${chance.toFixed(1)}% | im Lostopf ✅`;
+          } else if (a.registered && a.channelsQualified < 2) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte, aber nur ${a.channelsQualified} Kanal – folge & sammle auf mind. 2 Kanälen!`;
+          } else if (!a.registered && a.totalCoins >= 1) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schreib "${kw || 'das Keyword'}" um teilzunehmen!`;
+          } else {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu & schreib sinnvoll im Chat (folge ≥2 Kanälen).`;
+          }
         }
         redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', message: reply }));
         break;
@@ -456,7 +485,27 @@ async function ensureSchema() {
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_session ON giveaway_draws(session_id)`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_winner  ON giveaway_draws(winner)`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_draws_ts      ON giveaway_draws(drawn_at DESC)`);
-  log('Schema', 'giveaway_draws ensured');
+
+  // Multi-Channel-Kampagne (Phase 3).
+  await pg.query(`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS channels JSONB`);
+  await pg.query(`ALTER TABLE watchtime_events ADD COLUMN IF NOT EXISTS channel TEXT`);
+  // Alte CHECK-Constraint erlaubte nur tick/chat_bonus → admin_add/sub scheiterten.
+  await pg.query(`ALTER TABLE watchtime_events DROP CONSTRAINT IF EXISTS watchtime_events_event_type_check`);
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS campaign_participation (
+      session_id  TEXT REFERENCES sessions(id) ON DELETE CASCADE,
+      username    TEXT NOT NULL,
+      channel     TEXT NOT NULL,
+      watch_sec   BIGINT NOT NULL DEFAULT 0,
+      msgs        INTEGER NOT NULL DEFAULT 0,
+      coins       NUMERIC(10,4) NOT NULL DEFAULT 0,
+      follows     BOOLEAN NOT NULL DEFAULT FALSE,
+      valid       BOOLEAN NOT NULL DEFAULT FALSE,
+      PRIMARY KEY (session_id, username, channel)
+    )`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_cp_session ON campaign_participation(session_id)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_cp_user    ON campaign_participation(username)`);
+  log('Schema', 'giveaway_draws + campaign_participation ensured');
 }
 
 async function main() {
