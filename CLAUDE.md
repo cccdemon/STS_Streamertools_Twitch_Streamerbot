@@ -60,8 +60,13 @@ Kanäle: `viewer_tick, chat_msg, time_cmd, stream_online` → `ch:giveaway`; `ch
 - **Redis:** open/closed, keyword, banned, watchsec/msgs pro User, session id, (geplant: per-channel keys, follow-cache, multiplier).
 - **PostgreSQL:** `sessions`, `users`, `session_participants`, `watchtime_events`, `giveaway_draws` (voller Draw-Audit). Schema: `postgres/init.sql` (frisches Volume) + `ensureSchema()` beim Start (verlässlich).
 
-## Streamerbot C# (`streamerbot/`)
-Nur Giveaway: `CC_ApiRegister`, `CC_ChatReply`, `GW_A_ViewerTick`, `GW_B_ChatMessage`, `GW_Leaderboard` (→ `/giveaway/api/leaderboard` umzubiegen), `GW_TimeInfo`. Setup: `streamerbot/SETUP.md`.
+## Streamerbot C# (`streamerbot/`) — inverted ingest client (Phase 6)
+Streamerbot verbindet sich als **WebSocket-Client** zu `wss://team.raumdock.org/ingest`
+und authentifiziert mit Per-Kanal-Token (`ingest_auth`). Kanal kommt serverseitig aus
+dem Token (nie im Payload). Actions: `CC_IngestConnect` (Auth on connect), `CC_ChatReply`
+(WS-Client-Message → Twitch-Chat), `GW_ViewerTick`, `GW_ChatMessage`, `GW_StatusCmd` (`!los`).
+`CPH.WebsocketSend(payload, 0)`. Setup: `streamerbot/CAMPAIGN_SETUP.md`. Teilnehmer-/Rechtstexte:
+`docs/ANLEITUNG-TEILNEHMER.md`, `docs/TEILNAHMEBEDINGUNGEN.md`.
 
 ## Deploy (prod)
 Ziel **LXC 103 „streamer" = 10.10.10.99** (raumdock), Domain **team.raumdock.org**.
