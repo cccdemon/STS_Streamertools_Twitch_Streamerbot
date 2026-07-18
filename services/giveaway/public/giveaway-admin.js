@@ -14,6 +14,7 @@ let currentTeam  = null;
 const TEAM_EVENTS = { gw_cmd:1, gw_get_all:1, gw_subscribe:1, gw_overlay:1, viewer_tick:1, chat_msg:1, time_cmd:1 };
 let participants = {};
 let gwIsOpen     = false;
+let gwPaused     = false;
 let sortField    = 'coins';
 let sortDir      = -1;
 let gwWs         = null;
@@ -121,6 +122,7 @@ function handle(msg) {
     case 'gw_data':
       participants = {};
       gwIsOpen = !!msg.open;
+      gwPaused = !!msg.paused;
       (msg.participants || []).forEach(p => {
         const key = (p.username || '').toLowerCase();
         participants[key] = {
@@ -137,7 +139,8 @@ function handle(msg) {
       break;
 
     case 'gw_status':
-      gwIsOpen = msg.status === 'open';
+      gwPaused = msg.status === 'paused';
+      gwIsOpen = msg.status === 'open' || msg.status === 'paused';
       updateGwStatus();
       break;
 
@@ -279,13 +282,16 @@ function appendWsTraffic(msg) {
 }
 
 // ── Giveaway Controls ─────────────────────────────────────
-function gwOpen()  { send({ event:'gw_cmd', cmd:'gw_open'  }); gwIsOpen=true;  updateGwStatus(); log('Giveaway geoffnet','cyan'); }
-function gwClose() { send({ event:'gw_cmd', cmd:'gw_close' }); gwIsOpen=false; updateGwStatus(); log('Giveaway geschlossen','gold'); }
+function gwOpen()   { send({ event:'gw_cmd', cmd:'gw_open'   }); gwIsOpen=true; gwPaused=false; updateGwStatus(); log('Giveaway geoeffnet','cyan'); }
+function gwClose()  { send({ event:'gw_cmd', cmd:'gw_close'  }); gwIsOpen=false; gwPaused=false; updateGwStatus(); log('Giveaway geschlossen','gold'); }
+function gwPause()  { send({ event:'gw_cmd', cmd:'gw_pause'  }); gwPaused=true;  updateGwStatus(); log('Giveaway pausiert','gold'); }
+function gwResume() { send({ event:'gw_cmd', cmd:'gw_resume' }); gwPaused=false; gwIsOpen=true; updateGwStatus(); log('Giveaway fortgesetzt','cyan'); }
 
 function updateGwStatus() {
   const el = document.getElementById('gw-txt');
-  if (gwIsOpen) { el.textContent='OPEN';   el.className='gw-status open'; }
-  else          { el.textContent='CLOSED'; el.className='gw-status closed'; }
+  if (!gwIsOpen)      { el.textContent='CLOSED';   el.className='gw-status closed'; }
+  else if (gwPaused)  { el.textContent='PAUSIERT'; el.className='gw-status closed'; }
+  else                { el.textContent='OPEN';     el.className='gw-status open'; }
 }
 
 function drawWinner() {

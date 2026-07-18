@@ -166,9 +166,10 @@ async function sendTeamData(meta) {
   const teamId = meta.teamId;
   const participants = await wte.getAllParticipants(teamId);
   const open = await wte.isOpen(teamId);
+  const paused = await wte.isPaused(teamId);
   const session = await wte.getSessionId(teamId);
   const channels = await wte.getChannels(teamId);
-  send({ event: 'gw_data', teamId, open, session, participants, channels });
+  send({ event: 'gw_data', teamId, open, paused, session, participants, channels });
 }
 
 async function handleClientMessage(meta, msg) {
@@ -229,6 +230,18 @@ async function handleAdminCmd(send, msg, meta) {
     case 'gw_close':
       await closeGiveaway(teamId);
       send({ event: 'gw_status', status: 'closed' });
+      break;
+    case 'gw_pause':
+      await wte.setPaused(teamId, true);
+      broadcastTeam(teamId, { event: 'gw_status', status: 'paused' });
+      send({ event: 'gw_status', status: 'paused' });
+      log('GW', `[${teamId}] paused`);
+      break;
+    case 'gw_resume':
+      await wte.setPaused(teamId, false);
+      broadcastTeam(teamId, { event: 'gw_status', status: 'open' });
+      send({ event: 'gw_status', status: 'open' });
+      log('GW', `[${teamId}] resumed`);
       break;
     case 'gw_set_keyword': {
       const kw = sanitizeStr(msg.keyword || '', 100);
@@ -352,7 +365,7 @@ function subscribeToGiveaway() {
         if (result && result.registered === true && result.isNew) {
           broadcastTeam(teamId, { event: 'gw_join', user: u });
           redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
-            message: `@${u} Du bist im Giveaway-Lostopf! 🎟 ${result.coins.toFixed(2)} Punkte.` }));
+            message: `@${u} Du bist dabei! Deine Gewinnchance steigt mit Zuschauzeit + Chat.` }));
         } else if (result && result.registered === false && result.needCoins) {
           redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
             message: `@${u} Noch nicht genug: ${result.haveCoins.toFixed(2)}/${result.needCoins} Punkt. Schau weiter zu & schreib sinnvoll im Chat!` }));
@@ -413,6 +426,32 @@ app.get('/api/participants', async (req, res) => {
     const teamId = sanitizeTeamId(req.query.team);
     if (!await isMember(reqUser(req), teamId)) return res.status(403).json({ error: 'forbidden' });
     res.json({ team: teamId, open: await wte.isOpen(teamId), session: await wte.getSessionId(teamId), participants: await wte.getAllParticipants(teamId) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Zuschauer-Statusseite: eigener Stand über alle Teams (nur eigene Daten).
+app.get('/api/my-status', async (req, res) => {
+  try {
+    const user = reqUser(req);
+    if (!user) return res.status(401).json({ error: 'unauthenticated' });
+    const teamIds = await wte.getUserTeams(user);
+    const out = [];
+    for (const t of teamIds) {
+      const a = await wte.getUserAggregate(t, user);
+      if (a.totalCoins <= 0 && !a.registered) continue;   // veraltet/leer überspringen
+      const nr = await pg.query('SELECT name FROM teams WHERE id=$1', [t]);
+      if (!nr.rowCount) continue;
+      let chance = 0;
+      if (a.eligible) {
+        const all = await wte.getAllParticipants(t);
+        const pool = all.filter(p => p.eligible).reduce((s, p) => s + p.totalCoins, 0);
+        chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
+      }
+      out.push({ teamId: t, name: nr.rows[0].name, coins: a.totalCoins, watchSec: a.totalWatchSec,
+                 channelsQualified: a.channelsQualified, registered: a.registered, eligible: a.eligible,
+                 chance, open: await wte.isOpen(t), paused: await wte.isPaused(t), perChannel: a.perChannel });
+    }
+    res.json({ login: user, teams: out.sort((x, y) => y.coins - x.coins) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

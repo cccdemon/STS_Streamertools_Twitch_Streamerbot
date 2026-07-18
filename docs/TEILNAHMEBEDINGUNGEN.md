@@ -35,33 +35,34 @@ Teilnahmeberechtigt sind natürliche Personen, die
 Ausgeschlossen sind die Veranstalter, an der Durchführung Beteiligte, automatisierte
 Accounts (Bots) sowie Personen, die gegen diese Bedingungen verstoßen.
 
-## § 4 Teilnahme & Lose-Erwerb
+## § 4 Teilnahme & Gewinnchance
 1. **Folge mindestens zwei (2)** der in § 1 genannten Kanäle.
-2. **Teilnahmelose (Punkte)** werden ausschließlich über aktive Teilnahme gesammelt:
-   * **Zuschauzeit (Viewtime):** je **2 Stunden** aktiver Zuschauzeit auf einem teilnehmenden Kanal = **1 Los**.
-   * **Sinnvolle Chatbeteiligung:** jede sinnvolle Chatnachricht mit **mehr als drei Wörtern** erhöht die Zuschauzeit geringfügig. Chat und Zuschauzeit zählen auf **dasselbe Konto**.
-   * Lose werden nur vergeben, solange du dem jeweiligen Kanal **folgst**, den Stream **tatsächlich verfolgst** und dich **sinnvoll am Chat beteiligst**. Reines Zuschauen („Lurken") begründet keinen Anspruch.
-3. **Teilnahme aktivieren:** sobald du **mindestens 1 Los** gesammelt hast, nimmst du durch Eingabe des **Keywords** im Chat aktiv teil (= Zustimmung zu diesen Bedingungen). Deinen Stand prüfst du jederzeit mit **`!los`**.
-4. Die teilnehmenden Creator streamen grundsätzlich **nicht gleichzeitig** — parallele Streams musst du nicht verfolgen.
-5. Mehr gültige Lose = höhere Gewinnchance. Die Ziehung erfolgt **zufällig** aus allen gültigen Losen (gewichtet nach Anzahl). Ein Anspruch auf eine bestimmte Loszahl besteht nicht.
+2. **Teilnahme aktivieren:** sobald du aktiv teilnimmst (folgst + Zuschauzeit + sinnvoller Chat), gibst du durch Eingabe des **Keywords** im Chat deine Teilnahme ab (= Zustimmung zu diesen Bedingungen). Ab diesem Zeitpunkt bist du **im Lostopf**. Deinen Stand prüfst du jederzeit mit **`!los`** oder auf deiner Statusseite.
+3. **Deine Gewinnchance** ergibt sich aus deiner **aktiven Teilnahme** und steigt mit:
+   * **Zuschauzeit (Viewtime)** auf den teilnehmenden Kanälen, und
+   * **sinnvoller Chatbeteiligung** (Nachrichten mit **mehr als drei Wörtern**).
+   Zuschauzeit und Chat zählen auf **dasselbe Konto**. Es werden **keine „Lose" oder Tickets** vergeben — je mehr aktive Teilnahme, desto höher die Chance.
+4. Die Chance zählt nur, solange du dem jeweiligen Kanal **folgst**, den Stream **tatsächlich verfolgst** und dich **sinnvoll am Chat beteiligst**. Reines Zuschauen („Lurken") erhöht die Chance nicht.
+5. Die teilnehmenden Creator streamen grundsätzlich **nicht gleichzeitig** — parallele Streams musst du nicht verfolgen.
+6. Die Ziehung erfolgt **zufällig** unter allen berechtigten Teilnehmern, **gewichtet nach der gesammelten aktiven Teilnahme** (Zuschauzeit + Chat). Ein Anspruch auf eine bestimmte Gewinnchance besteht nicht.
 
 ## § 5 Anerkennung der Chataktivität
 Die Chataktivität dient **ausschließlich als Nachweis aktiver Teilnahme**. Nicht gewertet werden insbesondere:
 Spam, wiederholte identische Nachrichten, Emoji-Spam, Ein-Wort-Nachrichten ohne
 Streambezug, automatisierte Nachrichten, Bot-Nutzung sowie Nachrichten, die
-ausschließlich dem Lose-Sammeln dienen. Die Entscheidung der Veranstalter ist endgültig.
+ausschließlich dem Erhöhen der Gewinnchance dienen. Die Entscheidung der Veranstalter ist endgültig.
 
 ## § 6 Ausschluss
 Der Veranstalter kann Teilnehmer jederzeit ohne Vorankündigung ausschließen, insbesondere bei
 falschen Angaben, **Mehrfachaccounts**, Bot-/Makro-Einsatz, technischer Manipulation, Verstoß
 gegen Twitch-Richtlinien, unzulässiger Beeinflussung der Gewinnchance oder Chat-Störung.
-Bereits zugeteilte Lose können vollständig entfallen.
+Bereits erworbene Gewinnchancen können vollständig entfallen.
 
 ## § 7 Gewinne
 Gewinne ergeben sich aus der jeweiligen Ankündigung. Barauszahlung, Umtausch und Übertragung sind ausgeschlossen.
 
 ## § 8 Gewinnermittlung
-Auslosung live auf **[Haupt-Kanal]** per Zufallsprinzip aus allen gültigen Losen. Meldet sich
+Auslosung live auf **[Haupt-Kanal]** per Zufallsprinzip aus allen gültigen Teilnahmen. Meldet sich
 ein Gewinner nicht innerhalb von **14 Kalendertagen** nach Bekanntgabe, verfällt der Gewinn;
 der Veranstalter darf einen Ersatzgewinner ziehen.
 

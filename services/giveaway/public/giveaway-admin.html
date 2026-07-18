@@ -55,7 +55,9 @@
       <div class="gw-status idle" id="gw-txt">IDLE</div>
       <div class="btn-group mt-6">
         <button class="btn btn-green" onclick="gwOpen()">ÖFFNEN</button>
-        <button class="btn btn-gold"  onclick="gwClose()">SCHLIESSEN</button>
+        <button class="btn btn-gold"  onclick="gwPause()">PAUSE</button>
+        <button class="btn btn-cyan"  onclick="gwResume()">FORTSETZEN</button>
+        <button class="btn btn-red"   onclick="gwClose()">SCHLIESSEN</button>
       </div>
       <input type="text" id="prize-input" class="mt-6" placeholder="Preis (z.B. Steam-Key, 10€ ...)" style="width:100%;">
       <button class="btn btn-gold btn-full mt-6" onclick="verifyFollows()">FOLLOWS PRÜFEN (Helix)</button>

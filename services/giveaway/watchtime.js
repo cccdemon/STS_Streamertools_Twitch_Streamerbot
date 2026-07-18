@@ -25,11 +25,13 @@ const TP = (t) => `t:${t}:`;
 const K = {
   openTeams:    () => 'gw:open_teams',                    // GLOBAL: Teams mit offenem Giveaway
   gwOpen:       (t) => `${TP(t)}gw_open`,
+  gwPaused:     (t) => `${TP(t)}gw_paused`,               // pausiert = kein Accrual, State bleibt
   gwKeyword:    (t) => `${TP(t)}gw_keyword`,
   gwSessionId:  (t) => `${TP(t)}gw_session_id`,
   gwChannels:   (t) => `${TP(t)}gw:channels`,             // Cache
   gwMult:       (t) => `${TP(t)}gw:mult`,
   gwUsers:      (t) => `${TP(t)}gw:users`,
+  userTeams:    (u) => `gw:user_teams:${u}`,              // GLOBAL Reverse-Index: Teams eines Users
   gwRegistered: (t, u) => `${TP(t)}gw:registered:${u}`,
   gwBanned:     (t, u) => `${TP(t)}gw_banned:${u}`,
   chWatch:    (t, ch, u) => `${TP(t)}gw:ch:${ch}:watch:${u}`,
@@ -117,8 +119,24 @@ class WatchtimeEngine {
   _followAllowed(val) { return val !== '0'; }
 
   async isOpen(teamId)      { return await this.redis.get(K.gwOpen(sanitizeTeamId(teamId))) === 'true'; }
+  async isPaused(teamId)    { return await this.redis.get(K.gwPaused(sanitizeTeamId(teamId))) === 'true'; }
+  // Aktiv = offen UND nicht pausiert → nur dann läuft Accrual.
+  async isActive(teamId)    { const t = sanitizeTeamId(teamId);
+    return await this.redis.get(K.gwOpen(t)) === 'true' && await this.redis.get(K.gwPaused(t)) !== 'true'; }
+  async setPaused(teamId, paused) {
+    const t = sanitizeTeamId(teamId);
+    if (paused) await this.redis.set(K.gwPaused(t), 'true');
+    else await this.redis.del(K.gwPaused(t));
+  }
   async getSessionId(teamId){ return await this.redis.get(K.gwSessionId(sanitizeTeamId(teamId))); }
   async listOpenTeams()     { return await this.redis.smembers(K.openTeams()); }
+
+  // User im Team + Reverse-Index (für Zuschauer-Statusseite) markieren.
+  async _touchUser(teamId, username) {
+    await this.redis.sadd(K.gwUsers(teamId), username);
+    await this.redis.sadd(K.userTeams(username), teamId);
+  }
+  async getUserTeams(username) { return this.redis.smembers(K.userTeams(sanitizeUsername(username))); }
 
   // ── Presence / Tick ─────────────────────────────────────
   async handleViewerTick(teamId, channel, username, follows) {
@@ -131,7 +149,7 @@ class WatchtimeEngine {
     await this.redis.set(K.chLastTick(t, ch, u), String(now), 'EX', 86400);
     await this.redis.set(K.chPresent(t, ch, u), '1', 'EX', PRESENCE_TTL);
     if (follows !== undefined) await this.redis.set(K.chFollows(t, ch, u), follows ? '1' : '0');
-    await this.redis.sadd(K.gwUsers(t), u);
+    await this._touchUser(t, u);
     await this.redis.sadd(K.chIndex(t, ch), u);
     return null;
   }
@@ -141,6 +159,7 @@ class WatchtimeEngine {
     const updates = [];
     for (const t of teams) {
       if (await this.redis.get(K.gwOpen(t)) !== 'true') { await this.redis.srem(K.openTeams(), t); continue; }
+      if (await this.redis.get(K.gwPaused(t)) === 'true') continue;   // pausiert: kein Accrual, bleibt offen
       const sid = await this.redis.get(K.gwSessionId(t));
       const channels = await this.getChannels(t);
       const mult = await this.getMultiplier(t);
@@ -165,7 +184,8 @@ class WatchtimeEngine {
     const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
     if (!t || !u) return null;
-    if (await this.redis.get(K.gwOpen(t)) !== 'true') return null;
+    // Nur bei aktivem (offen + nicht pausiert) Giveaway zählt Chat.
+    if (await this.redis.get(K.gwOpen(t)) !== 'true' || await this.redis.get(K.gwPaused(t)) === 'true') return null;
 
     const ch = await this.resolveChannel(t, channel);
     if (!ch) return null;
@@ -174,7 +194,7 @@ class WatchtimeEngine {
 
     await this.redis.set(K.chPresent(t, ch, u), '1', 'EX', PRESENCE_TTL);
     if (follows !== undefined) await this.redis.set(K.chFollows(t, ch, u), follows ? '1' : '0');
-    await this.redis.sadd(K.gwUsers(t), u);
+    await this._touchUser(t, u);
     await this.redis.sadd(K.chIndex(t, ch), u);
 
     const keyword = await this.redis.get(K.gwKeyword(t));
@@ -210,7 +230,7 @@ class WatchtimeEngine {
     }
     const already = await this.redis.get(K.gwRegistered(teamId, username));
     await this.redis.set(K.gwRegistered(teamId, username), '1');
-    await this.redis.sadd(K.gwUsers(teamId), username);
+    await this._touchUser(teamId, username);
     await this.pg.query(`
       INSERT INTO users (username, display) VALUES ($1, $2)
       ON CONFLICT (username) DO UPDATE SET display = EXCLUDED.display, last_seen = NOW()
@@ -223,7 +243,7 @@ class WatchtimeEngine {
     const u = sanitizeUsername(username);
     if (!t || !u) return null;
     await this.redis.set(K.gwRegistered(t, u), '1');
-    await this.redis.sadd(K.gwUsers(t), u);
+    await this._touchUser(t, u);
     await this.pg.query(`INSERT INTO users (username, display) VALUES ($1,$1)
                          ON CONFLICT (username) DO UPDATE SET last_seen = NOW()`, [u]);
     return { registered: true };
@@ -235,7 +255,7 @@ class WatchtimeEngine {
     if (!t || !u) return null;
     const ch = await this.resolveChannel(t, channel);
     const sid = await this.redis.get(K.gwSessionId(t));
-    await this.redis.sadd(K.gwUsers(t), u);
+    await this._touchUser(t, u);
     await this.redis.sadd(K.chIndex(t, ch), u);
     let after = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), deltaSec));
     if (after < 0) { await this.redis.set(K.chWatch(t, ch, u), '0'); after = 0; }
@@ -304,6 +324,7 @@ class WatchtimeEngine {
     this.validateSessionId(sessionId);
     if (!t) throw new Error('Invalid teamId');
     await this.redis.set(K.gwOpen(t), 'true');
+    await this.redis.del(K.gwPaused(t));   // öffnen = aktiv (nicht pausiert)
     await this.redis.sadd(K.openTeams(), t);
     if (keyword) await this.redis.set(K.gwKeyword(t), keyword);
     else await this.redis.del(K.gwKeyword(t));
@@ -422,6 +443,7 @@ class WatchtimeEngine {
     for (const u of users) {
       pipeline.del(K.gwRegistered(t, u));
       pipeline.del(K.gwBanned(t, u));
+      pipeline.srem(K.userTeams(u), t);
       for (const ch of channels) {
         pipeline.del(K.chWatch(t, ch, u), K.chChatTs(t, ch, u), K.chPresent(t, ch, u),
                      K.chLastTick(t, ch, u), K.chMsgs(t, ch, u), K.chFollows(t, ch, u));
@@ -430,6 +452,7 @@ class WatchtimeEngine {
     for (const ch of channels) pipeline.del(K.chIndex(t, ch));
     pipeline.del(K.gwUsers(t));
     pipeline.set(K.gwOpen(t), 'false');
+    pipeline.del(K.gwPaused(t));
     pipeline.srem(K.openTeams(), t);
     pipeline.del(K.gwKeyword(t));
     pipeline.del(K.gwSessionId(t));

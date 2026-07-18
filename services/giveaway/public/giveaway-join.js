@@ -42,7 +42,7 @@ function show(name, n) {
     '<div class="qnr">#' + pad(n) + '</div><div class="dv"></div>' +
     '<div class="txt"><div class="uname">' + esc(name) + '</div><div class="status" id="s' + n + '"></div></div>' +
     '<div class="qbar">' + bar(n) + '<span class="c">' + n + '</span></div>' +
-    '<div class="badge">TICKET +1</div><div class="drain"></div>';
+    '<div class="badge">DABEI ✓</div><div class="drain"></div>';
   lane.appendChild(card);
   var txt = STATUS[Math.floor(Math.random() * STATUS.length)];
   setTimeout(function () { type(document.getElementById('s' + n), txt); }, 420);

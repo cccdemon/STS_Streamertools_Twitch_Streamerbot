@@ -44,7 +44,7 @@ function hideWinner() { document.getElementById('winner').classList.remove('show
 
 function countTo(el, target) {
   if (!el) return;
-  var suffix = ' Lose';
+  var suffix = ' Punkte';
   if (reduce) { el.innerHTML = target + suffix; return; }
   var start = performance.now(), dur = 900;
   (function step(t) {
