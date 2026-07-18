@@ -9,6 +9,15 @@
 
 {$DOMAIN} {
 
+    # ── STOPGAP Basic-Auth (bis Login + Benutzerverwaltung steht) ──
+    # Ganze Domain gesperrt — nur Creator/Admin laden sie je (OBS-Overlays
+    # via credential-URL; Browser cacht den Realm + hängt Auth am
+    # same-origin WS-Handshake an). Wird durch echtes Login ersetzt.
+    # Hash: `docker exec cc-web caddy hash-password --plaintext '<pw>'`
+    basic_auth {
+        admin $2a$14$OP4Dowo2B9Wtt/0f7naZ6.YeBX0Pxoi51WSVsWGti73WWuOcytMfC
+    }
+
     # ── Giveaway Service ──────────────────────────────────
     # REST + WebSocket (/giveaway/ws)
     handle /giveaway/* {
