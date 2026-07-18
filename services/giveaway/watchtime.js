@@ -250,7 +250,7 @@ class WatchtimeEngine {
     const u = sanitizeUsername(username);
     const channels = await this.getChannels();
     const perChannel = {};
-    let totalWatch = 0, qualified = 0;
+    let totalWatch = 0, totalMsgs = 0, qualified = 0;
     for (const ch of channels) {
       const watchSec = parseFloat(await this.redis.get(K.chWatch(ch, u)) || '0');
       const msgs     = parseInt(await this.redis.get(K.chMsgs(ch, u)) || '0');
@@ -258,6 +258,7 @@ class WatchtimeEngine {
       const coins    = coinsFromSec(watchSec);
       perChannel[ch] = { watchSec, coins, msgs, follows };
       totalWatch += watchSec;
+      totalMsgs  += msgs;
       if (follows && coins > 0) qualified++;
     }
     const totalCoins = coinsFromSec(totalWatch);
@@ -267,14 +268,13 @@ class WatchtimeEngine {
     return {
       username: u, perChannel, totalWatchSec: totalWatch, totalCoins,
       channelsQualified: qualified, registered, banned, eligible,
+      // Backward-compat Aliase (Admin-Panel / REST erwarten coins/watchSec/msgs)
+      coins: totalCoins, watchSec: totalWatch, msgs: totalMsgs,
     };
   }
 
-  // Rückwärtskompatibler Alias (server.js / REST nutzen getUserState).
-  async getUserState(username) {
-    const a = await this.getUserAggregate(username);
-    return { ...a, watchSec: a.totalWatchSec, coins: a.totalCoins };
-  }
+  // server.js / REST nutzen getUserState (= Aggregat inkl. Aliase).
+  async getUserState(username) { return this.getUserAggregate(username); }
 
   async getAllParticipants() {
     const users = await this.redis.smembers(K.gwUsers());

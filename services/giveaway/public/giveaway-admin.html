@@ -106,13 +106,20 @@
       </div>
     </div>
 
-    <!-- First Chatter -->
+    <!-- Viewtime-Multiplier -->
     <div class="card">
       <div class="card-title">
-        ERSTCHATTER
-        <div id="fc-status">INAKTIV</div>
+        VIEWTIME-BOOST
+        <div id="mult-status">1× (aus)</div>
       </div>
-      <button id="fc-btn" class="btn btn-cyan btn-full" onclick="toggleFirstChatter()">AKTIVIEREN</button>
+      <div class="manual-row">
+        <input type="number" id="mult-factor"  value="2"  min="1" max="10" step="1"  style="width:56px;" title="Faktor">
+        <span style="opacity:.6">× für</span>
+        <input type="number" id="mult-minutes" value="15" min="1" max="1440" style="width:62px;" title="Minuten">
+        <span style="opacity:.6">min</span>
+        <button class="btn btn-cyan" onclick="startMultiplier()">START</button>
+        <button class="btn btn-gold" onclick="stopMultiplier()">STOP</button>
+      </div>
     </div>
 
     <!-- Export -->

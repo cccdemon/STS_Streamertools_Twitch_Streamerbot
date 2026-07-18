@@ -73,7 +73,7 @@ function send(obj) {
   else log('WS nicht verbunden', 'red');
 }
 
-function requestData() { send({ event: 'gw_get_all' }); }
+function requestData() { send({ event: 'gw_get_all' }); send({ event: 'gw_cmd', cmd: 'gw_get_multiplier' }); }
 
 setInterval(() => { if (gwWs && gwWs.readyState === 1) requestData(); }, 10000);
 
@@ -123,8 +123,8 @@ function handle(msg) {
       break;
     }
 
-    case 'cc_first_chatter_status':
-      updateFirstChatterUI(!!msg.enabled);
+    case 'gw_multiplier':
+      updateMultiplierUI(parseFloat(msg.factor) || 1, parseInt(msg.secondsLeft) || 0);
       break;
 
     case 'ws_clients':
@@ -137,25 +137,39 @@ function handle(msg) {
   }
 }
 
-function toggleFirstChatter() {
-  send({ event: 'gw_cmd', cmd: 'cc_first_chatter_toggle' });
+// ── Viewtime-Multiplier ───────────────────────────────────
+function startMultiplier() {
+  const factor  = CC.validate.sanitizeInt(document.getElementById('mult-factor').value, 1, 10, 2);
+  const minutes = CC.validate.sanitizeInt(document.getElementById('mult-minutes').value, 1, 1440, 15);
+  send({ event: 'gw_cmd', cmd: 'gw_set_multiplier', factor: factor, minutes: minutes });
+  log(`Viewtime-Boost ${factor}× für ${minutes} min`, 'cyan');
 }
 
-function updateFirstChatterUI(enabled) {
-  const status = document.getElementById('fc-status');
-  const btn    = document.getElementById('fc-btn');
-  if (!status || !btn) return;
-  if (enabled) {
-    status.textContent = 'AKTIV';
-    status.style.color = 'var(--cyan)';
-    btn.textContent = 'DEAKTIVIEREN';
-    btn.className = 'btn btn-gold';
-  } else {
-    status.textContent = 'INAKTIV';
-    status.style.color = 'var(--dim)';
-    btn.textContent = 'AKTIVIEREN';
-    btn.className = 'btn btn-cyan';
+function stopMultiplier() {
+  send({ event: 'gw_cmd', cmd: 'gw_set_multiplier', factor: 1, minutes: 0 });
+  log('Viewtime-Boost gestoppt', 'gold');
+}
+
+let _multTimer = null;
+function updateMultiplierUI(factor, secondsLeft) {
+  const el = document.getElementById('mult-status');
+  if (!el) return;
+  if (_multTimer) { clearInterval(_multTimer); _multTimer = null; }
+  if (factor <= 1 || secondsLeft <= 0) {
+    el.textContent = '1× (aus)';
+    el.style.color = 'var(--dim)';
+    return;
   }
+  el.style.color = 'var(--cyan)';
+  let left = secondsLeft;
+  const render = () => {
+    const m = Math.floor(left / 60), s = left % 60;
+    el.textContent = `${factor}× · ${m}:${String(s).padStart(2, '0')}`;
+    if (left <= 0) { clearInterval(_multTimer); _multTimer = null; el.textContent = '1× (aus)'; el.style.color = 'var(--dim)'; }
+    left--;
+  };
+  render();
+  _multTimer = setInterval(render, 1000);
 }
 
 function renderWsClients(list) {
