@@ -1,20 +1,12 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Bridge Service
-// Connects to Streamerbot WS (9090), routes all events
-// to Redis Pub/Sub channels by domain.
+// TEAM GIVEAWAY – Bridge Service (giveaway-only fork)
+// Connects to Streamerbot WS (9090), routes giveaway events
+// to Redis Pub/Sub.
 //
 // Channels (publish):
-//   ch:giveaway   – viewer_tick, chat_msg, time_cmd
-//   ch:spacefight – fight_cmd, spacefight_challenge,
-//                   spacefight_result, spacefight_rejected,
-//                   stream_online, stream_offline
-//   ch:alerts     – follow, cheer, raid, shoutout,
-//                   first_chatter
-//   ch:chat       – chat_msg (HUD), clip_created,
-//                   ad_break_start, ad_break_end
-//
+//   ch:giveaway   – viewer_tick, chat_msg, time_cmd, stream_online
 // Channels (subscribe):
 //   ch:chat_reply – forward outbound chat to Streamerbot
 // ════════════════════════════════════════════════════════

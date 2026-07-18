@@ -295,14 +295,5 @@
     expect(active.href).toContain('tests/test-runner.html');
   });
 
-  // ════════════════════════════════════════════════════════
-  // Spacefight (spacefight.js) – reine Hilfsfunktion
-  // ════════════════════════════════════════════════════════
-  it('shipSlug normalizes a ship class to its sprite-sheet slug', function() {
-    expect(shipSlug('ORIGIN 300I')).toBe('origin-300i');
-    expect(shipSlug('Drake Cutlass Black')).toBe('drake-cutlass-black');
-    expect(shipSlug('  --F7C-- ')).toBe('f7c');
-  });
-
   runTests();
 })();

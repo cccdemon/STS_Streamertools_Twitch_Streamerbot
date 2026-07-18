@@ -27,10 +27,6 @@ const K = {
   gwBanned:     (u) => `gw_banned:${u}`,           // 1 wenn gebannt
   gwMsgs:       (u) => `gw_msgs:${u}`,             // Chat-Nachrichten Zähler (Session)
   gwSessionId:  () => 'gw_session_id',             // aktuelle Session-ID
-  // Spacefight
-  sfStats:      (u) => `sf:stats:${u}`,
-  sfIndex:      () => 'sf:index',
-  sfHistory:    () => 'sf:history',
 };
 
 // ── Input Sanitization ────────────────────────────────────

@@ -95,9 +95,8 @@
   var ALLOWED_EVENTS = [
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
-    'spacefight_result', 'chat_msg', 'viewer_tick',
-    'sf_cmd', 'sf_status_request', 'sf_status',
-    'cc_identify', 'cc_first_chatter_status', 'cc_test',
+    'chat_msg', 'viewer_tick',
+    'cc_identify',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
@@ -106,10 +105,7 @@
     'gw_draw_winner',
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
-    'gw_set_keyword', 'gw_get_keyword',
-    'cc_first_chatter_toggle',
-    'sf_start', 'sf_stop', 'sf_reset',
-    'sf_delete_player', 'sf_edit_player'
+    'gw_set_keyword', 'gw_get_keyword'
   ];
 
   function validateWsPayload(obj) {
@@ -120,7 +116,7 @@
       console.warn('[validate] Unbekanntes WS Event blockiert:', evt);
       return false;
     }
-    if (evt === 'gw_cmd' || evt === 'sf_cmd') {
+    if (evt === 'gw_cmd') {
       if (!obj.cmd || ALLOWED_CMDS.indexOf(obj.cmd) === -1) {
         console.warn('[validate] Unbekanntes cmd blockiert:', obj.cmd);
         return false;

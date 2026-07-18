@@ -75,28 +75,6 @@ CREATE TABLE IF NOT EXISTS debug_log (
 CREATE INDEX IF NOT EXISTS idx_debug_ts     ON debug_log(ts DESC);
 CREATE INDEX IF NOT EXISTS idx_debug_source ON debug_log(source);
 
--- ── Spacefight History ────────────────────────────────────
-CREATE TABLE IF NOT EXISTS spacefight_results (
-    id          BIGSERIAL PRIMARY KEY,
-    winner      TEXT NOT NULL,
-    loser       TEXT NOT NULL,
-    ship_w      TEXT,
-    ship_l      TEXT,
-    ts          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_sf_winner ON spacefight_results(winner);
-CREATE INDEX IF NOT EXISTS idx_sf_loser  ON spacefight_results(loser);
-
--- ── Spacefight Stats (Materialized View) ─────────────────
--- Wird nach jedem Kampf refreshed (oder per Cron)
-CREATE TABLE IF NOT EXISTS spacefight_stats (
-    username    TEXT PRIMARY KEY,
-    display     TEXT NOT NULL,
-    wins        INTEGER NOT NULL DEFAULT 0,
-    losses      INTEGER NOT NULL DEFAULT 0,
-    last_fight  TIMESTAMPTZ
-);
-
 -- ── Giveaway Draw Audit Trail ─────────────────────────────
 -- Jede Winner-Ziehung vollständig protokolliert (Nachvollziehbarkeit).
 -- eligible_snapshot + total_coins + rand_value = reproduzierbare Ziehung.

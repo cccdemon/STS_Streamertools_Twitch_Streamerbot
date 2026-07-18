@@ -95,9 +95,8 @@
   var ALLOWED_EVENTS = [
     'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
-    'spacefight_result', 'chat_msg', 'viewer_tick',
-    'sf_cmd', 'sf_status_request', 'sf_status',
-    'cc_identify', 'cc_first_chatter_status',
+    'chat_msg', 'viewer_tick',
+    'cc_identify',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
@@ -106,10 +105,7 @@
     'gw_draw_winner',
     'gw_add_ticket', 'gw_sub_ticket',
     'gw_ban', 'gw_unban',
-    'gw_set_keyword', 'gw_get_keyword',
-    'cc_first_chatter_toggle',
-    'sf_start', 'sf_stop', 'sf_reset',
-    'sf_delete_player', 'sf_edit_player'
+    'gw_set_keyword', 'gw_get_keyword'
   ];
 
   function validateWsPayload(obj) {
@@ -120,7 +116,7 @@
       console.warn('[validate] Unbekanntes WS Event blockiert:', evt);
       return false;
     }
-    if (evt === 'gw_cmd' || evt === 'sf_cmd') {
+    if (evt === 'gw_cmd') {
       if (!obj.cmd || ALLOWED_CMDS.indexOf(obj.cmd) === -1) {
         console.warn('[validate] Unbekanntes cmd blockiert:', obj.cmd);
         return false;
@@ -190,18 +186,12 @@
 (function() {
   var PAGES = [
     { href: '/giveaway/giveaway-admin.html', label: 'GW ADMIN',     group: 'giveaway' },
-    { href: '/stats/stats.html',             label: 'STATISTIKEN',  group: 'giveaway' },
-    { sep: true },
-    { href: '/spacefight/spacefight-admin.html', label: 'SF ADMIN', group: 'spacefight', color: 'gold' },
     { sep: true },
     { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
-    { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'gold' },
     { sep: true },
     { href: '/giveaway/giveaway-overlay.html', label: 'GW OVERLAY', group: 'obs', obs: true },
     { href: '/giveaway/giveaway-join.html',  label: 'JOIN ANIM',    group: 'obs', obs: true },
-    { href: '/alerts/chat.html',             label: 'HUD CHAT',     group: 'obs', obs: true },
-    { href: '/spacefight/spacefight.html',   label: 'RAUMKAMPF',    group: 'obs', obs: true },
   ];
 
   var currentPage = window.location.pathname.replace(/^\/+/, '');
