@@ -25,34 +25,10 @@
         reverse_proxy giveaway:3001
     }
 
-    # ── Spacefight Service ────────────────────────────────
-    handle /spacefight/* {
-        uri strip_prefix /spacefight
-        reverse_proxy spacefight:3002
-    }
-
-    # ── Alert Service ─────────────────────────────────────
-    handle /alerts/* {
-        uri strip_prefix /alerts
-        reverse_proxy alerts:3003
-    }
-
-    # ── Stats Service ─────────────────────────────────────
-    handle /stats/* {
-        uri strip_prefix /stats
-        reverse_proxy stats:3004
-    }
-
     # ── Admin Dashboard ───────────────────────────────────
     handle /admin/* {
         uri strip_prefix /admin
         reverse_proxy admin:3005
-    }
-
-    # ── Game Scenes ───────────────────────────────────────
-    handle /gamescenes/* {
-        uri strip_prefix /gamescenes
-        reverse_proxy gamescenes:3006
     }
 
     # ── Bridge health (internal use only) ─────────────────

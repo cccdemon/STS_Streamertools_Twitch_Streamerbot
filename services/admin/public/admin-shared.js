@@ -190,20 +190,13 @@
 (function() {
   var PAGES = [
     { href: '/giveaway/giveaway-admin.html', label: 'GW ADMIN',     group: 'giveaway' },
-    { href: '/stats/stats.html',             label: 'STATISTIKEN',  group: 'giveaway' },
-    { sep: true },
-    { href: '/spacefight/spacefight-admin.html', label: 'SF ADMIN', group: 'spacefight', color: 'gold' },
     { sep: true },
     { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },
-    { href: '/admin/alerts-test.html',       label: 'ALERT TEST',   group: 'tools', color: 'gold' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
     { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'gold' },
     { sep: true },
     { href: '/giveaway/giveaway-overlay.html',      label: 'GW OVERLAY', group: 'obs', obs: true },
     { href: '/giveaway/giveaway-join.html?test=1',  label: 'JOIN ANIM',  group: 'obs', obs: true },
-    { href: '/alerts/chat.html?channel=justcallmedeimos', label: 'HUD CHAT', group: 'obs', obs: true },
-    { href: '/alerts/overlay.html',          label: 'ALERT OVERLAY', group: 'obs', obs: true },
-    { href: '/spacefight/spacefight.html?test=1',   label: 'RAUMKAMPF',  group: 'obs', obs: true },
   ];
 
   var currentPage = window.location.pathname.replace(/^\/+/, '');

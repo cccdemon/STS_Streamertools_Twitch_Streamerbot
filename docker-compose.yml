@@ -1,5 +1,7 @@
 version: '2.4'
 
+# Giveaway-only fork (team.raumdock.org). Non-giveaway services
+# (spacefight, alerts, gamescenes, stats) were removed on this branch.
 services:
 
   # ── PostgreSQL ────────────────────────────────────────────
@@ -57,7 +59,7 @@ services:
       options: { max-size: "10m", max-file: "3" }
 
   # ── Bridge ────────────────────────────────────────────────
-  # Streamerbot WS (9090) → Redis Pub/Sub fan-out
+  # Streamerbot ingest → Redis Pub/Sub fan-out
   bridge:
     build:
       context: ./services/bridge
@@ -123,108 +125,8 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  # ── Spacefight ────────────────────────────────────────────
-  # Fight engine, battle results, leaderboard
-  spacefight:
-    build:
-      context: ./services/spacefight
-    container_name: cc-spacefight
-    restart: unless-stopped
-    environment:
-      PORT:       "3002"
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      REDIS_DB:   "0"
-      PG_HOST:    postgres
-      PG_PORT:    "5432"
-      PG_DB:      ${PG_DB:-chaoscrew}
-      PG_USER:    ${PG_USER:-chaoscrew}
-      PG_PASSWORD: ${PG_PASSWORD:-changeme}
-      TZ: Europe/Berlin
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      bridge:
-        condition: service_started
-    networks:
-      - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  # ── Alerts ────────────────────────────────────────────────
-  # Follow, cheer, raid, shoutout overlays + Claude AI
-  alerts:
-    build:
-      context: ./services/alerts
-    container_name: cc-alerts
-    restart: unless-stopped
-    environment:
-      PORT:        "3003"
-      REDIS_HOST:  redis
-      REDIS_PORT:  "6379"
-      REDIS_DB:    "0"
-      TWITCH_CLIENT_ID:     ${TWITCH_CLIENT_ID:-}
-      TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
-      ANTHROPIC_KEY:        ${ANTHROPIC_KEY:-}
-      TZ: Europe/Berlin
-    depends_on:
-      redis:
-        condition: service_healthy
-      bridge:
-        condition: service_started
-    networks:
-      - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  # ── Stats ─────────────────────────────────────────────────
-  # Aggregated leaderboards + session history (read-only PG)
-  stats:
-    build:
-      context: ./services/stats
-    container_name: cc-stats
-    restart: unless-stopped
-    environment:
-      PORT:       "3004"
-      PG_HOST:    postgres
-      PG_PORT:    "5432"
-      PG_DB:      ${PG_DB:-chaoscrew}
-      PG_USER:    ${PG_USER:-chaoscrew}
-      PG_PASSWORD: ${PG_PASSWORD:-changeme}
-      TZ: Europe/Berlin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
   # ── Admin Dashboard ───────────────────────────────────────
-  # Shared admin tools + aggregated health
+  # Login + user management + campaign admin + aggregated health
   admin:
     build:
       context: ./services/admin
@@ -234,17 +136,9 @@ services:
       PORT:            "3005"
       BRIDGE_URL:      "http://bridge:3000"
       GIVEAWAY_URL:    "http://giveaway:3001"
-      SPACEFIGHT_URL:  "http://spacefight:3002"
-      ALERTS_URL:      "http://alerts:3003"
-      STATS_URL:       "http://stats:3004"
-      GAMESCENES_URL:  "http://gamescenes:3006"
       TZ: Europe/Berlin
     depends_on:
       - giveaway
-      - spacefight
-      - alerts
-      - stats
-      - gamescenes
     networks:
       - chaos-crew
     healthcheck:
@@ -253,28 +147,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 15s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
-  # ── Game Scenes ───────────────────────────────────────────
-  # Static OBS overlays for in-game scene transitions (bodycam, etc.)
-  gamescenes:
-    build:
-      context: ./services/gamescenes
-    container_name: cc-gamescenes
-    restart: unless-stopped
-    environment:
-      PORT: "3006"
-      TZ: Europe/Berlin
-    networks:
-      - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3006/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
@@ -298,11 +170,7 @@ services:
       - ./caddy/${CADDY_CONFIG:-Caddyfile}:/etc/caddy/Caddyfile:ro
     depends_on:
       - giveaway
-      - spacefight
-      - alerts
-      - stats
       - admin
-      - gamescenes
     networks:
       - chaos-crew
     logging:

@@ -54,6 +54,7 @@ Pro `.cs`-Datei in diesem Ordner:
 | CC_OutRaid | Twitch → Raid Started (ausgehend) bzw. Command `!raid` | `outraid` | user(Ziel), amount(viewer) |
 | CC_StreamStart | Twitch → Stream Online | `streamstart` | – |
 | CC_Id | Core → Command → `!id` (Everyone, Cooldown empf.) | `profile_request` (Overlay holt `/alerts/api/profile`) | Steckbrief: Watchtime, Errungenschaften, Status (Followage/Abo/Bits), Status-Satz |
+| CC_Clip | Core → Command → `!clip` (Everyone, Cooldown empf.) | – (postet nur Chat) | erstellt Twitch-Clip via `CPH.CreateClip()`, postet URL in den Chat |
 
 ⭐ **CC_Sub** ersetzt die alten vier Actions (CC_Resub/CC_SubGift/CC_SubBomb gelöscht).
 Lege **alle vier Sub-Trigger** auf diese eine Action — sie erkennt den Typ aus den Args

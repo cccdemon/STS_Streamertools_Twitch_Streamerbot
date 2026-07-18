@@ -15,7 +15,7 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // ── Health polling ─────────────────────────────────────
-var SERVICE_IDS = ['bridge', 'giveaway', 'spacefight', 'alerts', 'stats'];
+var SERVICE_IDS = ['bridge', 'giveaway'];
 
 function setHealth(id, state, text) {
   var el = document.getElementById('h-' + id);

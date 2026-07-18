@@ -252,6 +252,7 @@ Full setup/import guide: `streamerbot/SETUP.md`.
 | `CC_HypeTrain.cs` | Twitch Hype Train | overlay | `alertType:hypetrain` (level) |
 | `CC_OutRaid.cs` | Twitch Raid Started / `!raid` | overlay | `alertType:outraid` (user, amount) |
 | `CC_StreamStart.cs` | Stream Online | overlay | `alertType:streamstart` |
+| `CC_Clip.cs` | Command `!clip` | chat | creates a Twitch clip (`CPH.CreateClip()`) + posts URL |
 | `CC_ClipCreated.cs` | Clip Created | chat | clip title + URL |
 | `CC_AdBreakStart.cs` / `CC_AdBreakEnd.cs` | Ad Break Start/End | chat | ad notices |
 | `CC_FirstChatter.cs` | Chat Message | Bridge | first_chatter → ch:alerts → welcome chat reply |

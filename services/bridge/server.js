@@ -67,25 +67,13 @@ async function redisReady() {
 
 // ── Event routing table ───────────────────────────────────
 // event → channel(s) to publish on
+// Giveaway-only fork: non-giveaway events (spacefight/alerts/chat/ads) removed.
 const ROUTES = {
-  viewer_tick:           ['ch:giveaway'],
-  chat_msg:              ['ch:giveaway', 'ch:chat'],
-  time_cmd:              ['ch:giveaway'],
-  fight_cmd:             ['ch:spacefight'],
-  spacefight_challenge:  ['ch:spacefight'],
-  spacefight_result:     ['ch:spacefight'],
-  spacefight_rejected:   ['ch:spacefight'],
-  stream_online:         ['ch:spacefight', 'ch:giveaway'],
-  stream_offline:        ['ch:spacefight'],
-  follow:                ['ch:alerts'],
-  cheer:                 ['ch:alerts'],
-  raid:                  ['ch:alerts'],
-  shoutout:              ['ch:alerts'],
-  first_chatter:         ['ch:alerts'],
-  clip_created:          ['ch:chat'],
-  ad_break_start:        ['ch:chat'],
-  ad_break_end:          ['ch:chat'],
-  cc_debug:              ['ch:giveaway'],
+  viewer_tick:   ['ch:giveaway'],
+  chat_msg:      ['ch:giveaway'],
+  time_cmd:      ['ch:giveaway'],
+  stream_online: ['ch:giveaway'],
+  cc_debug:      ['ch:giveaway'],
 };
 
 // ── Streamerbot WS Client ─────────────────────────────────
