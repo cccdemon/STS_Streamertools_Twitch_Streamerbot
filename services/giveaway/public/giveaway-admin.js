@@ -130,7 +130,8 @@ function handle(msg) {
           watchSec: parseInt(p.watchSec) || 0,
           msgs:     parseInt(p.msgs) || 0,
           coins:    parseDec(p.coins),
-          banned:   !!p.banned
+          banned:   !!p.banned,
+          flags:    Array.isArray(p.flags) ? p.flags : []
         };
       });
       updateGwStatus();
@@ -393,7 +394,7 @@ function renderTable(hlKey=null) {
   document.getElementById('tbl').innerHTML = entries.map(([key,p],i) => `
     <tr class="${p.banned?'banned':''} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
-      <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}</td>
+      <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       <td class="watchtime">${fmtTime(p.watchSec)}</td>
       <td style="display:flex;gap:4px;">

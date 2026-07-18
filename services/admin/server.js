@@ -356,6 +356,15 @@ app.get('/pub/doc/:name', (req, res) => {
   catch (e) { res.status(500).json({ error: 'unavailable' }); }
 });
 
+// ── Public: Streamerbot-C#-Actions (Code zum Kopieren) ────
+app.get('/pub/actions', (req, res) => {
+  try {
+    const dir = path.join(__dirname, 'actions');
+    const files = fs.readdirSync(dir).filter(f => /^[A-Za-z0-9_]+\.cs$/.test(f)).sort();
+    res.json(files.map(f => ({ name: f, code: fs.readFileSync(path.join(dir, f), 'utf8') })));
+  } catch (e) { res.status(500).json({ error: 'unavailable' }); }
+});
+
 // ── Public (kein Login): Team-Infos + Teilnahmebedingungen ─
 app.get('/pub/team/:id', async (req, res) => {
   const id = String(req.params.id || '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);

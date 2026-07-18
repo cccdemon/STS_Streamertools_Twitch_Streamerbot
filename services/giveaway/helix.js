@@ -41,21 +41,23 @@ class Helix {
     return res.json();
   }
 
-  // login → user_id (gecacht 24h).
-  async resolveUserId(login) {
+  // login → { id, createdAt } (gecacht 24h).
+  async resolveUserMeta(login) {
     const l = String(login || '').toLowerCase();
-    if (!l) return null;
-    const key = 'helix:uid:' + l;
+    if (!l) return { id: null, createdAt: null };
+    const key = 'helix:umeta:' + l;
     const cached = await this.redis.get(key);
-    if (cached) return cached === '0' ? null : cached;
-    let id = null;
+    if (cached) { try { return JSON.parse(cached); } catch { /* refetch */ } }
+    let meta = { id: null, createdAt: null };
     try {
       const d = await this._get(`${API}/users?login=${encodeURIComponent(l)}`, await this.appToken());
-      id = d.data && d.data[0] ? d.data[0].id : null;
-    } catch(e) { return null; }
-    await this.redis.set(key, id || '0', 'EX', 86400);
-    return id;
+      const x = d.data && d.data[0];
+      if (x) meta = { id: x.id, createdAt: x.created_at || null };
+    } catch(e) { return { id: null, createdAt: null }; }
+    await this.redis.set(key, JSON.stringify(meta), 'EX', 86400);
+    return meta;
   }
+  async resolveUserId(login) { return (await this.resolveUserMeta(login)).id; }
 
   // Gültiges Owner-Token (Kanal-Login) — refresht bei Ablauf. Null wenn
   // der Streamer den Scope nie erteilt hat.

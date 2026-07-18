@@ -9,7 +9,16 @@
 // Eligibility: valide Coins auf ≥2 Kanälen. Gewicht = Summe Coins.
 // ════════════════════════════════════════════════════════
 
-const { randomInt } = require('crypto');
+const { randomInt, createHash } = require('crypto');
+
+// ── Anti-Abuse: deterministische, reproduzierbare Schwellen ──
+const ABUSE = {
+  HIST_LEN: 20, TIMES_LEN: 30,
+  DUP_MIN: 3,               // identische Nachricht ≥3× im Fenster → dup_message
+  RATE_WINDOW: 60, RATE_MAX: 10,   // >10 Nachrichten / 60s → high_rate
+  DIV_MIN_MSGS: 10, DIV_RATIO: 0.4, // ≥10 Nachrichten, <40% verschieden → low_diversity
+  NEW_ACCOUNT_DAYS: 30,     // Twitch-Account jünger als 30 Tage → new_account
+};
 
 const SECS_PER_COIN  = 7200;
 const CHAT_BONUS_SEC = 0.5;
@@ -41,6 +50,8 @@ const K = {
   chMsgs:     (t, ch, u) => `${TP(t)}gw:ch:${ch}:msgs:${u}`,
   chFollows:  (t, ch, u) => `${TP(t)}gw:ch:${ch}:follows:${u}`,
   chIndex:    (t, ch)    => `${TP(t)}gw:ch:${ch}:index`,
+  abuseHist:  (t, u) => `${TP(t)}gw:abuse:hist:${u}`,     // letzte Msg-Hashes
+  abuseTimes: (t, u) => `${TP(t)}gw:abuse:times:${u}`,    // letzte Timestamps (Rate)
 };
 
 function sanitizeUsername(s) {
@@ -205,6 +216,7 @@ class WatchtimeEngine {
 
     if (await this.redis.get(K.gwBanned(t, u)) === '1') return null;
     await this.redis.incr(K.chMsgs(t, ch, u));
+    await this._detectAbuse(t, u, cleanMsg);   // Spam-Signale (flaggt, bannt nicht)
 
     if (!this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)))) return { channel: ch, followed: false };
     if (countWords(cleanMsg) < CHAT_MIN_WORDS) return null;
@@ -303,6 +315,8 @@ class WatchtimeEngine {
     const users = await this.redis.smembers(K.gwUsers(t));
     const result = [];
     for (const u of users) result.push(await this.getUserAggregate(t, u));
+    const flags = await this.getFlagsMap(t);
+    for (const p of result) p.flags = flags[p.username] || [];
     return result.sort((a, b) => b.totalCoins - a.totalCoins);
   }
 
@@ -313,6 +327,61 @@ class WatchtimeEngine {
         VALUES ($1,$2,$3,$4,$5,$6)
       `, [username, eventType, Math.round(deltaSec), sessionId || null, channel || null, teamId || null]);
     } catch(e) { console.error('[WTE] PG log error:', e.message); }
+  }
+
+  // ── Anti-Abuse: flaggen (append-only Audit, mit Beweis) ──
+  // Upsert pro (team,user,reason): Zähler hoch, last_seen + Beweis aktualisiert.
+  // Bannt NICHT — nur Markierung für Owner-Entscheidung (§5/§6 Ermessen).
+  async flagUser(teamId, username, reason, detail) {
+    const t = sanitizeTeamId(teamId), u = sanitizeUsername(username);
+    if (!t || !u) return;
+    const sid = await this.redis.get(K.gwSessionId(t));
+    if (!sid) return;   // ohne laufende Session kein Flag (Chat zählt eh nur aktiv)
+    try {
+      await this.pg.query(`
+        INSERT INTO abuse_flags (session_id, team_id, username, reason, occurrences, first_seen, last_seen, detail)
+        VALUES ($1,$2,$3,$4,1,NOW(),NOW(),$5)
+        ON CONFLICT (session_id, username, reason) DO UPDATE SET
+          occurrences = abuse_flags.occurrences + 1, last_seen = NOW(), detail = $5
+      `, [sid, t, u, reason, JSON.stringify(detail || {})]);
+    } catch(e) { console.error('[WTE] flag error:', e.message); }
+  }
+
+  // Spam-Signale aus dem Nachrichtenverlauf (deterministisch, reproduzierbar).
+  async _detectAbuse(teamId, username, msg) {
+    const t = teamId, u = username;
+    const norm = String(msg).toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!norm) return;
+    const hash = createHash('sha1').update(norm).digest('hex').slice(0, 16);
+    const now = Math.floor(Date.now() / 1000);
+    const recent = await this.redis.lrange(K.abuseHist(t, u), 0, ABUSE.HIST_LEN - 1);
+    const dupCount = recent.filter(h => h === hash).length + 1;
+    await this.redis.lpush(K.abuseHist(t, u), hash);
+    await this.redis.ltrim(K.abuseHist(t, u), 0, ABUSE.HIST_LEN - 1);
+    await this.redis.lpush(K.abuseTimes(t, u), String(now));
+    await this.redis.ltrim(K.abuseTimes(t, u), 0, ABUSE.TIMES_LEN - 1);
+    const times = (await this.redis.lrange(K.abuseTimes(t, u), 0, ABUSE.TIMES_LEN - 1)).map(Number);
+    const rate = times.filter(ts => now - ts < ABUSE.RATE_WINDOW).length;
+    const all = recent.concat(hash);
+    const distinct = new Set(all).size;
+
+    if (dupCount >= ABUSE.DUP_MIN) await this.flagUser(t, u, 'dup_message', { message: String(msg).slice(0, 140), count: dupCount });
+    if (rate > ABUSE.RATE_MAX) await this.flagUser(t, u, 'high_rate', { perWindow: rate, windowSec: ABUSE.RATE_WINDOW });
+    if (all.length >= ABUSE.DIV_MIN_MSGS && distinct / all.length < ABUSE.DIV_RATIO)
+      await this.flagUser(t, u, 'low_diversity', { distinct, total: all.length });
+  }
+
+  // Alle Flags eines Teams als Map username → [{reason,count}].
+  async getFlagsMap(teamId) {
+    const t = sanitizeTeamId(teamId);
+    const map = {};
+    const sid = await this.redis.get(K.gwSessionId(t));
+    if (!sid) return map;
+    try {
+      const r = await this.pg.query('SELECT username, reason, occurrences FROM abuse_flags WHERE session_id=$1', [sid]);
+      for (const row of r.rows) (map[row.username] = map[row.username] || []).push({ reason: row.reason, count: row.occurrences });
+    } catch(e) { console.error('[WTE] getFlagsMap:', e.message); }
+    return map;
   }
 
   validateSessionId(id) {
@@ -349,6 +418,7 @@ class WatchtimeEngine {
     const snapshot = eligible.map(p => ({
       u: p.username, c: p.totalCoins, q: p.channelsQualified,
       ch: Object.fromEntries(Object.entries(p.perChannel).map(([k, v]) => [k, v.coins])),
+      f: (p.flags || []).map(x => x.reason),   // Anti-Abuse-Flags zum Ziehungszeitpunkt
     }));
     const totalRounded = Math.round(total * 10000) / 10000;
     const randRounded  = Math.round(rand * 1e10) / 1e10;
@@ -444,6 +514,7 @@ class WatchtimeEngine {
       pipeline.del(K.gwRegistered(t, u));
       pipeline.del(K.gwBanned(t, u));
       pipeline.srem(K.userTeams(u), t);
+      pipeline.del(K.abuseHist(t, u), K.abuseTimes(t, u));
       for (const ch of channels) {
         pipeline.del(K.chWatch(t, ch, u), K.chChatTs(t, ch, u), K.chPresent(t, ch, u),
                      K.chLastTick(t, ch, u), K.chMsgs(t, ch, u), K.chFollows(t, ch, u));
@@ -466,5 +537,5 @@ class WatchtimeEngine {
 module.exports = {
   WatchtimeEngine, K, sanitizeUsername, sanitizeChannel, sanitizeStr, sanitizeTeamId, countWords, coinsFromSec,
   SECS_PER_COIN, CHAT_BONUS_SEC, CHAT_COOLDOWN, CHAT_MIN_WORDS, TICK_SEC, PRESENCE_TTL,
-  JOIN_MIN_COINS, MIN_CHANNELS,
+  JOIN_MIN_COINS, MIN_CHANNELS, ABUSE,
 };

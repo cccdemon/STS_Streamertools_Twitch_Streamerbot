@@ -15,7 +15,7 @@ const express   = require('express');
 const http      = require('http');
 const crypto    = require('crypto');
 const { Pool }  = require('pg');
-const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC } = require('./watchtime.js');
+const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC, ABUSE } = require('./watchtime.js');
 const { Helix } = require('./helix.js');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
@@ -92,6 +92,17 @@ async function verifyFollows(teamId) {
     }
     result.verified.push(ch);
   }
+  // Account-Alter-Flag (Multi-Account-Heuristik) — nur markieren, nicht bannen.
+  try {
+    for (const p of participants) {
+      if (!p.registered) continue;
+      const meta = await helix.resolveUserMeta(p.username);
+      if (meta.createdAt) {
+        const ageDays = (Date.now() - new Date(meta.createdAt).getTime()) / 86400000;
+        if (ageDays < ABUSE.NEW_ACCOUNT_DAYS) await wte.flagUser(t, p.username, 'new_account', { createdAt: meta.createdAt, ageDays: Math.round(ageDays) });
+      }
+    }
+  } catch(e) { logErr('Helix', 'account-age:', e.message); }
   log('Helix', `[${t}] verify: ok=${result.verified.length} unverified=${result.unverified.length} mismatches=${result.mismatches}`);
   return result;
 }
@@ -477,6 +488,20 @@ app.get('/api/draws', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Anti-Abuse-Log (nachvollziehbar): alle Flags der aktuellen Session mit Beweis.
+app.get('/api/abuse', async (req, res) => {
+  try {
+    const teamId = sanitizeTeamId(req.query.team);
+    if (!await isMember(reqUser(req), teamId)) return res.status(403).json({ error: 'forbidden' });
+    const sid = req.query.session || await wte.getSessionId(teamId);
+    const r = await pg.query(`
+      SELECT username, reason, occurrences, first_seen, last_seen, detail
+      FROM abuse_flags WHERE team_id=$1 AND ($2::text IS NULL OR session_id=$2)
+      ORDER BY last_seen DESC LIMIT 500`, [teamId, sid || null]);
+    res.json({ team: teamId, session: sid || null, flags: r.rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.use(express.static('public'));
 
 // ── Schema ────────────────────────────────────────────────
@@ -505,7 +530,22 @@ async function ensureSchema() {
       follows BOOLEAN NOT NULL DEFAULT FALSE, valid BOOLEAN NOT NULL DEFAULT FALSE,
       PRIMARY KEY (session_id, username, channel))`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_cp_session ON campaign_participation(session_id)`);
-  log('Schema', 'multi-tenant schema ensured');
+  // Phase 7: Anti-Abuse-Flags (append-only Audit pro Session, mit Beweis).
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS abuse_flags (
+      session_id  TEXT NOT NULL,
+      team_id     TEXT,
+      username    TEXT NOT NULL,
+      reason      TEXT NOT NULL,
+      occurrences INTEGER NOT NULL DEFAULT 1,
+      first_seen  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      detail      JSONB,
+      PRIMARY KEY (session_id, username, reason)
+    )`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_abuse_team ON abuse_flags(team_id)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_abuse_session ON abuse_flags(session_id)`);
+  log('Schema', 'multi-tenant + abuse schema ensured');
 }
 
 async function main() {

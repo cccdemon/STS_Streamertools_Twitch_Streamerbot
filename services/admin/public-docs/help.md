@@ -28,6 +28,6 @@ aktive Teilnahme als Gewinnchance.
 ## Fair bleiben
 Spam, Emoji-Spam, Ein-Wort-Nachrichten, Bots oder Mehrfachaccounts führen zum
 **Ausschluss** — deine Chance verfällt dann. Gezogen wird **zufällig**, gewichtet
-nach aktiver Teilnahme.
+nach deiner aktiven **Watchtime + Nachrichtenbonus**.
 
 Viel Glück & o7

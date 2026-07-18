@@ -12,16 +12,19 @@ const CH = ['justcallmedeimos', 'jerichoramirez', 'x_jazzz_x'];
 
 // ── In-memory redis/pg mocks ──────────────────────────────
 function makeRedis() {
-  const store = new Map(), sets = new Map();
+  const store = new Map(), sets = new Map(), lists = new Map();
   const api = {
     async get(k) { return store.has(k) ? store.get(k) : null; },
     async set(k, v) { store.set(k, String(v)); return 'OK'; },
-    async del(...ks) { ks.flat().forEach(k => { store.delete(k); sets.delete(k); }); return 1; },
+    async del(...ks) { ks.flat().forEach(k => { store.delete(k); sets.delete(k); lists.delete(k); }); return 1; },
     async incr(k) { const n = (parseFloat(store.get(k)) || 0) + 1; store.set(k, String(n)); return n; },
     async incrbyfloat(k, by) { const n = (parseFloat(store.get(k)) || 0) + Number(by); store.set(k, String(n)); return String(n); },
     async sadd(k, ...m) { if (!sets.has(k)) sets.set(k, new Set()); m.flat().forEach(x => sets.get(k).add(x)); return 1; },
     async srem(k, ...m) { if (sets.has(k)) m.flat().forEach(x => sets.get(k).delete(x)); return 1; },
     async smembers(k) { return sets.has(k) ? [...sets.get(k)] : []; },
+    async lpush(k, ...v) { if (!lists.has(k)) lists.set(k, []); lists.get(k).unshift(...v.flat().map(String)); return lists.get(k).length; },
+    async ltrim(k, a, b) { if (lists.has(k)) lists.set(k, lists.get(k).slice(a, b + 1)); return 'OK'; },
+    async lrange(k, a, b) { const l = lists.get(k) || []; return l.slice(a, b === -1 ? undefined : b + 1); },
     async ttl(k) { return store.has(k) ? 100 : -2; },
     pipeline() {
       const ops = [];
@@ -128,6 +131,20 @@ test('team isolation: users/coins do not leak across teams', async () => {
   assert.equal(a.totalCoins, 1);
   assert.equal(b.totalCoins, 0);
   assert.equal((await e.getAllParticipants('team_b')).length, 0);
+});
+
+test('abuse: dup_message flag after identical repeats', async () => {
+  const e = engine(); const flags = [];
+  e.flagUser = async (t, u, r) => flags.push(r);
+  for (let i = 0; i < 3; i++) await e._detectAbuse(TEAM, 'spammer', 'copy paste spam text');
+  assert.ok(flags.includes('dup_message'));
+});
+
+test('abuse: high_rate flag on message burst', async () => {
+  const e = engine(); const flags = [];
+  e.flagUser = async (t, u, r) => flags.push(r);
+  for (let i = 0; i < 12; i++) await e._detectAbuse(TEAM, 'fast', 'unique message number ' + i);
+  assert.ok(flags.includes('high_rate'));
 });
 
 test('drawWinner ignores non-eligible', async () => {
