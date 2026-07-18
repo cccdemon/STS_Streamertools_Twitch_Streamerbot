@@ -1,0 +1,93 @@
+{
+    admin off
+    # Edge (LXC 101 nginx) does L4 SNI-passthrough; TLS terminates HERE.
+    # No inbound :80 → use Cloudflare DNS-01 (needs CF_API_TOKEN env + the
+    # caddy-dns/cloudflare plugin baked into Dockerfile.team).
+    auto_https disable_redirects
+    acme_dns cloudflare {env.CF_API_TOKEN}
+}
+
+{$DOMAIN} {
+
+    # ── Giveaway Service ──────────────────────────────────
+    # REST + WebSocket (/giveaway/ws)
+    handle /giveaway/* {
+        uri strip_prefix /giveaway
+        reverse_proxy giveaway:3001
+    }
+
+    # ── Spacefight Service ────────────────────────────────
+    handle /spacefight/* {
+        uri strip_prefix /spacefight
+        reverse_proxy spacefight:3002
+    }
+
+    # ── Alert Service ─────────────────────────────────────
+    handle /alerts/* {
+        uri strip_prefix /alerts
+        reverse_proxy alerts:3003
+    }
+
+    # ── Stats Service ─────────────────────────────────────
+    handle /stats/* {
+        uri strip_prefix /stats
+        reverse_proxy stats:3004
+    }
+
+    # ── Admin Dashboard ───────────────────────────────────
+    handle /admin/* {
+        uri strip_prefix /admin
+        reverse_proxy admin:3005
+    }
+
+    # ── Game Scenes ───────────────────────────────────────
+    handle /gamescenes/* {
+        uri strip_prefix /gamescenes
+        reverse_proxy gamescenes:3006
+    }
+
+    # ── Bridge health (internal use only) ─────────────────
+    handle /bridge/* {
+        uri strip_prefix /bridge
+        reverse_proxy bridge:3000
+    }
+
+    # ── Ingest WS (Phase 1: 4 Streamerbots connect IN here) ──
+    # wss://team.raumdock.org/ingest → bridge inbound ingest server.
+    # Route present now so the edge/TLS path is ready before the
+    # feature code lands; bridge answers once Phase 1 ships it.
+    handle /ingest* {
+        uri strip_prefix /ingest
+        reverse_proxy bridge:3000
+    }
+
+    # ── Aggregated health ─────────────────────────────────
+    handle /health {
+        reverse_proxy admin:3005
+    }
+
+    # ── Redis UI ──────────────────────────────────────────
+    handle /redis-ui/* {
+        uri strip_prefix /redis-ui
+        reverse_proxy redis-ui:8081
+    }
+
+    # ── Root redirect → admin dashboard ──────────────────
+    @root path /
+    redir @root /admin/ 302
+
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        X-Frame-Options SAMEORIGIN
+        Strict-Transport-Security "max-age=31536000"
+        Cache-Control "no-cache, must-revalidate"
+        -Server
+    }
+
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
