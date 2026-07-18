@@ -13,10 +13,17 @@
 
 const express = require('express');
 const crypto  = require('crypto');
+const fs      = require('fs');
+const path    = require('path');
 const { Pool } = require('pg');
 const A = require('./auth.js');
 
 const unquote = (s) => String(s || '').replace(/^"|"$/g, '');
+
+// Standard-Teilnahmebedingungen (Draft-Vorlage pro Team).
+let TERMS_TEMPLATE = '';
+try { TERMS_TEMPLATE = fs.readFileSync(path.join(__dirname, 'terms-template.md'), 'utf8'); }
+catch (e) { console.error('[Terms] template not loaded:', e.message); }
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
 function logErr(tag, ...args) { console.error(`[${tag}]`, ...args); }
@@ -311,6 +318,48 @@ app.delete('/api/teams/:id/members/:login', async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Team-Teilnahmebedingungen ─────────────────────────────
+app.get('/api/teams/:id/terms', async (req, res) => {
+  const s = requireSession(req, res); if (!s) return;
+  const id = req.params.id;
+  if (!await isMember(s.user, id)) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const r = await pg.query('SELECT terms FROM teams WHERE id=$1', [id]);
+    if (!r.rowCount) return res.status(404).json({ error: 'not_found' });
+    res.json({ terms: r.rows[0].terms || TERMS_TEMPLATE, isDefault: !r.rows[0].terms });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/teams/:id/terms', async (req, res) => {
+  const s = requireSession(req, res); if (!s) return;
+  const id = req.params.id;
+  if (!await isTeamOwner(id, s.user)) return res.status(403).json({ error: 'forbidden' });
+  const terms = String((req.body && req.body.terms) || '').slice(0, 40000);
+  try { await pg.query('UPDATE teams SET terms=$1 WHERE id=$2', [terms || null, id]); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Public (kein Login): statische Anleitungen (md) ───────
+const PUB_DOCS = { help: 'help.md', setup: 'setup.md' };
+app.get('/pub/doc/:name', (req, res) => {
+  const file = PUB_DOCS[String(req.params.name || '')];
+  if (!file) return res.status(404).json({ error: 'not_found' });
+  try { res.json({ content: fs.readFileSync(path.join(__dirname, 'public-docs', file), 'utf8') }); }
+  catch (e) { res.status(500).json({ error: 'unavailable' }); }
+});
+
+// ── Public (kein Login): Team-Infos + Teilnahmebedingungen ─
+app.get('/pub/team/:id', async (req, res) => {
+  const id = String(req.params.id || '').replace(/[^a-zA-Z0-9_]/g, '').slice(0, 40);
+  try {
+    const t = await pg.query('SELECT name, terms FROM teams WHERE id=$1', [id]);
+    if (!t.rowCount) return res.status(404).json({ error: 'not_found' });
+    const mem = await pg.query('SELECT channel FROM team_members WHERE team_id=$1 ORDER BY joined_at', [id]);
+    res.json({ id, name: t.rows[0].name, terms: t.rows[0].terms || TERMS_TEMPLATE,
+               isDefault: !t.rows[0].terms, channels: mem.rows.map(r => r.channel) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Aggregated health (public) ────────────────────────────
 app.get('/health', async (req, res) => {
   const results = {};
@@ -361,8 +410,10 @@ async function ensureSchema() {
       name        TEXT NOT NULL,
       owner_login TEXT NOT NULL,
       invite_code TEXT UNIQUE NOT NULL,
+      terms       TEXT,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
+  await pg.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS terms TEXT`);
   await pg.query(`
     CREATE TABLE IF NOT EXISTS team_members (
       team_id   TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,

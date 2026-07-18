@@ -47,6 +47,36 @@ async function removeMember(id, login) {
 }
 function copyInvite(code) { navigator.clipboard && navigator.clipboard.writeText(inviteLink(code)); }
 
+async function editTerms(id) {
+  var box = document.getElementById('terms-' + id);
+  if (box.dataset.open === '1') { box.innerHTML = ''; box.dataset.open = ''; return; }
+  box.dataset.open = '1';
+  box.innerHTML = '<div style="opacity:.6;font-size:12px;margin-top:8px">lädt…</div>';
+  try {
+    var d = await (await jfetch(API + '/' + id + '/terms')).json();
+    box.innerHTML =
+      '<div style="margin-top:10px">' +
+      (d.isDefault ? '<div style="font-size:12px;opacity:.55;margin-bottom:6px">Noch keine eigenen Bedingungen — Standard-Vorlage als Entwurf geladen.</div>' : '') +
+      '<textarea id="ta-'+id+'" style="width:100%;height:280px;background:#060a11;border:1px solid rgba(0,212,255,0.25);color:#c8dce8;border-radius:6px;padding:10px;font-family:ui-monospace,monospace;font-size:12px;">'+
+      esc(d.terms)+'</textarea>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;align-items:center">' +
+      '<button onclick="saveTerms(\''+id+'\')">Speichern</button>' +
+      '<button class="ghost" onclick="editTerms(\''+id+'\')">Schließen</button>' +
+      '<span class="muted" style="font-size:12px">Markdown erlaubt (# Überschrift, **fett**, - Liste)</span>' +
+      '<span class="msg" id="tmsg-'+id+'"></span></div></div>';
+  } catch(e){ if(e.message!=='unauth') box.innerHTML = '<div class="msg err">'+esc(e.message)+'</div>'; }
+}
+
+async function saveTerms(id) {
+  var val = document.getElementById('ta-' + id).value;
+  try {
+    var r = await jfetch(API + '/' + id + '/terms', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ terms: val }) });
+    var m = document.getElementById('tmsg-' + id);
+    if (r.ok) { m.textContent = 'Gespeichert ✓'; m.className = 'msg ok'; }
+    else { m.textContent = 'Fehler'; m.className = 'msg err'; }
+  } catch(e){ if(e.message!=='unauth'){ var m=document.getElementById('tmsg-'+id); if(m){m.textContent=e.message;m.className='msg err';} } }
+}
+
 async function load() {
   var host = document.getElementById('teams');
   try {
@@ -69,9 +99,13 @@ function renderTeam(t) {
       + '<button class="ghost" onclick="copyInvite(\''+esc(t.invite_code)+'\')">Kopieren</button>'
       + '<button class="ghost" onclick="rotateInvite(\''+t.id+'\')">Neu</button></div>'
     : '';
+  var terms = '<div class="invite" style="margin-top:10px">'
+    + '<a class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:6px" href="/admin/terms.html?team='+encodeURIComponent(t.id)+'" target="_blank">Teilnahmebedingungen ansehen</a>'
+    + (owner ? '<button class="ghost" onclick="editTerms(\''+t.id+'\')">Bearbeiten</button>' : '')
+    + '</div><div id="terms-'+t.id+'"></div>';
   return '<div class="team"><div class="team-head"><span class="team-name">'+esc(t.name)+'</span>'
     + (owner?'<span class="badge">OWNER</span>':'') + '</div>'
-    + '<div class="members">'+members+'</div>' + invite + '</div>';
+    + '<div class="members">'+members+'</div>' + invite + terms + '</div>';
 }
 
 load();

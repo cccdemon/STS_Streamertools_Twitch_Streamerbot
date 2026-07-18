@@ -195,6 +195,8 @@
     { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
     { href: '/admin/users.html',             label: 'BENUTZER',     group: 'tools' },
+    { href: '/admin/setup.html',             label: 'SETUP-GUIDE',  group: 'tools' },
+    { href: '/admin/help.html',              label: 'ANLEITUNG',    group: 'tools' },
     { sep: true },
     { href: '/giveaway/giveaway-overlay.html', label: 'GW OVERLAY', group: 'obs', obs: true },
     { href: '/giveaway/giveaway-join.html',  label: 'JOIN ANIM',    group: 'obs', obs: true },
