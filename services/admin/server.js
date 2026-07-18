@@ -177,7 +177,8 @@ app.get('/auth/twitch', (req, res) => {
   u.searchParams.set('client_id', CFG.twitchClientId);
   u.searchParams.set('redirect_uri', TWITCH_REDIRECT);
   u.searchParams.set('response_type', 'code');
-  u.searchParams.set('scope', '');
+  // Scope für Follow-Verifizierung des eigenen Kanals (Phase 4).
+  u.searchParams.set('scope', 'moderator:read:followers');
   u.searchParams.set('state', state);
   if (req.query.next) {
     res.append('Set-Cookie', `oauth_next=${encodeURIComponent(String(req.query.next)).slice(0, 200)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600${CFG.cookieSecure ? '; Secure' : ''}`);
@@ -208,14 +209,18 @@ app.get('/auth/twitch/callback', async (req, res) => {
     const login = A.sanitizeUserName(d && d.login);
     if (!login) return res.redirect(302, CFG.loginPath + '?err=profile');
 
-    // Open registration: upsert streamer, elevate role if platform admin.
+    // Open registration: upsert streamer + Twitch-Token (für Follow-Verify).
+    const expires = new Date(Date.now() + (tokRes.expires_in || 14400) * 1000);
+    const scopes = Array.isArray(tokRes.scope) ? tokRes.scope.join(' ') : String(tokRes.scope || '');
     await pg.query(`
-      INSERT INTO streamers (login, twitch_id, display, avatar, last_login)
-      VALUES ($1,$2,$3,$4,NOW())
+      INSERT INTO streamers (login, twitch_id, display, avatar, access_token, refresh_token, token_expires, scopes, last_login)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
       ON CONFLICT (login) DO UPDATE SET
-        twitch_id = EXCLUDED.twitch_id, display = EXCLUDED.display,
-        avatar = EXCLUDED.avatar, last_login = NOW()
-    `, [login, String(d.id || ''), (d.display_name || login).slice(0, 50), (d.profile_image_url || '').slice(0, 300)]);
+        twitch_id = EXCLUDED.twitch_id, display = EXCLUDED.display, avatar = EXCLUDED.avatar,
+        access_token = EXCLUDED.access_token, refresh_token = EXCLUDED.refresh_token,
+        token_expires = EXCLUDED.token_expires, scopes = EXCLUDED.scopes, last_login = NOW()
+    `, [login, String(d.id || ''), (d.display_name || login).slice(0, 50), (d.profile_image_url || '').slice(0, 300),
+        tokRes.access_token || null, tokRes.refresh_token || null, expires, scopes]);
     const sr = await pg.query('SELECT is_platform_admin FROM streamers WHERE login=$1', [login]);
     const role = sr.rows[0] && sr.rows[0].is_platform_admin ? 'superadmin' : 'streamer';
 
@@ -253,8 +258,9 @@ app.post('/api/teams', async (req, res) => {
   const name = String((req.body && req.body.name) || '').replace(/[^\w \-]/g, '').slice(0, 60).trim();
   if (!name) return res.status(400).json({ error: 'name_required' });
   const id = genId('team_'); const code = genCode();
+  const okey = crypto.randomBytes(8).toString('hex');
   try {
-    await pg.query('INSERT INTO teams (id, name, owner_login, invite_code) VALUES ($1,$2,$3,$4)', [id, name, s.user, code]);
+    await pg.query('INSERT INTO teams (id, name, owner_login, invite_code, overlay_key) VALUES ($1,$2,$3,$4,$5)', [id, name, s.user, code, okey]);
     await pg.query(`INSERT INTO team_members (team_id, login, role, channel) VALUES ($1,$2,'owner',$2)`, [id, s.user]);
     res.json({ ok: true, id, name, invite_code: code });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -277,11 +283,13 @@ app.get('/api/teams/:id', async (req, res) => {
   const id = req.params.id;
   try {
     if (!await isTeamMember(id, s.user)) return res.status(403).json({ error: 'forbidden' });
-    const t = await pg.query('SELECT id, name, owner_login, invite_code FROM teams WHERE id=$1', [id]);
+    const t = await pg.query('SELECT id, name, owner_login, invite_code, overlay_key FROM teams WHERE id=$1', [id]);
     if (!t.rowCount) return res.status(404).json({ error: 'not_found' });
     const mem = await pg.query('SELECT login, role, channel, joined_at FROM team_members WHERE team_id=$1 ORDER BY role DESC, joined_at', [id]);
     const owner = await isTeamOwner(id, s.user);
-    res.json({ ...t.rows[0], members: mem.rows, you_owner: owner });
+    const row = t.rows[0];
+    if (!owner) delete row.overlay_key;   // Overlay-Key nur für Owner
+    res.json({ ...row, members: mem.rows, you_owner: owner });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -401,9 +409,16 @@ async function ensureSchema() {
       display           TEXT,
       avatar            TEXT,
       is_platform_admin BOOLEAN NOT NULL DEFAULT FALSE,
+      access_token      TEXT,
+      refresh_token     TEXT,
+      token_expires     TIMESTAMPTZ,
+      scopes            TEXT,
       created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login        TIMESTAMPTZ
     )`);
+  for (const col of ['access_token TEXT','refresh_token TEXT','token_expires TIMESTAMPTZ','scopes TEXT']) {
+    await pg.query(`ALTER TABLE streamers ADD COLUMN IF NOT EXISTS ${col}`);
+  }
   await pg.query(`
     CREATE TABLE IF NOT EXISTS teams (
       id          TEXT PRIMARY KEY,
@@ -411,9 +426,16 @@ async function ensureSchema() {
       owner_login TEXT NOT NULL,
       invite_code TEXT UNIQUE NOT NULL,
       terms       TEXT,
+      overlay_key TEXT,
       created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )`);
   await pg.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS terms TEXT`);
+  await pg.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS overlay_key TEXT`);
+  // Backfill overlay_key für Bestands-Teams (JS, kein pgcrypto nötig).
+  const miss = await pg.query(`SELECT id FROM teams WHERE overlay_key IS NULL`);
+  for (const row of miss.rows) {
+    await pg.query('UPDATE teams SET overlay_key=$1 WHERE id=$2', [crypto.randomBytes(8).toString('hex'), row.id]);
+  }
   await pg.query(`
     CREATE TABLE IF NOT EXISTS team_members (
       team_id   TEXT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,

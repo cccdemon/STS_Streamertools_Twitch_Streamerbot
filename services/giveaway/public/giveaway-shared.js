@@ -108,7 +108,7 @@
     'gw_ban', 'gw_unban',
     'gw_set_keyword', 'gw_get_keyword',
     'gw_set_multiplier', 'gw_get_multiplier',
-    'gw_get_channels',
+    'gw_get_channels', 'gw_verify_follows',
     'gw_gen_ingest_token', 'gw_get_ingest_tokens', 'gw_revoke_ingest_token'
   ];
 

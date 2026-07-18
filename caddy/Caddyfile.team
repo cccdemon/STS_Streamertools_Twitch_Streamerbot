@@ -23,7 +23,7 @@
         # Everything except the login page, auth endpoints and health
         # requires a valid session cookie. On failure admin returns
         # 302 → /admin/login.html.
-        @needsauth not path /admin/login.html /admin/join.html /admin/help.html /admin/setup.html /admin/terms.html /admin/auth/* /admin/pub/* /health /ingest*
+        @needsauth not path /admin/login.html /admin/join.html /admin/help.html /admin/setup.html /admin/terms.html /admin/auth/* /admin/pub/* /health /ingest* /giveaway/overlay-ws /giveaway/giveaway-overlay* /giveaway/giveaway-join* /giveaway/chaos-crew-overlay.css
         forward_auth @needsauth admin:3005 {
             uri /auth/verify
             copy_headers X-Auth-User X-Auth-Role

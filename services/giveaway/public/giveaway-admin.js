@@ -155,6 +155,10 @@ function handle(msg) {
         document.getElementById('kw-current').textContent = kw || '- (deaktiviert)';
         document.getElementById('kw-input').value = kw;
       }
+      if (msg.type === 'follows_verified') {
+        var uv = (msg.unverified||[]).length ? ' | unverifiziert: ' + msg.unverified.join(',') : '';
+        log('Follows geprüft: ' + (msg.verified||[]).length + ' Kanäle, ' + (msg.mismatches||0) + ' Änderungen' + uv, uv ? 'gold' : 'cyan');
+      }
       if (msg.type === 'winner_drawn') { showWinnerAnimation(msg.winner, msg.watchSec, msg.coins, msg.prize); loadHistory(); }
       if (msg.type === 'no_winner') log('Keine Teilnehmer mit Coins im Pool!', 'red');
       if (msg.type === 'draw_error') log('ZIEHUNG FEHLGESCHLAGEN: ' + (msg.error || '?') + ' – nichts gespeichert, bitte erneut ziehen', 'red');
@@ -411,6 +415,11 @@ function updateStats() {
 // den Gewinner bei der Ziehung selbst; hier nur das explizite Leeren.
 function clearOverlay() {
   send({ event: 'gw_overlay', winner: null });
+}
+
+function verifyFollows() {
+  log('Prüfe Follows via Helix …', 'cyan');
+  send({ event: 'gw_cmd', cmd: 'gw_verify_follows' });
 }
 
 // ── Gewinner-Historie ─────────────────────────────────────

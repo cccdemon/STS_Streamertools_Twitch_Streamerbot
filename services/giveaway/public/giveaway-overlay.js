@@ -7,18 +7,22 @@ var ws            = null;
 var wsRetry       = 2000;
 var winnerTimeout = null;
 
+var _q      = new URLSearchParams(location.search);
+var OV_TEAM = _q.get('team') || '';
+var OV_KEY  = _q.get('key')  || '';
+
 function safeParseLocal(s) {
   try { return JSON.parse(s); } catch (e) { return null; }
 }
 
 function connect() {
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  try { ws = new WebSocket(proto + '//' + location.host + '/giveaway/ws'); }
+  try { ws = new WebSocket(proto + '//' + location.host + '/giveaway/overlay-ws'); }
   catch(e) { scheduleReconnect(); return; }
 
   ws.onopen = function() {
     wsRetry = 2000;
-    ws.send(JSON.stringify({ event: 'gw_overlay_register' }));
+    ws.send(JSON.stringify({ event: 'overlay_subscribe', teamId: OV_TEAM, key: OV_KEY }));
   };
   ws.onmessage = function(e) {
     var msg = safeParseLocal(e.data);

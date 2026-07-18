@@ -99,13 +99,19 @@ function renderTeam(t) {
       + '<button class="ghost" onclick="copyInvite(\''+esc(t.invite_code)+'\')">Kopieren</button>'
       + '<button class="ghost" onclick="rotateInvite(\''+t.id+'\')">Neu</button></div>'
     : '';
+  var overlay = (owner && t.overlay_key)
+    ? '<div class="invite" style="margin-top:10px"><input readonly value="'
+      + esc(location.origin + '/giveaway/giveaway-overlay.html?team=' + t.id + '&key=' + t.overlay_key)
+      + '" onclick="this.select()" title="OBS Browser Source">'
+      + '<button class="ghost" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.previousElementSibling.value)">OBS-Overlay kopieren</button></div>'
+    : '';
   var terms = '<div class="invite" style="margin-top:10px">'
     + '<a class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:6px" href="/admin/terms.html?team='+encodeURIComponent(t.id)+'" target="_blank">Teilnahmebedingungen ansehen</a>'
     + (owner ? '<button class="ghost" onclick="editTerms(\''+t.id+'\')">Bearbeiten</button>' : '')
     + '</div><div id="terms-'+t.id+'"></div>';
   return '<div class="team"><div class="team-head"><span class="team-name">'+esc(t.name)+'</span>'
     + (owner?'<span class="badge">OWNER</span>':'') + '</div>'
-    + '<div class="members">'+members+'</div>' + invite + terms + '</div>';
+    + '<div class="members">'+members+'</div>' + invite + overlay + terms + '</div>';
 }
 
 load();

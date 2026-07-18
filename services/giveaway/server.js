@@ -16,6 +16,7 @@ const http      = require('http');
 const crypto    = require('crypto');
 const { Pool }  = require('pg');
 const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC } = require('./watchtime.js');
+const { Helix } = require('./helix.js');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
 function logErr(tag, ...args) { console.error(`[${tag}]`, ...args); }
@@ -60,6 +61,40 @@ async function pgReady() {
 }
 
 const wte = new WatchtimeEngine(redis, pg);
+const helix = new Helix({
+  clientId:     String(process.env.TWITCH_CLIENT_ID || '').replace(/^"|"$/g, ''),
+  clientSecret: String(process.env.TWITCH_CLIENT_SECRET || '').replace(/^"|"$/g, ''),
+  pg, redis,
+});
+
+// Phase 4: Follows pro Kanal via Helix verifizieren → chFollows autoritativ.
+// Kanäle ohne Owner-Token (Scope nicht erteilt) bleiben permissiv (unverified).
+async function verifyFollows(teamId) {
+  const t = sanitizeTeamId(teamId);
+  const result = { verified: [], unverified: [], mismatches: 0 };
+  if (!helix.configured) { result.unverified = await wte.getChannels(t); return result; }
+  const channels = await wte.getChannels(t);
+  const participants = await wte.getAllParticipants(t);
+  for (const ch of channels) {
+    const token = await helix.validOwnerToken(ch);
+    const bid   = token ? await helix.resolveUserId(ch) : null;
+    if (!token || !bid) { result.unverified.push(ch); continue; }
+    let followerIds;
+    try { followerIds = await helix.getFollowerIds(token, bid); }
+    catch(e) { logErr('Helix', `followers ${ch}:`, e.message); result.unverified.push(ch); continue; }
+    for (const p of participants) {
+      const pc = p.perChannel[ch];
+      if (!pc || pc.coins <= 0) continue;
+      const uid = await helix.resolveUserId(p.username);
+      const follows = uid ? followerIds.has(uid) : false;
+      if (pc.follows !== follows) result.mismatches++;
+      await redis.set(K.chFollows(t, ch, p.username), follows ? '1' : '0');
+    }
+    result.verified.push(ch);
+  }
+  log('Helix', `[${t}] verify: ok=${result.verified.length} unverified=${result.unverified.length} mismatches=${result.mismatches}`);
+  return result;
+}
 
 // ── Team authz ────────────────────────────────────────────
 async function ownsTeam(login, teamId) {
@@ -102,10 +137,17 @@ function broadcastTeam(teamId, obj) {
   for (const [, c] of clients) if (c.teamId === teamId && c.ws.readyState === WebSocket.OPEN) c.ws.send(str);
 }
 
+async function verifyOverlayKey(teamId, key) {
+  if (!teamId || !key) return false;
+  const r = await pg.query('SELECT 1 FROM teams WHERE id=$1 AND overlay_key=$2', [teamId, String(key)]);
+  return r.rowCount > 0;
+}
+
 wss.on('connection', (ws, req) => {
   const clientId = `gw_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const authUser = sanitizeUsername(req.headers['x-auth-user'] || '');
-  const meta = { ws, authUser, teamId: null, role: null, ip: req.socket.remoteAddress, connectedAt: Date.now(), msgCount: 0 };
+  const isOverlay = (req.url || '').indexOf('/overlay-ws') === 0;
+  const authUser = isOverlay ? '' : sanitizeUsername(req.headers['x-auth-user'] || '');
+  const meta = { ws, authUser, teamId: null, overlay: isOverlay, role: null, ip: req.socket.remoteAddress, connectedAt: Date.now(), msgCount: 0 };
   clients.set(clientId, meta);
   log('WS', `Connected: ${clientId} user=${authUser || '?'} (${clients.size} total)`);
 
@@ -133,9 +175,20 @@ async function handleClientMessage(meta, msg) {
   const send = (obj) => meta.ws.readyState === WebSocket.OPEN && meta.ws.send(JSON.stringify(obj));
 
   switch (msg.event) {
+    // OBS-Overlay: public, key-authentifiziert, read-only.
+    case 'overlay_subscribe': {
+      const teamId = sanitizeTeamId(msg.teamId);
+      if (!await verifyOverlayKey(teamId, msg.key)) { send({ event: 'overlay_denied' }); return; }
+      meta.teamId = teamId;
+      meta.overlay = true;
+      send({ event: 'overlay_ok', teamId });
+      send({ event: 'gw_status', status: await wte.isOpen(teamId) ? 'open' : 'closed' });
+      break;
+    }
     // Client wählt ein Team → nur Mitglieder dürfen dessen Daten sehen.
     case 'gw_subscribe':
     case 'gw_get_all': {
+      if (meta.overlay) return;   // Overlays dürfen keine Admin-Daten ziehen
       const teamId = sanitizeTeamId(msg.teamId);
       if (!await isMember(meta.authUser, teamId)) { send({ event: 'gw_ack', type: 'forbidden' }); return; }
       meta.teamId = teamId;
@@ -259,8 +312,15 @@ async function handleAdminCmd(send, msg, meta) {
       send({ event: 'gw_ack', type: 'ingest_revoked', channel: ch });
       break;
     }
+    case 'gw_verify_follows': {
+      const r = await verifyFollows(teamId);
+      send({ event: 'gw_ack', type: 'follows_verified', verified: r.verified, unverified: r.unverified, mismatches: r.mismatches });
+      break;
+    }
     case 'gw_draw_winner': {
       try {
+        // Vor echter Ziehung Follows via Helix verifizieren (Phase 4).
+        if (!msg.test) { try { await verifyFollows(teamId); } catch(e) { logErr('Helix', 'pre-draw verify:', e.message); } }
         const result = await wte.drawWinner(teamId, await sid(), { test: !!msg.test, prize: msg.prize });
         if (!result) { send({ event: 'gw_ack', type: 'no_winner' }); break; }
         send({ event: 'gw_ack', type: 'winner_drawn', winner: result.winner, watchSec: result.watchSec, coins: result.coins, drawId: result.drawId, prize: result.prize });
