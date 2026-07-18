@@ -1,27 +1,33 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// TEAM GIVEAWAY – Bridge Service (giveaway-only fork)
-// Connects to Streamerbot WS (9090), routes giveaway events
-// to Redis Pub/Sub.
+// TEAM GIVEAWAY – Ingest Bridge (inverted, Phase 3b)
+// Public WS SERVER: each channel's Streamerbot connects OUT as a
+// client and authenticates with a per-channel token. The channel is
+// derived from the token (NOT the payload) → spoof-safe. Authenticated
+// events get `channel` injected and are published to Redis.
 //
-// Channels (publish):
-//   ch:giveaway   – viewer_tick, chat_msg, time_cmd, stream_online
-// Channels (subscribe):
-//   ch:chat_reply – forward outbound chat to Streamerbot
+// Bots connect via wss://<host>/ingest (Caddy strips /ingest → "/").
+//   → { event:'ingest_auth', token:'<per-channel-token>' }
+//   ← { event:'ingest_ok', channel } | { event:'ingest_denied' }
+// then normal events: { event:'viewer_tick', user, follows }, ...
+//
+// Redis:
+//   HGET ingest:tokens <token> → channel   (managed by giveaway admin)
+//   publish ch:giveaway
+//   subscribe ch:chat_reply → route to the matching channel's bot(s)
 // ════════════════════════════════════════════════════════
 
-const Redis   = require('ioredis');
+const Redis     = require('ioredis');
 const WebSocket = require('ws');
-const express = require('express');
+const express   = require('express');
+const http      = require('http');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
 function logErr(tag, ...args) { console.error(`[${tag}]`, ...args); }
 
 const CFG = {
-  sbHost:  process.env.SB_HOST  || '192.168.178.39',
-  sbPort:  parseInt(process.env.SB_PORT  || '9090'),
-  port:    parseInt(process.env.PORT     || '3000'),
+  port: parseInt(process.env.PORT || '3000'),
   redis: {
     host:          process.env.REDIS_HOST || 'redis',
     port:          parseInt(process.env.REDIS_PORT || '6379'),
@@ -29,37 +35,30 @@ const CFG = {
     lazyConnect:   true,
     retryStrategy: (t) => Math.min(t * 500, 5000),
   },
-  reconnectDelay: 3000,
 };
 
-// ── Redis: two clients (pub cannot subscribe) ────────────
 const redisPub = new Redis(CFG.redis);
 const redisSub = new Redis(CFG.redis);
+const redis    = new Redis(CFG.redis);   // token lookups
 
 redisPub.on('connect', () => log('Redis', 'Pub connected (DB ' + CFG.redis.db + ')'));
 redisPub.on('error',   (e) => logErr('Redis', 'Pub error:', e.message));
-redisSub.on('connect', () => log('Redis', 'Sub connected'));
 redisSub.on('error',   (e) => logErr('Redis', 'Sub error:', e.message));
+redis.on('error',      (e) => logErr('Redis', 'Main error:', e.message));
 
 async function redisReady() {
   for (let i = 0; i < 30; i++) {
     try {
-      await redisPub.connect();
-      await redisPub.ping();
-      await redisSub.connect();
+      await redisPub.connect(); await redisPub.ping();
+      await redisSub.connect(); await redis.connect();
       log('Redis', 'Ready');
       return;
-    } catch(e) {
-      log('Redis', `Waiting... (${i + 1}/30)`);
-      await sleep(2000);
-    }
+    } catch(e) { log('Redis', `Waiting... (${i + 1}/30)`); await sleep(2000); }
   }
   throw new Error('Redis: Could not connect');
 }
 
-// ── Event routing table ───────────────────────────────────
-// event → channel(s) to publish on
-// Giveaway-only fork: non-giveaway events (spacefight/alerts/chat/ads) removed.
+// event → Redis channel(s). Giveaway-only fork.
 const ROUTES = {
   viewer_tick:   ['ch:giveaway'],
   chat_msg:      ['ch:giveaway'],
@@ -68,90 +67,106 @@ const ROUTES = {
   cc_debug:      ['ch:giveaway'],
 };
 
-// ── Streamerbot WS Client ─────────────────────────────────
-let sbWs = null;
+// ── WS ingest server ──────────────────────────────────────
+const app    = express();
+const server = http.createServer(app);
+const wss    = new WebSocket.Server({ server });
+const clients = new Map();   // ws → { channel, ip, authed, connectedAt }
 
-function connectToStreamerbot() {
-  if (sbWs) { try { sbWs.terminate(); } catch(e) {} }
+function connectedChannels() {
+  const out = {};
+  for (const [, c] of clients) if (c.authed) out[c.channel] = (out[c.channel] || 0) + 1;
+  return out;
+}
 
-  const url = `ws://${CFG.sbHost}:${CFG.sbPort}`;
-  log('SB', 'Connecting to', url);
-  sbWs = new WebSocket(url);
+wss.on('connection', (ws, req) => {
+  const meta = { channel: null, ip: req.socket.remoteAddress, authed: false, connectedAt: Date.now() };
+  clients.set(ws, meta);
+  log('Ingest', `Connect ${meta.ip} (${clients.size} total)`);
 
-  sbWs.on('open', () => {
-    log('SB', 'Connected');
-    sbWs.send(JSON.stringify({ event: 'cc_api_register' }));
-  });
+  // Auth-Timeout: unauthenticated Verbindung nach 10s schließen.
+  const authTimer = setTimeout(() => { if (!meta.authed) { try { ws.close(); } catch(e){} } }, 10000);
 
-  sbWs.on('message', async (data) => {
+  ws.on('message', async (data) => {
     let msg;
     try { msg = JSON.parse(data.toString()); } catch { return; }
     if (!msg || !msg.event) return;
 
-    const channels = ROUTES[msg.event];
-    if (!channels) {
-      log('SB', `← ${msg.event} (unrouted)`);
+    if (!meta.authed) {
+      if (msg.event !== 'ingest_auth') return;   // ignore until authed
+      const token = String(msg.token || '');
+      const channel = token ? await redis.hget('ingest:tokens', token) : null;
+      if (!channel) {
+        log('Ingest', `Auth denied from ${meta.ip}`);
+        safeSend(ws, { event: 'ingest_denied' });
+        try { ws.close(); } catch(e) {}
+        return;
+      }
+      meta.authed = true;
+      meta.channel = channel;
+      clearTimeout(authTimer);
+      log('Ingest', `Auth OK ${meta.ip} → channel "${channel}"`);
+      safeSend(ws, { event: 'ingest_ok', channel });
       return;
     }
 
-    log('SB', `← ${msg.event} → [${channels.join(', ')}]`);
+    // authenticated: inject channel from the TOKEN (never the payload)
+    const channels = ROUTES[msg.event];
+    if (!channels) { log('Ingest', `${msg.event} (unrouted)`); return; }
+    msg.channel = meta.channel;
     const payload = JSON.stringify(msg);
-    for (const ch of channels) {
-      redisPub.publish(ch, payload).catch(e => logErr('Pub', ch, e.message));
-    }
+    log('Ingest', `← [${meta.channel}] ${msg.event}${msg.user ? ' (' + msg.user + ')' : ''}`);
+    for (const ch of channels) redisPub.publish(ch, payload).catch(e => logErr('Pub', ch, e.message));
   });
 
-  sbWs.on('close', () => {
-    log('SB', `Disconnected, reconnecting in ${CFG.reconnectDelay}ms`);
-    setTimeout(connectToStreamerbot, CFG.reconnectDelay);
+  ws.on('close', () => {
+    clients.delete(ws);
+    clearTimeout(authTimer);
+    log('Ingest', `Disconnect ${meta.channel || meta.ip} (${clients.size} remaining)`);
   });
+  ws.on('error', (e) => logErr('Ingest', e.message));
+});
 
-  sbWs.on('error', (e) => logErr('SB', e.message));
+function safeSend(ws, obj) {
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
-function sbSend(obj) {
-  if (sbWs && sbWs.readyState === WebSocket.OPEN)
-    sbWs.send(JSON.stringify(obj));
-}
-
-// ── Subscribe ch:chat_reply → forward to Streamerbot ─────
+// ── ch:chat_reply → route to the matching channel's bot(s) ──
 function subscribeToReplies() {
   redisSub.subscribe('ch:chat_reply', (err) => {
     if (err) { logErr('Sub', 'chat_reply:', err.message); return; }
     log('Sub', 'Subscribed to ch:chat_reply');
   });
-
   redisSub.on('message', (channel, payload) => {
     if (channel !== 'ch:chat_reply') return;
-    try {
-      const msg = JSON.parse(payload);
-      sbSend(msg);
-      log('SB', `→ chat_reply: ${msg.message?.substring(0, 60) || '?'}`);
-    } catch(e) {
-      logErr('Sub', 'Bad chat_reply payload:', e.message);
+    let msg;
+    try { msg = JSON.parse(payload); } catch { return; }
+    const target = msg.channel ? String(msg.channel) : null;
+    let sent = 0;
+    for (const [ws, c] of clients) {
+      if (!c.authed) continue;
+      if (target && c.channel !== target) continue;   // route to the origin channel
+      safeSend(ws, msg);
+      sent++;
     }
+    log('Ingest', `→ chat_reply${target ? ' [' + target + ']' : ' (all)'} to ${sent} bot(s): ${(msg.message || '').substring(0, 50)}`);
   });
 }
 
-// ── Health endpoint ───────────────────────────────────────
-const app = express();
-
+// ── Health ────────────────────────────────────────────────
 app.get('/health', async (req, res) => {
   try {
     await redisPub.ping();
-    const sbStatus = sbWs && sbWs.readyState === WebSocket.OPEN ? 'connected' : 'disconnected';
-    res.json({ status: 'ok', redis: 'ok', streamerbot: sbStatus });
+    res.json({ status: 'ok', redis: 'ok', ingest_channels: connectedChannels() });
   } catch(e) {
     res.status(503).json({ status: 'error', error: e.message });
   }
 });
 
-// ── Start ─────────────────────────────────────────────────
 async function main() {
   await redisReady();
   subscribeToReplies();
-  connectToStreamerbot();
-  app.listen(CFG.port, () => log('Bridge', `Health on port ${CFG.port}`));
+  server.listen(CFG.port, () => log('Bridge', `Ingest WS + health on port ${CFG.port}`));
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }

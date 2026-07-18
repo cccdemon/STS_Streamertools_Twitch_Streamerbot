@@ -73,7 +73,12 @@ function send(obj) {
   else log('WS nicht verbunden', 'red');
 }
 
-function requestData() { send({ event: 'gw_get_all' }); send({ event: 'gw_cmd', cmd: 'gw_get_multiplier' }); }
+function requestData() {
+  send({ event: 'gw_get_all' });
+  send({ event: 'gw_cmd', cmd: 'gw_get_multiplier' });
+  send({ event: 'gw_cmd', cmd: 'gw_get_channels' });
+  send({ event: 'gw_cmd', cmd: 'gw_get_ingest_tokens' });
+}
 
 setInterval(() => { if (gwWs && gwWs.readyState === 1) requestData(); }, 10000);
 
@@ -103,9 +108,16 @@ function handle(msg) {
       updateGwStatus();
       break;
 
-    case 'gw_ack':
-      log(`ACK: ${msg.type} -> ${msg.user || msg.keyword || msg.winner || ''}`, 'cyan');
-      if (msg.type === 'keyword_set' || msg.type === 'keyword') {
+    case 'gw_ack': {
+      log(`ACK: ${msg.type} -> ${msg.user || msg.keyword || msg.winner || msg.channel || ''}`, 'cyan');
+      // Read-only Antworten (NIE requestData → sonst Endlosschleife)
+      if (msg.type === 'channels')      { ingestChannels = msg.channels || []; renderIngest(); break; }
+      if (msg.type === 'ingest_tokens') { ingestTokens = {}; (msg.tokens || []).forEach(t => ingestTokens[t.channel] = t.token); renderIngest(); break; }
+      if (msg.type === 'ingest_token')  { ingestTokens[msg.channel] = msg.token; renderIngest(); break; }
+      if (msg.type === 'ingest_revoked') { delete ingestTokens[msg.channel]; renderIngest(); break; }
+      if (msg.type === 'keyword') { const kw = msg.keyword || ''; document.getElementById('kw-current').textContent = kw || '- (deaktiviert)'; document.getElementById('kw-input').value = kw; break; }
+      // Mutations
+      if (msg.type === 'keyword_set') {
         const kw = msg.keyword || '';
         document.getElementById('kw-current').textContent = kw || '- (deaktiviert)';
         document.getElementById('kw-input').value = kw;
@@ -115,6 +127,7 @@ function handle(msg) {
       if (msg.type === 'draw_error') log('ZIEHUNG FEHLGESCHLAGEN: ' + (msg.error || '?') + ' – nichts gespeichert, bitte erneut ziehen', 'red');
       requestData();
       break;
+    }
 
     case 'gw_keyword': {
       const kw2 = msg.keyword || '';
@@ -170,6 +183,34 @@ function updateMultiplierUI(factor, secondsLeft) {
   };
   render();
   _multTimer = setInterval(render, 1000);
+}
+
+// ── Stream-Verbindungen (Ingest-Token) ────────────────────
+var ingestChannels = [];
+var ingestTokens = {};
+
+function renderIngest() {
+  var urlEl = document.getElementById('ingest-url');
+  if (urlEl) urlEl.textContent = 'wss://' + location.host + '/ingest';
+  var el = document.getElementById('ingest-list');
+  if (!el) return;
+  var chans = ingestChannels.length ? ingestChannels : Object.keys(ingestTokens);
+  if (!chans.length) { el.innerHTML = '<div class="wsc-empty">Keine Kanäle konfiguriert</div>'; return; }
+  el.innerHTML = chans.map(function(ch) {
+    var tok = ingestTokens[ch];
+    var right = tok
+      ? '<input class="ingest-tok" readonly value="' + tok + '" onclick="this.select()" style="flex:1;min-width:0;font-size:11px;">'
+        + '<button class="btn btn-gold btn-sm" onclick="genIngestToken(\'' + ch + '\')">NEU</button>'
+      : '<span style="flex:1;opacity:.5">kein Token</span>'
+        + '<button class="btn btn-cyan btn-sm" onclick="genIngestToken(\'' + ch + '\')">GENERIEREN</button>';
+    return '<div class="ingest-row" style="display:flex;gap:6px;align-items:center;margin:5px 0;">'
+      + '<b style="width:118px;overflow:hidden;text-overflow:ellipsis">' + ch + '</b>' + right + '</div>';
+  }).join('');
+}
+
+function genIngestToken(ch) {
+  send({ event: 'gw_cmd', cmd: 'gw_gen_ingest_token', channel: ch });
+  log('Ingest-Token für ' + ch + ' generiert', 'cyan');
 }
 
 function renderWsClients(list) {

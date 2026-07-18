@@ -23,7 +23,7 @@
         # Everything except the login page, auth endpoints and health
         # requires a valid session cookie. On failure admin returns
         # 302 → /admin/login.html.
-        @needsauth not path /admin/login.html /admin/auth/* /health
+        @needsauth not path /admin/login.html /admin/auth/* /health /ingest*
         forward_auth @needsauth admin:3005 {
             uri /auth/verify
             copy_headers X-Auth-User X-Auth-Role

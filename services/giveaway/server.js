@@ -274,6 +274,33 @@ async function handleAdminCmd(send, msg) {
       send({ event: 'gw_ack', type: 'channels', channels: await wte.getChannels() });
       break;
     }
+    case 'gw_gen_ingest_token': {
+      const ch = sanitizeUsername(msg.channel);
+      if (!ch) return;
+      const token = require('crypto').randomBytes(24).toString('base64url');
+      const old = await redis.hget('ingest:channel_token', ch);
+      if (old) await redis.hdel('ingest:tokens', old);   // alten Token entwerten
+      await redis.hset('ingest:tokens', token, ch);
+      await redis.hset('ingest:channel_token', ch, token);
+      log('Ingest', `Token generiert für ${ch}`);
+      send({ event: 'gw_ack', type: 'ingest_token', channel: ch, token });
+      break;
+    }
+    case 'gw_get_ingest_tokens': {
+      const map = await redis.hgetall('ingest:channel_token');
+      send({ event: 'gw_ack', type: 'ingest_tokens',
+             tokens: Object.entries(map).map(([channel, token]) => ({ channel, token })) });
+      break;
+    }
+    case 'gw_revoke_ingest_token': {
+      const ch = sanitizeUsername(msg.channel);
+      if (!ch) return;
+      const old = await redis.hget('ingest:channel_token', ch);
+      if (old) await redis.hdel('ingest:tokens', old);
+      await redis.hdel('ingest:channel_token', ch);
+      send({ event: 'gw_ack', type: 'ingest_revoked', channel: ch });
+      break;
+    }
     case 'gw_draw_winner': {
       try {
         const sid = currentSessionId || await redis.get(K.gwSessionId());
@@ -342,11 +369,11 @@ function subscribeToGiveaway() {
           if (result.isNew) {
             log('GW', 'Opt-in:', u);
             broadcastAll({ event: 'gw_join', user: u });
-            redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply',
+            redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
               message: `@${u} Du bist im Giveaway-Lostopf! 🎟 ${result.coins.toFixed(2)} Punkte.` }));
           }
         } else if (result && result.registered === false && result.needCoins) {
-          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply',
+          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
             message: `@${u} Noch nicht genug: ${result.haveCoins.toFixed(2)}/${result.needCoins} Punkt. Schau weiter zu & schreib sinnvoll im Chat!` }));
         }
         if (result && result.added) {
@@ -377,7 +404,7 @@ function subscribeToGiveaway() {
             reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu & schreib sinnvoll im Chat (folge ≥2 Kanälen).`;
           }
         }
-        redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', message: reply }));
+        redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: reply }));
         break;
       }
     }
