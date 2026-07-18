@@ -189,10 +189,12 @@
     { sep: true },
     { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
-    { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'gold' },
+    { href: '/admin/users.html',             label: 'BENUTZER',     group: 'tools' },
     { sep: true },
     { href: '/giveaway/giveaway-overlay.html',      label: 'GW OVERLAY', group: 'obs', obs: true },
     { href: '/giveaway/giveaway-join.html?test=1',  label: 'JOIN ANIM',  group: 'obs', obs: true },
+    { sep: true },
+    { href: '#logout', label: 'LOGOUT', group: 'tools', logout: true },
   ];
 
   var currentPage = window.location.pathname.replace(/^\/+/, '');
@@ -232,7 +234,15 @@
       (p.color ? ' ' + p.color : '') +
       (isCurrent ? ' active' : '');
 
-    if (p.obs) {
+    if (p.logout) {
+      a.textContent = p.label;
+      a.addEventListener('click', function(ev) {
+        ev.preventDefault();
+        fetch('/admin/auth/logout', { method: 'POST' })
+          .catch(function(){})
+          .then(function(){ window.location.href = '/admin/login.html'; });
+      });
+    } else if (p.obs) {
       a.innerHTML = p.label + '<span class="nav-obs">OBS</span>';
       a.target = '_blank';
     } else {
