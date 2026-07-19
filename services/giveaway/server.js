@@ -33,6 +33,13 @@ const CFG = {
     host: process.env.PG_HOST || 'postgres', port: parseInt(process.env.PG_PORT || '5432'),
     database: process.env.PG_DB || 'chaoscrew', user: process.env.PG_USER || 'chaoscrew',
     password: process.env.PG_PASSWORD || 'changeme', max: 10, idleTimeoutMillis: 30000,
+    // Selbstheilung: tote Connections (z.B. nach Postgres-Neustart) dürfen
+    // Queries nicht ewig blockieren, sonst wedged der Pool → Server hängt.
+    keepAlive: true,
+    connectionTimeoutMillis: 8000,   // Acquire-Timeout (keine freie Connection)
+    query_timeout: 20000,            // Query bricht ab statt ewig zu hängen
+    statement_timeout: 20000,        // Server-seitiges Limit
+    idle_in_transaction_session_timeout: 20000,
   },
 };
 
@@ -119,6 +126,12 @@ async function isMember(login, teamId) {
   if (!login || !teamId) return false;
   const r = await pg.query(`SELECT 1 FROM team_members WHERE team_id=$1 AND login=$2`, [teamId, login]);
   return r.rowCount > 0;
+}
+// Kanal dieses Members (für „eigener Kanal"-Rechte).
+async function memberChannel(login, teamId) {
+  if (!login || !teamId) return null;
+  const r = await pg.query(`SELECT channel FROM team_members WHERE team_id=$1 AND login=$2`, [teamId, login]);
+  return r.rows[0] ? sanitizeChannel(r.rows[0].channel) : null;
 }
 
 // ── Session (per team) ────────────────────────────────────
@@ -264,9 +277,19 @@ async function handleClientMessage(meta, msg) {
   }
 }
 
+// Cmds die ein Member (nicht-Owner) darf: nur lesen + EIGENEN Ingest-Token.
+const MEMBER_CMDS = new Set([
+  'gw_get_channels', 'gw_get_multiplier', 'gw_get_stream_settings', 'gw_get_keyword',
+  'gw_get_ingest_tokens', 'gw_gen_ingest_token',
+]);
 async function handleAdminCmd(send, msg, meta) {
   const teamId = sanitizeTeamId(msg.teamId);
-  if (!await ownsTeam(meta.authUser, teamId)) { send({ event: 'gw_ack', type: 'forbidden' }); return; }
+  const owner = await ownsTeam(meta.authUser, teamId);
+  if (!owner) {
+    if (!MEMBER_CMDS.has(msg.cmd) || !await isMember(meta.authUser, teamId)) {
+      send({ event: 'gw_ack', type: 'forbidden' }); return;
+    }
+  }
   const sid = () => wte.getSessionId(teamId);
 
   switch (msg.cmd) {
@@ -318,9 +341,12 @@ async function handleAdminCmd(send, msg, meta) {
     case 'gw_get_keyword':
       send({ event: 'gw_ack', type: 'keyword', keyword: await redis.get(K.gwKeyword(teamId)) || '' });
       break;
-    case 'gw_get_channels':
-      send({ event: 'gw_ack', type: 'channels', channels: await wte.getChannels(teamId) });
+    case 'gw_get_channels': {
+      let channels = await wte.getChannels(teamId);
+      if (!owner) { const my = await memberChannel(meta.authUser, teamId); channels = channels.filter(c => c === my); }
+      send({ event: 'gw_ack', type: 'channels', channels });
       break;
+    }
     case 'gw_add_ticket': {
       const u = sanitizeUsername(msg.user); if (!u) return;
       await wte.registerUser(teamId, u);
@@ -364,6 +390,7 @@ async function handleAdminCmd(send, msg, meta) {
     }
     case 'gw_gen_ingest_token': {
       const ch = sanitizeChannel(msg.channel); if (!ch) return;
+      if (!owner) { const my = await memberChannel(meta.authUser, teamId); if (ch !== my) { send({ event: 'gw_ack', type: 'forbidden' }); return; } }
       const key = teamId + '::' + ch;
       const token = crypto.randomBytes(24).toString('base64url');
       const old = await redis.hget('ingest:team_tokens', key);
@@ -375,9 +402,9 @@ async function handleAdminCmd(send, msg, meta) {
     }
     case 'gw_get_ingest_tokens': {
       const map = await redis.hgetall('ingest:team_tokens');
-      const tokens = Object.entries(map)
-        .filter(([k]) => k.startsWith(teamId + '::'))
-        .map(([k, token]) => ({ channel: k.split('::')[1], token }));
+      let entries = Object.entries(map).filter(([k]) => k.startsWith(teamId + '::'));
+      if (!owner) { const my = await memberChannel(meta.authUser, teamId); entries = entries.filter(([k]) => k.split('::')[1] === my); }
+      const tokens = entries.map(([k, token]) => ({ channel: k.split('::')[1], token }));
       send({ event: 'gw_ack', type: 'ingest_tokens', tokens });
       break;
     }

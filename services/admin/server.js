@@ -42,6 +42,13 @@ const CFG = {
     password: process.env.PG_PASSWORD || 'changeme',
     max: 5,
     idleTimeoutMillis: 30000,
+    // Selbstheilung: tote Connections (Postgres-Neustart) dürfen forward_auth
+    // nicht ewig blockieren — sonst hängt die ganze Domain.
+    keepAlive: true,
+    connectionTimeoutMillis: 8000,
+    query_timeout: 15000,
+    statement_timeout: 15000,
+    idle_in_transaction_session_timeout: 15000,
   },
   sessionSecret:  process.env.SESSION_SECRET || '',
   cookieSecure:   process.env.COOKIE_SECURE !== 'false',
