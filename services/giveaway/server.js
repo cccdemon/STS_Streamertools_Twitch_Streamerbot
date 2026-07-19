@@ -445,13 +445,18 @@ function subscribeToGiveaway() {
       case 'chat_msg': {
         const result = await wte.handleChatMessage(teamId, msg.channel, msg.user, msg.message, msg.follows);
         const u = sanitizeUsername(msg.user);
-        if (result && result.registered === true && result.isNew) {
+        if (result && result.isNew) {
           broadcastTeam(teamId, { event: 'gw_join', user: u });
-          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
-            message: `@${u} Du bist dabei! Deine Gewinnchance steigt mit Zuschauzeit + Chat.` }));
-        } else if (result && result.registered === false && result.needCoins) {
-          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel,
-            message: `@${u} Noch nicht genug: ${result.haveCoins.toFixed(2)}/${result.needCoins} Punkt. Schau weiter zu & schreib sinnvoll im Chat!` }));
+          let reply;
+          if (result.eligible) {
+            reply = `@${u} Du bist dabei & im Lostopf ✅ (${result.coins.toFixed(2)} Punkte). Weiter zuschauen + sinnvoll chatten erhöht deine Chance!`;
+          } else {
+            const need = [];
+            if (result.channelsFollowed < result.followMin) need.push(`folge mind. ${result.followMin} Kanälen`);
+            if (result.coins < 1) need.push(`sammle 2h Zuschauzeit (zuschauen + sinnvoll chatten)`);
+            reply = `@${u} Angemeldet ✅ — für den Lostopf noch nötig: ${need.join(' + ')}. Stand: !los`;
+          }
+          redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: reply }));
         }
         if (result && result.added) broadcastTeam(teamId, { event: 'wt_update', user: u, channel: result.channel, watchSec: result.watchSec, coins: result.coins });
         break;

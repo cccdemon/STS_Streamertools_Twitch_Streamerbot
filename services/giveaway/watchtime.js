@@ -252,10 +252,9 @@ class WatchtimeEngine {
   }
 
   async _tryRegister(teamId, username, displayName) {
-    const agg = await this.getUserAggregate(teamId, username);
-    if (agg.totalCoins < JOIN_MIN_COINS) {
-      return { registered: false, needCoins: JOIN_MIN_COINS, haveCoins: agg.totalCoins };
-    }
+    // Opt-in per Keyword: JEDER kann sich anmelden (= Zustimmung Regeln).
+    // Für den Lostopf zählt separat die Berechtigung (Follows + ≥2h Viewtime),
+    // siehe getUserAggregate.eligible.
     const already = await this.redis.get(K.gwRegistered(teamId, username));
     await this.redis.set(K.gwRegistered(teamId, username), '1');
     await this._touchUser(teamId, username);
@@ -263,7 +262,9 @@ class WatchtimeEngine {
       INSERT INTO users (username, display) VALUES ($1, $2)
       ON CONFLICT (username) DO UPDATE SET display = EXCLUDED.display, last_seen = NOW()
     `, [username, sanitizeStr(displayName, 50) || username]);
-    return { registered: true, isNew: !already, coins: agg.totalCoins };
+    const agg = await this.getUserAggregate(teamId, username);
+    return { registered: true, isNew: !already, coins: agg.totalCoins,
+             eligible: agg.eligible, followMin: agg.followMin, channelsFollowed: agg.channelsFollowed };
   }
 
   async registerUser(teamId, username) {

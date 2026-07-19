@@ -36,9 +36,12 @@ Ausgeschlossen sind die Veranstalter, an der Durchführung Beteiligte, automatis
 Accounts (Bots) sowie Personen, die gegen diese Bedingungen verstoßen.
 
 ## § 4 Teilnahme & Gewinnchance
-1. **Folge mindestens zwei (2)** der in § 1 genannten Kanäle.
-2. **Teilnahme aktivieren:** sobald du aktiv teilnimmst (folgst + Zuschauzeit + sinnvoller Chat), gibst du durch Eingabe des **Keywords** im Chat deine Teilnahme ab (= Zustimmung zu diesen Bedingungen). Ab diesem Zeitpunkt bist du **im Lostopf**. Deinen Stand prüfst du jederzeit mit **`!los`** oder auf deiner Statusseite.
-3. **Deine Gewinnchance** ergibt sich aus deiner **aktiven Teilnahme** und steigt mit:
+1. **Anmelden (Opt-in):** Gib das **Keyword** im Chat ein. Damit stimmst du diesen Bedingungen zu und bist angemeldet — das kann **jeder**.
+2. **Berücksichtigt für die Ziehung** (Aufnahme in den Lostopf) wirst du erst, wenn du zusätzlich **beides** erfüllst:
+   * du **folgst mindestens zwei (2)** der in § 1 genannten Kanäle, **und**
+   * du hast **mindestens 2 Stunden Zuschauzeit (Viewtime)** gesammelt.
+   Diese 2 Stunden erreichst du durch **Zuschauen** **und** **sinnvolles Chatten** (Nachrichten mit mehr als drei Wörtern geben zusätzliche Viewtime) — beides zählt auf **dasselbe Konto**, egal auf welchem teilnehmenden Kanal. Ohne diese 2 Stunden bleibst du zwar angemeldet, wirst aber **nicht** in den Lostopf aufgenommen. Deinen Stand prüfst du jederzeit mit **`!los`** oder auf deiner Statusseite.
+3. **Deine Gewinnchance** ergibt sich aus deiner **aktiven Teilnahme** und steigt (über die 2 Stunden hinaus) weiter mit:
    * **Zuschauzeit (Viewtime)** auf den teilnehmenden Kanälen, und
    * **sinnvoller Chatbeteiligung** (Nachrichten mit **mehr als drei Wörtern**).
    Zuschauzeit und Chat zählen auf **dasselbe Konto**. Es werden **keine „Lose" oder Tickets** vergeben — je mehr aktive Teilnahme, desto höher die Chance.
