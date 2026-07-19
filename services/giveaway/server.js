@@ -198,7 +198,6 @@ async function handleClientMessage(meta, msg) {
       break;
     }
     // Client wählt ein Team → nur Mitglieder dürfen dessen Daten sehen.
-    case 'gw_subscribe':
     case 'gw_get_all': {
       if (meta.overlay) return;   // Overlays dürfen keine Admin-Daten ziehen
       const teamId = sanitizeTeamId(msg.teamId);
@@ -325,15 +324,6 @@ async function handleAdminCmd(send, msg, meta) {
         .filter(([k]) => k.startsWith(teamId + '::'))
         .map(([k, token]) => ({ channel: k.split('::')[1], token }));
       send({ event: 'gw_ack', type: 'ingest_tokens', tokens });
-      break;
-    }
-    case 'gw_revoke_ingest_token': {
-      const ch = sanitizeChannel(msg.channel); if (!ch) return;
-      const key = teamId + '::' + ch;
-      const old = await redis.hget('ingest:team_tokens', key);
-      if (old) await redis.hdel('ingest:tokens', old);
-      await redis.hdel('ingest:team_tokens', key);
-      send({ event: 'gw_ack', type: 'ingest_revoked', channel: ch });
       break;
     }
     case 'gw_verify_follows': {

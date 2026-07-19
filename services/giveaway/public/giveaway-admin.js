@@ -11,7 +11,7 @@ function parseDec(v) {
 
 // ── State ─────────────────────────────────────────────────
 let currentTeam  = null;
-const TEAM_EVENTS = { gw_cmd:1, gw_get_all:1, gw_subscribe:1, gw_overlay:1, viewer_tick:1, chat_msg:1, time_cmd:1 };
+const TEAM_EVENTS = { gw_cmd:1, gw_get_all:1, gw_overlay:1, viewer_tick:1, chat_msg:1, time_cmd:1 };
 let participants = {};
 let gwIsOpen     = false;
 let gwPaused     = false;
@@ -151,7 +151,6 @@ function handle(msg) {
       if (msg.type === 'channels')      { ingestChannels = msg.channels || []; renderIngest(); break; }
       if (msg.type === 'ingest_tokens') { ingestTokens = {}; (msg.tokens || []).forEach(t => ingestTokens[t.channel] = t.token); renderIngest(); break; }
       if (msg.type === 'ingest_token')  { ingestTokens[msg.channel] = msg.token; renderIngest(); break; }
-      if (msg.type === 'ingest_revoked') { delete ingestTokens[msg.channel]; renderIngest(); break; }
       if (msg.type === 'keyword') { const kw = msg.keyword || ''; document.getElementById('kw-current').textContent = kw || '- (deaktiviert)'; document.getElementById('kw-input').value = kw; break; }
       // Mutations
       if (msg.type === 'keyword_set') {
@@ -170,23 +169,8 @@ function handle(msg) {
       break;
     }
 
-    case 'gw_keyword': {
-      const kw2 = msg.keyword || '';
-      document.getElementById('kw-current').textContent = kw2 || '- (deaktiviert)';
-      document.getElementById('kw-input').value = kw2;
-      break;
-    }
-
     case 'gw_multiplier':
       updateMultiplierUI(parseFloat(msg.factor) || 1, parseInt(msg.secondsLeft) || 0);
-      break;
-
-    case 'ws_clients':
-      renderWsClients(msg.clients || []);
-      break;
-
-    case 'ws_traffic':
-      appendWsTraffic(msg);
       break;
   }
 }
@@ -306,34 +290,6 @@ function renderIngest() {
 function genIngestToken(ch) {
   send({ event: 'gw_cmd', cmd: 'gw_gen_ingest_token', channel: ch });
   log('Ingest-Token für ' + ch + ' generiert', 'cyan');
-}
-
-function renderWsClients(list) {
-  const el = document.getElementById('ws-clients-list');
-  if (!el) return;
-  if (!list.length) { el.innerHTML = '<div class="wsc-empty">Keine Clients verbunden</div>'; return; }
-  const now = Date.now();
-  el.innerHTML = list.map(c => {
-    const ago = Math.floor((now - c.connectedAt) / 1000);
-    const t = ago < 60 ? ago + 's' : Math.floor(ago / 60) + 'm';
-    const short = c.id.slice(-5);
-    return `<div class="wsc-row">
-      <span class="wsc-role">${esc(c.role)}</span>
-      <span class="wsc-id">${short}</span>
-      <span class="wsc-meta">${t} · ${c.msgCount} msg</span>
-    </div>`;
-  }).join('');
-}
-
-function appendWsTraffic(msg) {
-  const el = document.getElementById('ws-traffic-log');
-  if (!el) return;
-  const short = (msg.clientId || '').slice(-5);
-  const e = document.createElement('div');
-  e.className = 'wst-row';
-  e.textContent = `[${short}] ${esc(msg.role)} → ${esc(msg.msgEvent)}`;
-  el.insertBefore(e, el.firstChild);
-  while (el.children.length > 50) el.removeChild(el.lastChild);
 }
 
 // ── Giveaway Controls ─────────────────────────────────────

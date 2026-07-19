@@ -185,17 +185,11 @@ tbody td:last-child { text-align:right; }
 .hist-toggle { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--dim); margin-bottom:8px; cursor:pointer; }
 .hist-row:last-child { border-bottom:none !important; }
 
-/* ── Live: clients / log / traffic ──────────────────────── */
-.wsc-row { display:flex; gap:8px; align-items:baseline; padding:4px 0; border-bottom:1px solid rgba(0,212,255,.05); font-family:var(--mono); font-size:10px; }
-.wsc-role { color:var(--cyan); flex:1; }
-.wsc-id { color:var(--dim2); font-size:9px; }
-.wsc-meta { color:rgba(200,220,232,.28); font-size:9px; }
+/* ── Event log ──────────────────────────────────────────── */
 .wsc-empty { color:var(--dim); font-style:italic; font-family:var(--mono); font-size:10px; }
-.event-log { font-family:var(--mono); font-size:10px; max-height:150px; overflow-y:auto; background:var(--sunk); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
+.event-log { font-family:var(--mono); font-size:10px; max-height:180px; overflow-y:auto; background:var(--sunk); border:1px solid var(--border); border-radius:6px; padding:8px 10px; }
 .log-e { padding:2px 0; color:var(--dim); }
 .log-e.cyan { color:var(--cyan); } .log-e.gold { color:var(--gold); } .log-e.red { color:var(--red); }
-.traffic-log { max-height:90px; overflow-y:auto; }
-.wst-row { font-family:var(--mono); font-size:10px; padding:2px 0; border-bottom:1px solid rgba(0,212,255,.04); color:rgba(200,220,232,.4); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ── Scrollbar ──────────────────────────────────────────── */
 ::-webkit-scrollbar { width:9px; height:9px; }

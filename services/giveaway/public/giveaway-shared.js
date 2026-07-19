@@ -93,7 +93,7 @@
   }
 
   var ALLOWED_EVENTS = [
-    'gw_get_all', 'gw_subscribe', 'gw_cmd', 'gw_overlay', 'gw_join',
+    'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
     'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
     'gw_multiplier', 'wt_update',
     'chat_msg', 'viewer_tick',
@@ -109,7 +109,7 @@
     'gw_set_keyword', 'gw_get_keyword',
     'gw_set_multiplier', 'gw_get_multiplier',
     'gw_get_channels', 'gw_verify_follows',
-    'gw_gen_ingest_token', 'gw_get_ingest_tokens', 'gw_revoke_ingest_token'
+    'gw_gen_ingest_token', 'gw_get_ingest_tokens'
   ];
 
   function validateWsPayload(obj) {

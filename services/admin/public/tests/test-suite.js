@@ -7,7 +7,6 @@
   //   • CC.validate (admin-shared.js) – Sanitizing/Validation
   //   • Giveaway-Admin (giveaway-admin.js) – WS-Payloads, State, Rendering-Mathe
   //   • Navigation (admin-shared.js)
-  //   • Spacefight (spacefight.js) – reine Hilfsfunktionen
   // WS wird gestubbt (gwWs), DOM-Seiteneffekte werden isoliert.
   // ════════════════════════════════════════════════════════
 

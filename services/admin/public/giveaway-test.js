@@ -5,7 +5,7 @@
 // ════════════════════════════════════════════════════════
 
 var SECS_PER_COIN = 7200;
-var CHAT_BONUS    = 5;
+var CHAT_BONUS    = 0.5;
 var ws = null;
 var wsRetry = 2000;
 var wsRetryTimer = null;
