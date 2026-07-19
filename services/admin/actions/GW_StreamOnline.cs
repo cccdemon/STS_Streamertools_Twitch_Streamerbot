@@ -1,5 +1,5 @@
 // Action: "GW – Stream Online"
-// Trigger: Twitch → Stream → Online
+// Trigger: Twitch → Channel → Stream Online
 //
 // Meldet dem Server, dass dieser Kanal jetzt live ist. Der Server kann
 // das Giveaway automatisch starten/fortsetzen (einstellbar im Admin-Panel

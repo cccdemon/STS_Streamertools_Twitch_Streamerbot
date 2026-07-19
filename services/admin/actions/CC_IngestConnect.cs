@@ -1,5 +1,5 @@
 // Action: "CC – Ingest Connect / Auth"
-// Trigger: Core → WebSocket Client → Connected   (die Ingest-Verbindung)
+// Trigger: Core → WebSocket → Client → Opened   (die Ingest-Verbindung)
 //
 // Team-Giveaway v6 (inverted ingest): Streamerbot verbindet sich als
 // WebSocket-CLIENT zu wss://team.raumdock.org/ingest. Direkt nach dem

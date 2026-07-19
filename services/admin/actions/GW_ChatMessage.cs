@@ -1,5 +1,5 @@
 // Action: "GW – Chat Message"
-// Trigger: Twitch → Chat Message (alle)
+// Trigger: Twitch → Chat → Message (alle)
 //
 // Schickt jede Chat-Nachricht an den Ingest-Server. Keyword-Check,
 // Wortanzahl, Cooldown, Coins — alles serverseitig. Kanal kommt aus dem

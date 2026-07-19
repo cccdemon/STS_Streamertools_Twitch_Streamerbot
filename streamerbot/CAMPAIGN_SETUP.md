@@ -26,12 +26,13 @@ niemand kann sich als dein Kanal ausgeben.
 3. Den erzeugten **Token kopieren** (langer Zufallsstring). Das ist dein Kanal-Geheimnis.
    > Token verloren/geleakt? Einfach **NEU** klicken — der alte wird sofort ungültig.
 
-## Schritt 3 — WebSocket-Client in Streamerbot
-1. Streamerbot → **Settings** (Zahnrad) → **WebSocket Client**.
+## Schritt 3 — WebSocket-Client in Streamerbot (v1.0.x)
+1. Streamerbot → Tab **Servers/Clients** → **WebSocket Clients**.
 2. **Add** / neuer Client:
-   - **URL:** `wss://team.raumdock.org/ingest`
-   - **Auto Connect:** ✅ an
-   - **Auto Reconnect:** ✅ an
+   - **Endpoint:** `wss://team.raumdock.org/ingest`  (kein ws:// selbst tippen — volle URL einfügen)
+   - **Auto Connect on Startup:** ✅ an
+   - **Reconnect on Disconnect:** ✅ an
+   - **TLS Support:** TLS 1.2 ✅
 3. Merke dir den **Index** dieses Clients. Der erste ist **0** (die Actions nutzen 0).
    Falls dein Client einen anderen Index hat, in den Actions `CPH.WebsocketSend(payload, 0)` die `0` anpassen.
 
@@ -49,19 +50,19 @@ Importiere die C#-Actions aus diesem Ordner (Streamerbot → **Import** oder Act
 
 | Action | Trigger in Streamerbot |
 |---|---|
-| `CC_IngestConnect.cs` | **Core → WebSocket Client → Connected** |
-| `CC_ChatReply.cs` | **Core → WebSocket Client → Message** |
-| `GW_ViewerTick.cs` | **Twitch → Present Viewer** |
-| `GW_ChatMessage.cs` | **Twitch → Chat Message** |
+| `CC_IngestConnect.cs` | **Core → WebSocket → Client → Opened** |
+| `CC_ChatReply.cs` | **Core → WebSocket → Client → Message** |
+| `GW_ViewerTick.cs` | **Twitch → General → Present Viewers** |
+| `GW_ChatMessage.cs` | **Twitch → Chat → Message** |
 | `GW_StatusCmd.cs` | **Command** `!los` (Aliase `!status !zeit !chance !time`) |
 | `GW_GiveawayCmd.cs` | **Command** `!giveaway` (Alias `!gw`) |
-| `GW_StreamOnline.cs` | **Twitch → Stream → Online** |
-| `GW_StreamOffline.cs` | **Twitch → Stream → Offline** |
+| `GW_StreamOnline.cs` | **Twitch → Channel → Stream Online** |
+| `GW_StreamOffline.cs` | **Twitch → Channel → Stream Offline** |
 
 > Jede C#-Action braucht `Newtonsoft.Json` — ist in Streamerbot vorinstalliert.
 
 ## Schritt 6 — Test-Checkliste
-1. **Verbindung:** Settings → WebSocket Client zeigt **Connected** (grün).
+1. **Verbindung:** Servers/Clients → WebSocket Clients zeigt Status **Open** (grün).
 2. **Auth:** Streamerbot-Log (unten) zeigt `[CC] Ingest-Auth gesendet`. Im Admin-Panel wird dein Kanal aktiv.
 3. **Chat-Test:** schreib im eigenen Chat eine sinnvolle Nachricht (>3 Wörter) → im **GW ADMIN** taucht dein Zähler auf.
 4. **Status:** `!los` im Chat → Bot antwortet mit deinen Punkten. (Bei „kein Giveaway aktiv" erst im Panel **ÖFFNEN**.)
@@ -69,7 +70,7 @@ Importiere die C#-Actions aus diesem Ordner (Streamerbot → **Import** oder Act
 ## Troubleshooting
 - **Keine Reaktion / keine Punkte:** OBS läuft? (`GW_ViewerTick`/`GW_ChatMessage` senden nur bei aktivem Stream.) Client verbunden? Token gesetzt?
 - **`ingest_denied` im Log:** Token falsch/abgelaufen → im Panel **NEU** generieren, globale Variable aktualisieren.
-- **`!los` antwortet nicht:** `CC_ChatReply` am Trigger *WebSocket Client → Message*? Falls dein Streamerbot die Nachricht unter anderem Arg-Namen liefert, die Liste in `CC_ChatReply.cs` (`data/message/wsData/…`) ergänzen.
+- **`!los` antwortet nicht:** `CC_ChatReply` am Trigger *Core → WebSocket → Client → Message*? Falls dein Streamerbot die Nachricht unter anderem Arg-Namen liefert, die Liste in `CC_ChatReply.cs` (`data/message/wsData/…`) ergänzen.
 - **Falscher Client-Index:** die `0` in `CPH.WebsocketSend(payload, 0)` auf deinen Client-Index setzen.
 
 ## Follow-Verifizierung (nichts am Creator-PC einzurichten)

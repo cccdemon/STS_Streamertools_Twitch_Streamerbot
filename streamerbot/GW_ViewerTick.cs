@@ -1,5 +1,5 @@
 // Action: "GW – Viewer Tick"
-// Trigger: Twitch → Present Viewer
+// Trigger: Twitch → General → Present Viewers
 //
 // Meldet anwesende Zuschauer an den Ingest-Server. Der Kanal wird
 // SERVERSEITIG aus dem Token abgeleitet (nicht mitgeschickt = spoofsicher).

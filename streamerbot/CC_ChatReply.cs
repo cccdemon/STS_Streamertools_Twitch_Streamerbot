@@ -1,5 +1,5 @@
 // Action: "CC – Chat Reply"
-// Trigger: Core → WebSocket Client → Message   (Nachricht vom Ingest-Server)
+// Trigger: Core → WebSocket → Client → Message   (Nachricht vom Ingest-Server)
 //
 // Der Server schickt Chat-Antworten (Status, Opt-in-Bestätigung ...) über
 // die Ingest-Verbindung zurück: { "event":"chat_reply", "message":"..." }.
