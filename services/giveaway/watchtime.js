@@ -415,8 +415,10 @@ class WatchtimeEngine {
     await this.redis.set(K.gwOpen(t), 'true');
     await this.redis.del(K.gwPaused(t));   // öffnen = aktiv (nicht pausiert)
     await this.redis.sadd(K.openTeams(), t);
+    // Keyword ist persistent: nur überschreiben wenn beim Öffnen explizit
+    // eins angegeben wird — sonst bestehendes behalten (Open/Close-Zyklen,
+    // Restart). Ändern jederzeit über gw_set_keyword (auch bei laufendem GW).
     if (keyword) await this.redis.set(K.gwKeyword(t), keyword);
-    else await this.redis.del(K.gwKeyword(t));
     await this.redis.set(K.gwSessionId(t), sessionId);
     await this.redis.del(K.gwChannels(t)); // Kanal-Cache invalidieren
     console.log(`[WTE] [${t}] opened, keyword="${keyword}", session=${sessionId}`);
