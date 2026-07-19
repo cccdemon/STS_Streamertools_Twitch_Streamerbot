@@ -14,7 +14,10 @@ public class CPHInline
 {
     public bool Execute()
     {
+        // Erst persistente, dann nicht-persistente Variable (häufige Fehlerquelle).
         string token = CPH.GetGlobalVar<string>("cc_ingest_token", true);
+        if (string.IsNullOrEmpty(token))
+            token = CPH.GetGlobalVar<string>("cc_ingest_token", false);
         if (string.IsNullOrEmpty(token))
         {
             CPH.LogWarn("[CC] cc_ingest_token ist leer – Ingest-Auth übersprungen. Token im Admin-Panel generieren und als globale Variable setzen.");
