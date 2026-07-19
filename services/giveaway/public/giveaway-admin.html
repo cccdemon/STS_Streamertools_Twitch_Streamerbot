@@ -87,9 +87,11 @@
         <button class="btn btn-gold btn-full mt-6" onclick="clearKeyword()">DEAKTIVIEREN</button>
       </div>
 
-      <!-- Auto-Steuerung -->
+      <!-- Giveaway-Einstellungen -->
       <div class="card">
-        <div class="card-title">AUTO-STEUERUNG</div>
+        <div class="card-title">EINSTELLUNGEN</div>
+        <div class="cfg-row"><span>Teilnahme: folge</span><input type="number" id="cfg-follow-min" min="0" max="10" value="2" class="in-narrow" onchange="saveStreamSettings()"><span>Kanälen</span></div>
+        <div class="cfg-hint">Gucken zählt auf allen Kanälen aufs gleiche Konto — Folgen ist die Bedingung.</div>
         <label class="cfg-row"><input type="checkbox" id="cfg-auto-pause" onchange="saveStreamSettings()"><span>Pause wenn alle Streams <b>offline</b></span></label>
         <label class="cfg-row"><input type="checkbox" id="cfg-auto-resume" onchange="saveStreamSettings()"><span>Start/Fortsetzen wenn ein Stream <b>online</b></span></label>
       </div>

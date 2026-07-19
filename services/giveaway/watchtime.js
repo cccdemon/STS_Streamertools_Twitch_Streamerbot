@@ -44,6 +44,7 @@ const K = {
   gwAutoPaused: (t) => `${TP(t)}gw:auto_paused`,          // '1' = vom Auto-Pause pausiert
   cfgAutoPause: (t) => `${TP(t)}gw:cfg:auto_pause`,       // '1' = Pause wenn alle Streams offline
   cfgAutoResume:(t) => `${TP(t)}gw:cfg:auto_resume`,      // '1' = Start/Resume wenn ein Stream online
+  cfgFollowMin: (t) => `${TP(t)}gw:cfg:follow_min`,       // wie vielen Kanälen muss man folgen (Teilnahmebedingung)
   userTeams:    (u) => `gw:user_teams:${u}`,              // GLOBAL Reverse-Index: Teams eines Users
   gwRegistered: (t, u) => `${TP(t)}gw:registered:${u}`,
   gwBanned:     (t, u) => `${TP(t)}gw_banned:${u}`,
@@ -115,6 +116,17 @@ class WatchtimeEngine {
   async getMultiplier(teamId) {
     const f = parseFloat(await this.redis.get(K.gwMult(sanitizeTeamId(teamId))) || '1');
     return (isFinite(f) && f > 0) ? f : 1;
+  }
+  // Teilnahmebedingung: wie vielen Kanälen muss man folgen (per-Team, default MIN_CHANNELS).
+  async getFollowMin(teamId) {
+    const v = parseInt(await this.redis.get(K.cfgFollowMin(sanitizeTeamId(teamId))), 10);
+    return (Number.isFinite(v) && v >= 0) ? v : MIN_CHANNELS;
+  }
+  async setFollowMin(teamId, n) {
+    const t = sanitizeTeamId(teamId);
+    const v = Math.max(0, Math.min(10, parseInt(n, 10) || 0));
+    await this.redis.set(K.cfgFollowMin(t), String(v));
+    return v;
   }
   async setMultiplier(teamId, factor, seconds) {
     const t = sanitizeTeamId(teamId);
@@ -292,23 +304,27 @@ class WatchtimeEngine {
     const u = sanitizeUsername(username);
     const channels = await this.getChannels(t);
     const perChannel = {};
-    let totalWatch = 0, totalMsgs = 0, qualified = 0;
+    let totalWatch = 0, totalMsgs = 0, followed = 0;
     for (const ch of channels) {
       const watchSec = parseFloat(await this.redis.get(K.chWatch(t, ch, u)) || '0');
       const msgs     = parseInt(await this.redis.get(K.chMsgs(t, ch, u)) || '0');
-      const follows  = this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)));
+      // Follow-Gate STRIKT: nur bestätigte Follows (Live-Event '1' oder Helix) zählen.
+      // (Viewtime-Accrual bleibt permissiv, siehe tickPresentUsers.)
+      const follows  = (await this.redis.get(K.chFollows(t, ch, u))) === '1';
       const coins    = coinsFromSec(watchSec);
       perChannel[ch] = { watchSec, coins, msgs, follows };
       totalWatch += watchSec; totalMsgs += msgs;
-      if (follows && coins > 0) qualified++;
+      if (follows) followed++;   // Follow zählt UNABHÄNGIG vom Gucken
     }
     const totalCoins = coinsFromSec(totalWatch);
+    const followMin  = await this.getFollowMin(t);
     const registered = await this.redis.get(K.gwRegistered(t, u)) === '1';
     const banned     = await this.redis.get(K.gwBanned(t, u)) === '1';
-    const eligible   = registered && !banned && qualified >= MIN_CHANNELS && totalCoins > 0;
+    // Teilnahme: Keyword + folgt ≥followMin Kanälen + Viewtime>0 (irgendwo geguckt).
+    const eligible   = registered && !banned && followed >= followMin && totalCoins > 0;
     return {
       username: u, perChannel, totalWatchSec: totalWatch, totalCoins,
-      channelsQualified: qualified, registered, banned, eligible,
+      channelsQualified: followed, channelsFollowed: followed, followMin, registered, banned, eligible,
       coins: totalCoins, watchSec: totalWatch, msgs: totalMsgs,
     };
   }

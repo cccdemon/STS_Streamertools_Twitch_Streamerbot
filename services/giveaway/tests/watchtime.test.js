@@ -122,6 +122,32 @@ test('eligible only with valid coins on >=2 channels + registered', async () => 
   assert.equal(a.eligible, true);
 });
 
+test('follow gate decoupled from watching: follow >=min, watch anywhere', async () => {
+  const e = engine();
+  // Carol watches ONLY deimos, but follows deimos + jericho (Helix-verified).
+  await e.redis.set(K.chWatch(TEAM, 'justcallmedeimos', 'carol'), String(SECS_PER_COIN));
+  await e.redis.set(K.chFollows(TEAM, 'justcallmedeimos', 'carol'), '1');
+  await e.redis.set(K.chFollows(TEAM, 'jerichoramirez', 'carol'), '1');
+  await e.redis.set(K.gwRegistered(TEAM, 'carol'), '1');
+  const a = await e.getUserAggregate(TEAM, 'carol');
+  assert.equal(a.channelsFollowed, 2);
+  assert.equal(a.totalCoins, 1);        // watched only one channel → pooled total
+  assert.equal(a.eligible, true);       // follows 2 + has viewtime → in pool
+});
+
+test('followMin is configurable per team', async () => {
+  const e = engine();
+  await e.redis.set(K.chWatch(TEAM, 'justcallmedeimos', 'dave'), String(SECS_PER_COIN));
+  await e.redis.set(K.chFollows(TEAM, 'justcallmedeimos', 'dave'), '1');
+  await e.redis.set(K.gwRegistered(TEAM, 'dave'), '1');
+  let a = await e.getUserAggregate(TEAM, 'dave');
+  assert.equal(a.eligible, false);      // default 2, follows only 1
+  await e.setFollowMin(TEAM, 1);
+  a = await e.getUserAggregate(TEAM, 'dave');
+  assert.equal(a.followMin, 1);
+  assert.equal(a.eligible, true);       // now 1 follow suffices
+});
+
 test('team isolation: users/coins do not leak across teams', async () => {
   const e = engine();
   await e.redis.set(K.chWatch('team_a', 'justcallmedeimos', 'bob'), String(SECS_PER_COIN));

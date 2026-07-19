@@ -94,7 +94,7 @@
       + '<a href="#" onclick="logout();return false;">abmelden</a></div>';
     if(!data.teams || !data.teams.length){
       body.innerHTML = who + '<div class="empty">Du nimmst gerade an keinem Giveaway teil.<br>'
-        + 'Folge ≥2 Kanälen eines Teams, schau zu, schreib sinnvoll im Chat und aktiviere per Keyword.</div>';
+        + 'Folge den Kanälen eines Teams, schau zu (zählt überall aufs gleiche Konto), schreib sinnvoll im Chat und aktiviere per Keyword.</div>';
       return;
     }
     body.innerHTML = who + data.teams.map(card).join('');
@@ -107,19 +107,21 @@
     else if(t.registered){ badge='fast dabei'; cls='near'; }
     else { badge='noch nicht dabei'; cls='out'; }
     var chanceVal = t.eligible ? t.chance.toFixed(1)+'%' : '—';
-    var qual = Math.max(0, Math.min(2, t.channelsQualified||0));
-    var pct = Math.round(qual/2*100);
+    var need = t.followMin!=null ? t.followMin : 2;
+    var kw  = need===1 ? 'Kanal' : 'Kanälen';
+    var qual = Math.max(0, Math.min(need, t.channelsQualified||0));
+    var pct = need>0 ? Math.round(qual/need*100) : 100;
     var progCls = t.eligible ? '' : 'near';
     var hint;
-    if(t.eligible) hint='Du bist im Lostopf. Mehr Zuschauzeit + Chat erhöhen deine Chance.';
-    else if(t.registered && t.channelsQualified<2) hint='Du hast teilgenommen, aber erst '+t.channelsQualified+' Kanal gültig — folge & sammle auf mind. 2 Kanälen.';
+    if(t.eligible) hint='Du bist im Lostopf. Mehr Zuschauzeit + sinnvoller Chat erhöhen deine Chance.';
+    else if(t.registered && (t.channelsQualified||0)<need) hint='Du folgst erst '+(t.channelsQualified||0)+' von '+need+' Kanälen — folge mind. '+need+' '+kw+'. (Gucken zählt überall aufs gleiche Konto.)';
     else if(!t.registered) hint='Schreib das Keyword im Chat, um deine Teilnahme abzugeben.';
     else hint='';
     return '<div class="card"><div class="chead"><span class="tname">'+esc(t.name)+'</span>'
       + '<span class="badge '+cls+'">'+badge+'</span></div>'
       + '<div class="grid">'
       + '<div class="stat"><div class="v">'+fmtTime(t.watchSec)+'</div><div class="l">Zuschauzeit</div></div>'
-      + '<div class="stat"><div class="v">'+qual+'/2</div><div class="l">Kanäle</div></div>'
+      + '<div class="stat"><div class="v">'+qual+'/'+need+'</div><div class="l">gefolgt</div></div>'
       + '<div class="stat chance"><div class="v">'+chanceVal+'</div><div class="l">Gewinnchance</div></div>'
       + '</div>'
       + '<div class="prog '+progCls+'"><i style="width:'+pct+'%"></i></div>'

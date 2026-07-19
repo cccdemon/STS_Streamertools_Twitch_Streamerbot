@@ -163,6 +163,7 @@ function handle(msg) {
       if (msg.type === 'stream_settings') {
         var apEl = document.getElementById('cfg-auto-pause');  if (apEl) apEl.checked = !!msg.autoPause;
         var arEl = document.getElementById('cfg-auto-resume'); if (arEl) arEl.checked = !!msg.autoResume;
+        var fmEl = document.getElementById('cfg-follow-min');  if (fmEl && msg.followMin !== undefined) fmEl.value = msg.followMin;
         break;
       }
       if (msg.type === 'keyword') { const kw = msg.keyword || ''; document.getElementById('kw-current').textContent = kw || '- (deaktiviert)'; document.getElementById('kw-input').value = kw; break; }
@@ -215,8 +216,9 @@ function stopMultiplier() {
 function saveStreamSettings() {
   var ap = !!(document.getElementById('cfg-auto-pause')  || {}).checked;
   var ar = !!(document.getElementById('cfg-auto-resume') || {}).checked;
-  send({ event: 'gw_cmd', cmd: 'gw_set_stream_settings', autoPause: ap, autoResume: ar });
-  log('Auto-Steuerung: Pause=' + ap + ' Start=' + ar, 'cyan');
+  var fm = CC.validate.sanitizeInt((document.getElementById('cfg-follow-min') || {}).value, 0, 10, 2);
+  send({ event: 'gw_cmd', cmd: 'gw_set_stream_settings', autoPause: ap, autoResume: ar, followMin: fm });
+  log('Einstellungen: folge≥' + fm + ' · Pause=' + ap + ' Start=' + ar, 'cyan');
 }
 
 let _multTimer = null;

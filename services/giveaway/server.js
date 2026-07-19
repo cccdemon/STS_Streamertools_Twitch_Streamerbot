@@ -15,7 +15,8 @@ const express   = require('express');
 const http      = require('http');
 const crypto    = require('crypto');
 const { Pool }  = require('pg');
-const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC, ABUSE } = require('./watchtime.js');
+const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC, ABUSE, MIN_CHANNELS } = require('./watchtime.js');
+const kw2 = (n) => (n === 1 ? 'Kanal' : 'Kanälen');   // Grammatik-Helfer für Chat-Texte
 const { Helix } = require('./helix.js');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
@@ -82,12 +83,13 @@ async function verifyFollows(teamId) {
     let followerIds;
     try { followerIds = await helix.getFollowerIds(token, bid); }
     catch(e) { logErr('Helix', `followers ${ch}:`, e.message); result.unverified.push(ch); continue; }
+    // ALLE Teilnehmer gegen die Follower-Liste prüfen — auch wer diesen
+    // Kanal nie geschaut hat (Follow ist Bedingung, Gucken optional).
     for (const p of participants) {
-      const pc = p.perChannel[ch];
-      if (!pc || pc.coins <= 0) continue;
       const uid = await helix.resolveUserId(p.username);
       const follows = uid ? followerIds.has(uid) : false;
-      if (pc.follows !== follows) result.mismatches++;
+      const prev = await redis.get(K.chFollows(t, ch, p.username));
+      if (prev !== null && (prev === '1') !== follows) result.mismatches++;
       await redis.set(K.chFollows(t, ch, p.username), follows ? '1' : '0');
     }
     result.verified.push(ch);
@@ -294,14 +296,17 @@ async function handleAdminCmd(send, msg, meta) {
       const ap = !!msg.autoPause, ar = !!msg.autoResume;
       if (ap) await redis.set(K.cfgAutoPause(teamId), '1'); else await redis.del(K.cfgAutoPause(teamId));
       if (ar) await redis.set(K.cfgAutoResume(teamId), '1'); else await redis.del(K.cfgAutoResume(teamId));
-      send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar });
-      log('GW', `[${teamId}] auto-control: pause=${ap} resume=${ar}`);
+      let fm = await wte.getFollowMin(teamId);
+      if (msg.followMin !== undefined && msg.followMin !== null) fm = await wte.setFollowMin(teamId, msg.followMin);
+      send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar, followMin: fm });
+      log('GW', `[${teamId}] settings: pause=${ap} resume=${ar} followMin=${fm}`);
       break;
     }
     case 'gw_get_stream_settings':
       send({ event: 'gw_ack', type: 'stream_settings',
         autoPause:  await redis.get(K.cfgAutoPause(teamId)) === '1',
-        autoResume: await redis.get(K.cfgAutoResume(teamId)) === '1' });
+        autoResume: await redis.get(K.cfgAutoResume(teamId)) === '1',
+        followMin:  await wte.getFollowMin(teamId) });
       break;
     case 'gw_set_keyword': {
       const kw = sanitizeStr(msg.keyword || '', 100);
@@ -435,13 +440,13 @@ function subscribeToGiveaway() {
             const all = await wte.getAllParticipants(teamId);
             const pool = all.filter(p => p.eligible).reduce((s, p) => s + p.totalCoins, 0);
             const chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
-            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte | Kanäle ${a.channelsQualified}/2 ✓ | Chance ${chance.toFixed(1)}% | im Lostopf ✅`;
-          } else if (a.registered && a.channelsQualified < 2) {
-            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte, aber nur ${a.channelsQualified} Kanal – folge & sammle auf mind. 2 Kanälen!`;
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte | folgt ${a.channelsQualified}/${a.followMin} ✓ | Chance ${chance.toFixed(1)}% | im Lostopf ✅`;
+          } else if (a.registered && a.channelsQualified < a.followMin) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – du folgst erst ${a.channelsQualified}/${a.followMin} Kanälen. Folge mind. ${a.followMin} ${kw2(a.followMin)} zum Mitmachen!`;
           } else if (!a.registered && a.totalCoins >= 1) {
             reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schreib "${kw || 'das Keyword'}" um teilzunehmen!`;
           } else {
-            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu & schreib sinnvoll im Chat (folge ≥2 Kanälen).`;
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu (egal welcher Kanal) & folge ≥${a.followMin} ${kw2(a.followMin)}.`;
           }
         }
         const host = (process.env.PUBLIC_URL || 'https://team.raumdock.org').replace(/^https?:\/\//, '').replace(/\/+$/, '');
@@ -453,7 +458,8 @@ function subscribeToGiveaway() {
         const kw = await redis.get(K.gwKeyword(teamId)) || '';
         const host = (process.env.PUBLIC_URL || 'https://team.raumdock.org').replace(/^https?:\/\//, '').replace(/\/+$/, '');
         const kwTxt = kw ? `"${kw}"` : 'das Keyword';
-        const info = `🎁 Team-Giveaway: sammle Zuschauzeit auf den Team-Kanälen → Lose (2h = 1 Los), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: folge ≥2 Kanälen + schreib ${kwTxt} im Chat. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
+        const fm = await wte.getFollowMin(teamId);
+        const info = `🎁 Team-Giveaway: schau auf EINEM der Team-Kanäle zu — die Zuschauzeit zählt zusammen (2h = 1 Los), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: folge ≥${fm} ${kw2(fm)} + schreib ${kwTxt} im Chat. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
         redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: info }));
         break;
       }
@@ -514,7 +520,7 @@ app.get('/api/my-status', async (req, res) => {
         chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
       }
       out.push({ teamId: t, name: nr.rows[0].name, coins: a.totalCoins, watchSec: a.totalWatchSec,
-                 channelsQualified: a.channelsQualified, registered: a.registered, eligible: a.eligible,
+                 channelsQualified: a.channelsQualified, followMin: a.followMin, registered: a.registered, eligible: a.eligible,
                  chance, open: await wte.isOpen(t), paused: await wte.isPaused(t), perChannel: a.perChannel });
     }
     res.json({ login: user, teams: out.sort((x, y) => y.coins - x.coins) });
