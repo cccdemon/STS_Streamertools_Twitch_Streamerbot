@@ -39,8 +39,8 @@ Accounts (Bots) sowie Personen, die gegen diese Bedingungen verstoßen.
 1. **Anmelden (Opt-in):** Gib das **Keyword** im Chat ein. Damit stimmst du diesen Bedingungen zu und bist angemeldet — das kann **jeder**.
 2. **Berücksichtigt für die Ziehung** (Aufnahme in den Lostopf) wirst du erst, wenn du zusätzlich **beides** erfüllst:
    * du **folgst mindestens zwei (2)** der in § 1 genannten Kanäle, **und**
-   * du hast **mindestens 2 Stunden Zuschauzeit (Viewtime)** gesammelt.
-   Diese 2 Stunden erreichst du durch **Zuschauen** **und** **sinnvolles Chatten** (Nachrichten mit mehr als drei Wörtern geben zusätzliche Viewtime) — beides zählt auf **dasselbe Konto**, egal auf welchem teilnehmenden Kanal. Ohne diese 2 Stunden bleibst du zwar angemeldet, wirst aber **nicht** in den Lostopf aufgenommen. Deinen Stand prüfst du jederzeit mit **`!los`** oder auf deiner Statusseite.
+   * du hast die **vom Veranstalter vorgegebene Mindest-Zuschauzeit (Viewtime)** gesammelt. Die aktuell gültige Mindest-Zuschauzeit wird dir jederzeit im Chat über **`!giveaway`** und **`!los`** sowie auf deiner Statusseite angezeigt.
+   Diese Zuschauzeit erreichst du durch **Zuschauen** **und** **sinnvolles Chatten** (Nachrichten mit mehr als drei Wörtern geben zusätzliche Viewtime) — beides zählt auf **dasselbe Konto**, egal auf welchem teilnehmenden Kanal. Die Zuschauzeit wird ab Streambeginn erfasst, sobald du dem Kanal folgst — das Keyword musst du dafür nicht bereits eingegeben haben. Solange du die Mindest-Zuschauzeit nicht erreicht hast, bleibst du zwar angemeldet, wirst aber **nicht** in den Lostopf aufgenommen. Deinen Stand prüfst du jederzeit mit **`!los`** oder auf deiner Statusseite.
 3. **Deine Gewinnchance** ergibt sich aus deiner **aktiven Teilnahme** und steigt (über die 2 Stunden hinaus) weiter mit:
    * **Zuschauzeit (Viewtime)** auf den teilnehmenden Kanälen, und
    * **sinnvoller Chatbeteiligung** (Nachrichten mit **mehr als drei Wörtern**).
