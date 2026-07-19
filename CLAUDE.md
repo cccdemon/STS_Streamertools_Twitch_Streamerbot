@@ -12,7 +12,7 @@ Gamescenes, Stats, Hauling) wurde entfernt.
 
 ## Mechanik (Spec)
 - **Viewtime pro Zuschauer.** 2h (7200s) Viewtime auf einem Kanal = **1 Punkt/Ticket** (`SECS_PER_COIN=7200`).
-- **Chat = selber Pott wie Viewtime.** Jede sinnvolle Nachricht mit **>3 Wörtern** = **+0.5s** Viewtime (`CHAT_BONUS_SEC`, `CHAT_MIN_WORDS=4`), Cooldown gegen Spam.
+- **Chat = selber Pott wie Viewtime.** Jede sinnvolle Nachricht mit **>3 Wörtern** = **+2s** Viewtime (`CHAT_BONUS_SEC=2`, `CHAT_MIN_WORDS=4`), Cooldown gegen Spam. Viewtime-Multiplier gilt auch hier (×2 → +4s).
 - **Viewtime-Multiplier:** Admin kann zeitlich begrenzt beschleunigen („nächste 15 min doppelte Viewtime", gilt auch für Chat) — time-boxed Faktor auf Tick + Chat-Bonus.
 - **Teilnahme:** Folge ≥2 der teilnehmenden Kanäle (konfigurierbar) + Viewtime + sinnvoller Chat. Lurken allein = keine Lose. Ab ≥1 Ticket per Keyword im Chat opt-in (= Zustimmung Teilnahmebedingungen).
 - **Ziehung:** Zufall gewichtet nach Ticketzahl. Gewinner 14 Tage Meldefrist, sonst Ersatz.

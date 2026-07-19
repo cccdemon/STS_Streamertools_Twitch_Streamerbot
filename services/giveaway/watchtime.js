@@ -21,7 +21,7 @@ const ABUSE = {
 };
 
 const SECS_PER_COIN  = 7200;
-const CHAT_BONUS_SEC = 0.5;
+const CHAT_BONUS_SEC = 2;    // sinnvolle Chatnachricht (>3 Wörter) = +2s Viewtime
 const CHAT_COOLDOWN  = 10;
 const CHAT_MIN_WORDS = 4;    // >3 Wörter
 const TICK_SEC       = 60;

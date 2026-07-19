@@ -13,6 +13,7 @@ function parseDec(v) {
 let currentTeam  = null;
 const TEAM_EVENTS = { gw_cmd:1, gw_get_all:1, gw_overlay:1, viewer_tick:1, chat_msg:1, time_cmd:1 };
 let participants = {};
+let gwChannels   = [];
 let gwIsOpen     = false;
 let gwPaused     = false;
 let sortField    = 'coins';
@@ -132,6 +133,7 @@ function handle(msg) {
       participants = {};
       gwIsOpen = !!msg.open;
       gwPaused = !!msg.paused;
+      if (Array.isArray(msg.channels)) gwChannels = msg.channels;
       (msg.participants || []).forEach(p => {
         const key = (p.username || '').toLowerCase();
         participants[key] = {
@@ -140,10 +142,12 @@ function handle(msg) {
           msgs:     parseInt(p.msgs) || 0,
           coins:    parseDec(p.coins),
           banned:   !!p.banned,
-          flags:    Array.isArray(p.flags) ? p.flags : []
+          flags:    Array.isArray(p.flags) ? p.flags : [],
+          perChannel: p.perChannel || {}
         };
       });
       updateGwStatus();
+      renderHead();
       renderTable();
       updateStats();
       break;
@@ -425,6 +429,21 @@ function clearKeyword() {
 function loadKeyword() { send({ event:'gw_cmd', cmd:'gw_get_keyword' }); }
 
 // ── Table ─────────────────────────────────────────────────
+// Kopfzeile dynamisch: #, NAME, COINS, [pro Kanal], TOTAL VIEWTIME, AKTIONEN.
+function renderHead() {
+  const row = document.getElementById('thead-row');
+  if (!row) return;
+  const chCols = gwChannels.map(ch =>
+    `<th class="num" title="Viewtime auf ${esc(ch)}">${esc(ch)}</th>`).join('');
+  row.innerHTML =
+    `<th class="num" onclick="sortBy('rank')">#</th>`
+    + `<th onclick="sortBy('name')">NAME</th>`
+    + `<th class="num sorted" onclick="sortBy('coins')">COINS</th>`
+    + chCols
+    + `<th class="num" onclick="sortBy('watchSec')">TOTAL VIEWTIME</th>`
+    + `<th class="num">AKTIONEN</th>`;
+}
+
 function renderTable(hlKey=null) {
   const search = document.getElementById('search').value.toLowerCase();
   const entries = Object.entries(participants)
@@ -442,7 +461,8 @@ function renderTable(hlKey=null) {
       <td class="rank">${i+1}</td>
       <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
-      <td class="watchtime">${fmtTime(p.watchSec)}</td>
+      ${gwChannels.map(ch => `<td class="watchtime pc">${fmtTime((p.perChannel && p.perChannel[ch] && p.perChannel[ch].watchSec) || 0)}</td>`).join('')}
+      <td class="watchtime total">${fmtTime(p.watchSec)}</td>
       <td style="display:flex;gap:4px;justify-content:flex-end;">
         <button class="mini-btn add" onclick="addTicketTo('${esc(key)}')">+1</button>
         <button class="mini-btn sub" onclick="subTicketFrom('${esc(key)}')">-1</button>
