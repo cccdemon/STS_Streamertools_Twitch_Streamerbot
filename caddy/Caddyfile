@@ -35,12 +35,11 @@
         reverse_proxy redis-ui:8081
     }
 
-    # ── Root redirect → admin dashboard ──────────────────
-    # 302 so the browser actually navigates to /admin/ — otherwise
-    # relative asset paths (chaos-crew-admin.css etc.) resolve to /
-    # which has no handler and the page renders unstyled.
-    @root path /
-    redir @root /admin/home.html 302
+    # ── Root → public landing page (served in place at /) ─
+    handle / {
+        rewrite * /home.html
+        reverse_proxy admin:3005
+    }
 
     header {
         Access-Control-Allow-Origin *
