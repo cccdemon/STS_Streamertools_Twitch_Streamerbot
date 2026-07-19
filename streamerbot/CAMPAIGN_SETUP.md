@@ -54,6 +54,9 @@ Importiere die C#-Actions aus diesem Ordner (Streamerbot → **Import** oder Act
 | `GW_ViewerTick.cs` | **Twitch → Present Viewer** |
 | `GW_ChatMessage.cs` | **Twitch → Chat Message** |
 | `GW_StatusCmd.cs` | **Command** `!los` (Aliase `!status !zeit !chance !time`) |
+| `GW_GiveawayCmd.cs` | **Command** `!giveaway` (Alias `!gw`) |
+| `GW_StreamOnline.cs` | **Twitch → Stream → Online** |
+| `GW_StreamOffline.cs` | **Twitch → Stream → Offline** |
 
 > Jede C#-Action braucht `Newtonsoft.Json` — ist in Streamerbot vorinstalliert.
 

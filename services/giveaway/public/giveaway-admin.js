@@ -110,6 +110,7 @@ function refresh() { requestData(); loadKeyword(); loadHistory(); }
 function requestData() {
   send({ event: 'gw_get_all' });
   send({ event: 'gw_cmd', cmd: 'gw_get_multiplier' });
+  send({ event: 'gw_cmd', cmd: 'gw_get_stream_settings' });
   send({ event: 'gw_cmd', cmd: 'gw_get_channels' });
   send({ event: 'gw_cmd', cmd: 'gw_get_ingest_tokens' });
 }
@@ -159,6 +160,11 @@ function handle(msg) {
       if (msg.type === 'channels')      { ingestChannels = msg.channels || []; renderIngest(); break; }
       if (msg.type === 'ingest_tokens') { ingestTokens = {}; (msg.tokens || []).forEach(t => ingestTokens[t.channel] = t.token); renderIngest(); break; }
       if (msg.type === 'ingest_token')  { ingestTokens[msg.channel] = msg.token; renderIngest(); break; }
+      if (msg.type === 'stream_settings') {
+        var apEl = document.getElementById('cfg-auto-pause');  if (apEl) apEl.checked = !!msg.autoPause;
+        var arEl = document.getElementById('cfg-auto-resume'); if (arEl) arEl.checked = !!msg.autoResume;
+        break;
+      }
       if (msg.type === 'keyword') { const kw = msg.keyword || ''; document.getElementById('kw-current').textContent = kw || '- (deaktiviert)'; document.getElementById('kw-input').value = kw; break; }
       // Mutations
       if (msg.type === 'keyword_set') {
@@ -203,6 +209,14 @@ function startMultiplier() {
 function stopMultiplier() {
   send({ event: 'gw_cmd', cmd: 'gw_set_multiplier', factor: 1, minutes: 0 });
   log('Viewtime-Boost gestoppt', 'gold');
+}
+
+// ── Auto-Steuerung (Stream on/off → pause/resume) ─────────
+function saveStreamSettings() {
+  var ap = !!(document.getElementById('cfg-auto-pause')  || {}).checked;
+  var ar = !!(document.getElementById('cfg-auto-resume') || {}).checked;
+  send({ event: 'gw_cmd', cmd: 'gw_set_stream_settings', autoPause: ap, autoResume: ar });
+  log('Auto-Steuerung: Pause=' + ap + ' Start=' + ar, 'cyan');
 }
 
 let _multTimer = null;

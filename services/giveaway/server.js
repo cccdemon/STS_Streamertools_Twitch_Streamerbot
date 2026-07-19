@@ -123,6 +123,7 @@ async function isMember(login, teamId) {
 async function openGiveaway(teamId, keyword) {
   const sid = `sess_${Date.now()}`;
   await wte.openGiveaway(teamId, keyword, sid);
+  await redis.del(K.gwAutoPaused(teamId));   // frischer Start ist nie auto-pausiert
   const chans = await wte.getChannels(teamId);
   await pg.query(`INSERT INTO sessions (id, team_id, keyword, channels) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO NOTHING`,
     [sid, teamId, keyword || '', JSON.stringify(chans)]);
@@ -133,8 +134,42 @@ async function openGiveaway(teamId, keyword) {
 async function closeGiveaway(teamId) {
   const sid = await wte.getSessionId(teamId);
   await wte.closeGiveaway(teamId, sid);
+  await redis.del(K.gwOnline(teamId), K.gwAutoPaused(teamId));
   broadcastTeam(teamId, { event: 'gw_status', status: 'closed' });
   log('GW', `[${teamId}] closed`);
+}
+
+// ── Auto-Steuerung: Stream online/offline → Giveaway pause/resume ──
+async function handleStreamOnline(teamId, channel) {
+  const ch = sanitizeChannel(channel);
+  if (!ch) return;
+  await redis.sadd(K.gwOnline(teamId), ch);
+  if (await redis.get(K.cfgAutoResume(teamId)) !== '1') return;
+  if (await wte.isOpen(teamId)) {
+    if (await wte.isPaused(teamId)) {
+      await wte.setPaused(teamId, false);
+      await redis.del(K.gwAutoPaused(teamId));
+      broadcastTeam(teamId, { event: 'gw_status', status: 'open' });
+      log('Auto', `[${teamId}] stream online (${ch}) → resume`);
+    }
+  } else {
+    const kw = await redis.get(K.gwKeyword(teamId)) || '';
+    await openGiveaway(teamId, kw);
+    log('Auto', `[${teamId}] stream online (${ch}) → open`);
+  }
+}
+async function handleStreamOffline(teamId, channel) {
+  const ch = sanitizeChannel(channel);
+  if (!ch) return;
+  await redis.srem(K.gwOnline(teamId), ch);
+  if (await redis.get(K.cfgAutoPause(teamId)) !== '1') return;
+  if (await redis.scard(K.gwOnline(teamId)) > 0) return;   // noch ein Kanal live
+  if (await wte.isOpen(teamId) && !await wte.isPaused(teamId)) {
+    await wte.setPaused(teamId, true);
+    await redis.set(K.gwAutoPaused(teamId), '1');
+    broadcastTeam(teamId, { event: 'gw_status', status: 'paused' });
+    log('Auto', `[${teamId}] alle Streams offline → pause`);
+  }
 }
 
 // ── WS Server ─────────────────────────────────────────────
@@ -243,15 +278,30 @@ async function handleAdminCmd(send, msg, meta) {
       break;
     case 'gw_pause':
       await wte.setPaused(teamId, true);
+      await redis.del(K.gwAutoPaused(teamId));   // manuell, nicht auto
       broadcastTeam(teamId, { event: 'gw_status', status: 'paused' });
       send({ event: 'gw_status', status: 'paused' });
       log('GW', `[${teamId}] paused`);
       break;
     case 'gw_resume':
       await wte.setPaused(teamId, false);
+      await redis.del(K.gwAutoPaused(teamId));
       broadcastTeam(teamId, { event: 'gw_status', status: 'open' });
       send({ event: 'gw_status', status: 'open' });
       log('GW', `[${teamId}] resumed`);
+      break;
+    case 'gw_set_stream_settings': {
+      const ap = !!msg.autoPause, ar = !!msg.autoResume;
+      if (ap) await redis.set(K.cfgAutoPause(teamId), '1'); else await redis.del(K.cfgAutoPause(teamId));
+      if (ar) await redis.set(K.cfgAutoResume(teamId), '1'); else await redis.del(K.cfgAutoResume(teamId));
+      send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar });
+      log('GW', `[${teamId}] auto-control: pause=${ap} resume=${ar}`);
+      break;
+    }
+    case 'gw_get_stream_settings':
+      send({ event: 'gw_ack', type: 'stream_settings',
+        autoPause:  await redis.get(K.cfgAutoPause(teamId)) === '1',
+        autoResume: await redis.get(K.cfgAutoResume(teamId)) === '1' });
       break;
     case 'gw_set_keyword': {
       const kw = sanitizeStr(msg.keyword || '', 100);
@@ -394,11 +444,26 @@ function subscribeToGiveaway() {
             reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu & schreib sinnvoll im Chat (folge ≥2 Kanälen).`;
           }
         }
+        const host = (process.env.PUBLIC_URL || 'https://team.raumdock.org').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        reply += ` | Status: ${host}/viewer/status | Regeln: ${host}/viewer/terms?team=${teamId}`;
         redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: reply }));
+        break;
+      }
+      case 'giveaway_cmd': {
+        const kw = await redis.get(K.gwKeyword(teamId)) || '';
+        const host = (process.env.PUBLIC_URL || 'https://team.raumdock.org').replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        const kwTxt = kw ? `"${kw}"` : 'das Keyword';
+        const info = `🎁 Team-Giveaway: sammle Zuschauzeit auf den Team-Kanälen → Lose (2h = 1 Los), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: folge ≥2 Kanälen + schreib ${kwTxt} im Chat. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
+        redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: info }));
         break;
       }
       case 'stream_online': {
         try { await pg.query('TRUNCATE TABLE debug_log'); } catch(e) { logErr('Debug', e.message); }
+        await handleStreamOnline(teamId, msg.channel);
+        break;
+      }
+      case 'stream_offline': {
+        await handleStreamOffline(teamId, msg.channel);
         break;
       }
       case 'cc_debug': {

@@ -63,7 +63,9 @@ const ROUTES = {
   viewer_tick:   ['ch:giveaway'],
   chat_msg:      ['ch:giveaway'],
   time_cmd:      ['ch:giveaway'],
+  giveaway_cmd:  ['ch:giveaway'],
   stream_online: ['ch:giveaway'],
+  stream_offline:['ch:giveaway'],
   cc_debug:      ['ch:giveaway'],
 };
 

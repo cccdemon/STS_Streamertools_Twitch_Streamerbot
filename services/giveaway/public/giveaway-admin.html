@@ -87,6 +87,13 @@
         <button class="btn btn-gold btn-full mt-6" onclick="clearKeyword()">DEAKTIVIEREN</button>
       </div>
 
+      <!-- Auto-Steuerung -->
+      <div class="card">
+        <div class="card-title">AUTO-STEUERUNG</div>
+        <label class="cfg-row"><input type="checkbox" id="cfg-auto-pause" onchange="saveStreamSettings()"><span>Pause wenn alle Streams <b>offline</b></span></label>
+        <label class="cfg-row"><input type="checkbox" id="cfg-auto-resume" onchange="saveStreamSettings()"><span>Start/Fortsetzen wenn ein Stream <b>online</b></span></label>
+      </div>
+
       <!-- Manuelle Tickets -->
       <div class="card">
         <div class="card-title">MANUELL // TICKETS</div>

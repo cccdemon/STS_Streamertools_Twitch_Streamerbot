@@ -40,6 +40,10 @@ const K = {
   gwChannels:   (t) => `${TP(t)}gw:channels`,             // Cache
   gwMult:       (t) => `${TP(t)}gw:mult`,
   gwUsers:      (t) => `${TP(t)}gw:users`,
+  gwOnline:     (t) => `${TP(t)}gw:online`,               // SET aktuell live Kanäle
+  gwAutoPaused: (t) => `${TP(t)}gw:auto_paused`,          // '1' = vom Auto-Pause pausiert
+  cfgAutoPause: (t) => `${TP(t)}gw:cfg:auto_pause`,       // '1' = Pause wenn alle Streams offline
+  cfgAutoResume:(t) => `${TP(t)}gw:cfg:auto_resume`,      // '1' = Start/Resume wenn ein Stream online
   userTeams:    (u) => `gw:user_teams:${u}`,              // GLOBAL Reverse-Index: Teams eines Users
   gwRegistered: (t, u) => `${TP(t)}gw:registered:${u}`,
   gwBanned:     (t, u) => `${TP(t)}gw_banned:${u}`,
