@@ -206,7 +206,7 @@
   var TOOLS = [
     { head:'Verwaltung' },
     { href:'/admin/users.html', label:'Benutzer', ic:'👥' },
-    { href:'/admin/help.html',  label:'Anleitung', ic:'📖' },
+    { href:'/viewer/help',      label:'Anleitung', ic:'📖' },
     { href:'/admin/setup.html', label:'Setup-Guide', ic:'⚙' },
     { head:'Diagnose' },
     { href:'/admin/giveaway-test.html',     label:'Test Console', ic:'▶', sub:'DEV' },

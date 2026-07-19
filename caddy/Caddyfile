@@ -11,6 +11,20 @@
         reverse_proxy giveaway:3001
     }
 
+    # ── Viewer (public: status, terms, help) ─────────────
+    handle /viewer/status {
+        rewrite * /status.html
+        reverse_proxy admin:3005
+    }
+    handle /viewer/terms {
+        rewrite * /terms.html
+        reverse_proxy admin:3005
+    }
+    handle /viewer/help {
+        rewrite * /help.html
+        reverse_proxy admin:3005
+    }
+
     # ── Admin Dashboard ───────────────────────────────────
     # Login + user management + aggregated health
     handle /admin/* {

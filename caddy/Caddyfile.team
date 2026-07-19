@@ -23,7 +23,7 @@
         # Everything except the login page, auth endpoints and health
         # requires a valid session cookie. On failure admin returns
         # 302 → /admin/login.html.
-        @needsauth not path / /admin/home.html /admin/login.html /admin/join.html /admin/help.html /admin/setup.html /admin/terms.html /admin/status.html /admin/auth/* /admin/pub/* /health /ingest* /giveaway/overlay-ws /giveaway/giveaway-overlay* /giveaway/giveaway-join*
+        @needsauth not path / /admin/home.html /admin/login.html /admin/join.html /admin/setup.html /admin/auth/* /admin/pub/* /viewer/* /health /ingest* /giveaway/overlay-ws /giveaway/giveaway-overlay* /giveaway/giveaway-join*
         forward_auth @needsauth admin:3005 {
             uri /auth/verify
             copy_headers X-Auth-User X-Auth-Role
@@ -33,6 +33,20 @@
         handle /giveaway/* {
             uri strip_prefix /giveaway
             reverse_proxy giveaway:3001
+        }
+
+        # ── Viewer (public: status, terms, help) ─────────────
+        handle /viewer/status {
+            rewrite * /status.html
+            reverse_proxy admin:3005
+        }
+        handle /viewer/terms {
+            rewrite * /terms.html
+            reverse_proxy admin:3005
+        }
+        handle /viewer/help {
+            rewrite * /help.html
+            reverse_proxy admin:3005
         }
 
         # ── Admin (login, user management, health, pages) ─────

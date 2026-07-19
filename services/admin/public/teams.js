@@ -106,7 +106,7 @@ function renderTeam(t) {
       + '<button class="ghost" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.previousElementSibling.value)">OBS-Overlay kopieren</button></div>'
     : '';
   var terms = '<div class="invite" style="margin-top:10px">'
-    + '<a class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:6px" href="/admin/terms.html?team='+encodeURIComponent(t.id)+'" target="_blank">Teilnahmebedingungen ansehen</a>'
+    + '<a class="ghost" style="text-decoration:none;padding:8px 12px;border-radius:6px" href="/viewer/terms?team='+encodeURIComponent(t.id)+'" target="_blank">Teilnahmebedingungen ansehen</a>'
     + (owner ? '<button class="ghost" onclick="editTerms(\''+t.id+'\')">Bearbeiten</button>' : '')
     + '</div><div id="terms-'+t.id+'"></div>';
   return '<div class="team"><div class="team-head"><span class="team-name">'+esc(t.name)+'</span>'
