@@ -17,6 +17,12 @@ const crypto    = require('crypto');
 const { Pool }  = require('pg');
 const { WatchtimeEngine, K, sanitizeUsername, sanitizeStr, sanitizeTeamId, sanitizeChannel, TICK_SEC, ABUSE, MIN_CHANNELS } = require('./watchtime.js');
 const kw2 = (n) => (n === 1 ? 'Kanal' : 'Kanälen');   // Grammatik-Helfer für Chat-Texte
+const fmtDur = (sec) => {                              // 7200→"2 Std", 1800→"30 Min"
+  sec = Math.max(0, Math.round(sec || 0));
+  if (sec % 3600 === 0) return `${sec / 3600} Std`;
+  if (sec >= 3600)      return `${(sec / 3600).toFixed(1)} Std`;
+  return `${Math.round(sec / 60)} Min`;
+};
 const { Helix } = require('./helix.js');
 
 function log(tag, ...args)    { console.log( `[${tag}]`, ...args); }
@@ -321,15 +327,18 @@ async function handleAdminCmd(send, msg, meta) {
       if (ar) await redis.set(K.cfgAutoResume(teamId), '1'); else await redis.del(K.cfgAutoResume(teamId));
       let fm = await wte.getFollowMin(teamId);
       if (msg.followMin !== undefined && msg.followMin !== null) fm = await wte.setFollowMin(teamId, msg.followMin);
-      send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar, followMin: fm });
-      log('GW', `[${teamId}] settings: pause=${ap} resume=${ar} followMin=${fm}`);
+      let dm = await wte.getDrawMinSec(teamId);
+      if (msg.drawMinHours !== undefined && msg.drawMinHours !== null) dm = await wte.setDrawMinSec(teamId, parseFloat(msg.drawMinHours) * 3600);
+      send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar, followMin: fm, drawMinHours: dm / 3600 });
+      log('GW', `[${teamId}] settings: pause=${ap} resume=${ar} followMin=${fm} drawMin=${dm}s`);
       break;
     }
     case 'gw_get_stream_settings':
       send({ event: 'gw_ack', type: 'stream_settings',
         autoPause:  await redis.get(K.cfgAutoPause(teamId)) === '1',
         autoResume: await redis.get(K.cfgAutoResume(teamId)) === '1',
-        followMin:  await wte.getFollowMin(teamId) });
+        followMin:  await wte.getFollowMin(teamId),
+        drawMinHours: (await wte.getDrawMinSec(teamId)) / 3600 });
       break;
     case 'gw_set_keyword': {
       const kw = sanitizeStr(msg.keyword || '', 100);
@@ -452,9 +461,11 @@ function subscribeToGiveaway() {
             reply = `@${u} Du bist dabei & im Lostopf ✅ (${result.coins.toFixed(2)} Punkte). Weiter zuschauen + sinnvoll chatten erhöht deine Chance!`;
           } else {
             const need = [];
-            if (result.channelsFollowed < result.followMin) need.push(`folge mind. ${result.followMin} Kanälen`);
-            if (result.coins < 1) need.push(`sammle 2h Zuschauzeit (zuschauen + sinnvoll chatten)`);
-            reply = `@${u} Angemeldet ✅ — für den Lostopf noch nötig: ${need.join(' + ')}. Stand: !los`;
+            if (result.channelsFollowed < result.followMin) need.push(`folge mind. ${result.followMin} ${kw2(result.followMin)}`);
+            if ((result.totalWatchSec || 0) < result.drawMinSec) need.push(`sammle ${fmtDur(result.drawMinSec)} Zuschauzeit (zuschauen + sinnvoll chatten)`);
+            reply = need.length
+              ? `@${u} Angemeldet ✅ — für den Lostopf noch nötig: ${need.join(' + ')}. Stand: !los`
+              : `@${u} Du bist dabei & im Lostopf ✅`;
           }
           redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: reply }));
         }
@@ -473,10 +484,12 @@ function subscribeToGiveaway() {
             const pool = all.filter(p => p.eligible).reduce((s, p) => s + p.totalCoins, 0);
             const chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
             reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte | folgt ${a.channelsQualified}/${a.followMin} ✓ | Chance ${chance.toFixed(1)}% | im Lostopf ✅`;
-          } else if (a.registered && a.channelsQualified < a.followMin) {
-            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – du folgst erst ${a.channelsQualified}/${a.followMin} Kanälen. Folge mind. ${a.followMin} ${kw2(a.followMin)} zum Mitmachen!`;
-          } else if (!a.registered && a.totalCoins >= 1) {
-            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schreib "${kw || 'das Keyword'}" um teilzunehmen!`;
+          } else if (!a.registered) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schreib "${kw || 'das Keyword'}" um dich anzumelden. Für den Lostopf: folge ≥${a.followMin} ${kw2(a.followMin)}${a.drawMinSec > 0 ? ` + ${fmtDur(a.drawMinSec)} Viewtime` : ''}.`;
+          } else if (a.channelsQualified < a.followMin) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – du folgst erst ${a.channelsQualified}/${a.followMin} ${kw2(a.followMin)}. Folge mind. ${a.followMin} zum Mitmachen!`;
+          } else if (a.totalWatchSec < a.drawMinSec) {
+            reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte, folgst ${a.channelsQualified}/${a.followMin} ✓ – für den Lostopf noch ${fmtDur(a.drawMinSec - a.totalWatchSec)} Viewtime sammeln (zuschauen + sinnvoll chatten).`;
           } else {
             reply = `@${u} 🎟 ${a.totalCoins.toFixed(2)} Punkte – schau zu (egal welcher Kanal) & folge ≥${a.followMin} ${kw2(a.followMin)}.`;
           }
@@ -491,7 +504,9 @@ function subscribeToGiveaway() {
         const host = (process.env.PUBLIC_URL || 'https://team.raumdock.org').replace(/^https?:\/\//, '').replace(/\/+$/, '');
         const kwTxt = kw ? `"${kw}"` : 'das Keyword';
         const fm = await wte.getFollowMin(teamId);
-        const info = `🎁 Team-Giveaway: schau auf EINEM der Team-Kanäle zu — die Zuschauzeit zählt zusammen (2h = 1 Los), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: folge ≥${fm} ${kw2(fm)} + schreib ${kwTxt} im Chat. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
+        const dmSec = await wte.getDrawMinSec(teamId);
+        const dmTxt = dmSec > 0 ? ` + mind. ${fmtDur(dmSec)} Zuschauzeit` : '';
+        const info = `🎁 Team-Giveaway: schau auf EINEM der Team-Kanäle zu — die Zuschauzeit zählt zusammen (2h = 1 Punkt), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: schreib ${kwTxt} im Chat (= anmelden). Für den Lostopf: folge ≥${fm} ${kw2(fm)}${dmTxt}. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
         redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: info }));
         break;
       }
@@ -552,7 +567,7 @@ app.get('/api/my-status', async (req, res) => {
         chance = pool > 0 ? (a.totalCoins / pool * 100) : 0;
       }
       out.push({ teamId: t, name: nr.rows[0].name, coins: a.totalCoins, watchSec: a.totalWatchSec,
-                 channelsQualified: a.channelsQualified, followMin: a.followMin, registered: a.registered, eligible: a.eligible,
+                 channelsQualified: a.channelsQualified, followMin: a.followMin, drawMinSec: a.drawMinSec, registered: a.registered, eligible: a.eligible,
                  chance, open: await wte.isOpen(t), paused: await wte.isPaused(t), perChannel: a.perChannel });
     }
     res.json({ login: user, teams: out.sort((x, y) => y.coins - x.coins) });

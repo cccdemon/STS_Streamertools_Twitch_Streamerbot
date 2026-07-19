@@ -115,6 +115,7 @@
     var hint;
     if(t.eligible) hint='Du bist im Lostopf. Mehr Zuschauzeit + sinnvoller Chat erhöhen deine Chance.';
     else if(t.registered && (t.channelsQualified||0)<need) hint='Du folgst erst '+(t.channelsQualified||0)+' von '+need+' Kanälen — folge mind. '+need+' '+kw+'. (Gucken zählt überall aufs gleiche Konto.)';
+    else if(t.registered && t.drawMinSec>0 && (t.watchSec||0)<t.drawMinSec) hint='Fast! Noch '+fmtTime(t.drawMinSec-(t.watchSec||0))+' Zuschauzeit sammeln (zuschauen + sinnvoll chatten), dann bist du im Lostopf.';
     else if(!t.registered) hint='Schreib das Keyword im Chat, um deine Teilnahme abzugeben.';
     else hint='';
     return '<div class="card"><div class="chead"><span class="tname">'+esc(t.name)+'</span>'

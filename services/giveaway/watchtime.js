@@ -45,6 +45,7 @@ const K = {
   cfgAutoPause: (t) => `${TP(t)}gw:cfg:auto_pause`,       // '1' = Pause wenn alle Streams offline
   cfgAutoResume:(t) => `${TP(t)}gw:cfg:auto_resume`,      // '1' = Start/Resume wenn ein Stream online
   cfgFollowMin: (t) => `${TP(t)}gw:cfg:follow_min`,       // wie vielen Kanälen muss man folgen (Teilnahmebedingung)
+  cfgDrawMinSec:(t) => `${TP(t)}gw:cfg:draw_min_sec`,     // min. Viewtime (Sek.) um im Lostopf berücksichtigt zu werden
   userTeams:    (u) => `gw:user_teams:${u}`,              // GLOBAL Reverse-Index: Teams eines Users
   gwRegistered: (t, u) => `${TP(t)}gw:registered:${u}`,
   gwBanned:     (t, u) => `${TP(t)}gw_banned:${u}`,
@@ -126,6 +127,18 @@ class WatchtimeEngine {
     const t = sanitizeTeamId(teamId);
     const v = Math.max(0, Math.min(10, parseInt(n, 10) || 0));
     await this.redis.set(K.cfgFollowMin(t), String(v));
+    return v;
+  }
+  // Min. Viewtime (Sek.) um im Lostopf berücksichtigt zu werden (per-Team).
+  // 0 = jede Viewtime >0 reicht (Chance bleibt viewtime-gewichtet). Default 2h.
+  async getDrawMinSec(teamId) {
+    const v = parseInt(await this.redis.get(K.cfgDrawMinSec(sanitizeTeamId(teamId))), 10);
+    return (Number.isFinite(v) && v >= 0) ? v : SECS_PER_COIN;   // 7200 = 2h
+  }
+  async setDrawMinSec(teamId, sec) {
+    const t = sanitizeTeamId(teamId);
+    const v = Math.max(0, Math.min(360000, Math.round(parseFloat(sec) || 0)));  // 0..100h
+    await this.redis.set(K.cfgDrawMinSec(t), String(v));
     return v;
   }
   async setMultiplier(teamId, factor, seconds) {
@@ -263,8 +276,7 @@ class WatchtimeEngine {
       ON CONFLICT (username) DO UPDATE SET display = EXCLUDED.display, last_seen = NOW()
     `, [username, sanitizeStr(displayName, 50) || username]);
     const agg = await this.getUserAggregate(teamId, username);
-    return { registered: true, isNew: !already, coins: agg.totalCoins,
-             eligible: agg.eligible, followMin: agg.followMin, channelsFollowed: agg.channelsFollowed };
+    return { ...agg, registered: true, isNew: !already };
   }
 
   async registerUser(teamId, username) {
@@ -319,13 +331,15 @@ class WatchtimeEngine {
     }
     const totalCoins = coinsFromSec(totalWatch);
     const followMin  = await this.getFollowMin(t);
+    const drawMinSec = await this.getDrawMinSec(t);
     const registered = await this.redis.get(K.gwRegistered(t, u)) === '1';
     const banned     = await this.redis.get(K.gwBanned(t, u)) === '1';
-    // Teilnahme: Keyword + folgt ≥followMin Kanälen + Viewtime>0 (irgendwo geguckt).
-    const eligible   = registered && !banned && followed >= followMin && totalCoins > 0;
+    // Lostopf: Keyword + folgt ≥followMin Kanälen + ≥drawMinSec Viewtime (irgendwo geguckt).
+    const eligible   = registered && !banned && followed >= followMin && totalWatch > 0 && totalWatch >= drawMinSec;
     return {
       username: u, perChannel, totalWatchSec: totalWatch, totalCoins,
-      channelsQualified: followed, channelsFollowed: followed, followMin, registered, banned, eligible,
+      channelsQualified: followed, channelsFollowed: followed, followMin, drawMinSec,
+      registered, banned, eligible,
       coins: totalCoins, watchSec: totalWatch, msgs: totalMsgs,
     };
   }
