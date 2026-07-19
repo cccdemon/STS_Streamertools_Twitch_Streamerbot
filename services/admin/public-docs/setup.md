@@ -69,7 +69,10 @@ Importiere die C#-Actions aus diesem Ordner (Streamerbot → **Import** oder Act
 - **`!los` antwortet nicht:** `CC_ChatReply` am Trigger *WebSocket Client → Message*? Falls dein Streamerbot die Nachricht unter anderem Arg-Namen liefert, die Liste in `CC_ChatReply.cs` (`data/message/wsData/…`) ergänzen.
 - **Falscher Client-Index:** die `0` in `CPH.WebsocketSend(payload, 0)` auf deinen Client-Index setzen.
 
-## Der corteimos-Bot (Follow-Verifizierung)
-`corteimos` ist in allen teilnehmenden Kanälen **Moderator**. Über sein Token prüft
-das Backend vor der Ziehung per Twitch-Helix, wer welchen Kanälen wirklich folgt
-(Follow-Reconcile). Nichts einzurichten am Creator-PC — nur corteimos als Mod eingetragen lassen.
+## Follow-Verifizierung (nichts am Creator-PC einzurichten)
+Vor jeder Ziehung prüft das Backend per Twitch-Helix, wer welchen Kanälen wirklich
+folgt (Follow-Reconcile). Grundlage: jeder teilnehmende Streamer meldet sich **einmal**
+auf **https://team.raumdock.org** mit Twitch an — dabei wird der Scope
+`moderator:read:followers` erteilt, und das Backend liest die Follower des **eigenen**
+Kanals über diesen Token (self = broadcaster). Kanäle, deren Owner nie eingeloggt war,
+bleiben **permissiv** (kein Follow-Gate). Am Creator-PC ist dafür nichts einzurichten.

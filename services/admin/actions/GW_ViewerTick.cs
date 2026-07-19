@@ -4,7 +4,7 @@
 // Meldet anwesende Zuschauer an den Ingest-Server. Der Kanal wird
 // SERVERSEITIG aus dem Token abgeleitet (nicht mitgeschickt = spoofsicher).
 // follows/Kanal-Zuordnung macht der Server; Follow-Verifizierung final
-// über Helix (corteimos) vor der Ziehung.
+// über Helix (Self-OAuth pro Kanal-Owner) vor der Ziehung.
 
 public class CPHInline
 {
