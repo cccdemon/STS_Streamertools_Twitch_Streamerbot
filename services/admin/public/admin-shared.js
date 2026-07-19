@@ -368,7 +368,7 @@
   handle.className = 'cc-dbg-handle';
   handle.innerHTML =
     '<div class="cc-dbg-dot" id="cc-dbg-dot"></div>' +
-    '<span class="cc-dbg-label">DEBUG CONSOLE</span>' +
+    '<span class="cc-dbg-label">WEBSOCKET LOG</span>' +
     '<span class="cc-dbg-count" id="cc-dbg-count">0 Events</span>' +
     '<div class="cc-dbg-btns">' +
       '<button class="cc-dbg-btn" id="cc-dbg-pause">PAUSE</button>' +
@@ -393,6 +393,7 @@
     if (e.target.tagName === 'BUTTON') return;
     consoleOpen = !consoleOpen;
     panel.classList.toggle('open', consoleOpen);
+    if (consoleOpen) renderAll();
   });
 
   document.getElementById('cc-dbg-pause').addEventListener('click', function() {

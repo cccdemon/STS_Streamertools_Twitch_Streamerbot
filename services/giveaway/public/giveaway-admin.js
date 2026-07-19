@@ -116,6 +116,14 @@ function requestData() {
 
 setInterval(() => { if (gwWs && gwWs.readyState === 1) requestData(); }, 10000);
 
+// Debounced live refresh — coalesces bursts of wt_update/gw_join into
+// one data pull so the table/stats update in ~1s without a page reload.
+let _liveRefreshT = null;
+function liveRefresh() {
+  if (_liveRefreshT) return;
+  _liveRefreshT = setTimeout(() => { _liveRefreshT = null; requestData(); }, 800);
+}
+
 // ── Message Handler ───────────────────────────────────────
 function handle(msg) {
   switch(msg.event) {
@@ -171,6 +179,15 @@ function handle(msg) {
 
     case 'gw_multiplier':
       updateMultiplierUI(parseFloat(msg.factor) || 1, parseInt(msg.secondsLeft) || 0);
+      break;
+
+    case 'gw_join':
+      if (msg.user) log('Neuer Teilnehmer: ' + msg.user, 'cyan');
+      liveRefresh();
+      break;
+
+    case 'wt_update':
+      liveRefresh();
       break;
   }
 }
