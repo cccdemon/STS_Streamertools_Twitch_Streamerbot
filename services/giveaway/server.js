@@ -359,13 +359,13 @@ async function handleAdminCmd(send, msg, meta) {
     case 'gw_add_ticket': {
       const u = sanitizeUsername(msg.user); if (!u) return;
       await wte.registerUser(teamId, u);
-      const r = await wte.adjustWatch(teamId, u, msg.channel, 7200);
+      const r = await wte.adjustWatch(teamId, u, msg.channel, await wte.getCoinBaseSec(teamId));
       send({ event: 'gw_ack', type: 'ticket_added', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }
     case 'gw_sub_ticket': {
       const u = sanitizeUsername(msg.user); if (!u) return;
-      const r = await wte.adjustWatch(teamId, u, msg.channel, -7200);
+      const r = await wte.adjustWatch(teamId, u, msg.channel, -(await wte.getCoinBaseSec(teamId)));
       send({ event: 'gw_ack', type: 'ticket_removed', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }

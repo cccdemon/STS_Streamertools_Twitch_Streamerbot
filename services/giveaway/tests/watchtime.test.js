@@ -3,7 +3,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
 const {
-  WatchtimeEngine, K, coinsFromSec, countWords, sanitizeStr, sanitizeUsername,
+  WatchtimeEngine, K, coinsFromSec, countWords, sanitizeStr, sanitizeUsername, matchesKeyword,
   CHAT_BONUS_SEC, SECS_PER_COIN,
 } = require('../watchtime.js');
 
@@ -93,6 +93,20 @@ test('multiplier clamps + removes at 1', async () => {
   assert.equal(await e.getMultiplier(TEAM), 10);
   await e.setMultiplier(TEAM, 1, 60);
   assert.equal(await e.getMultiplier(TEAM), 1);
+});
+
+test('keyword matches as a word, not only as the whole message', () => {
+  assert.equal(matchesKeyword('!basher', '!basher'), true);
+  assert.equal(matchesKeyword('  !BASHER  ', '!basher'), true);
+  assert.equal(matchesKeyword('!basher bin dabei', '!basher'), true);
+  assert.equal(matchesKeyword('ja klar !basher', '!basher'), true);
+  assert.equal(matchesKeyword('!basher!', '!basher'), true);
+  assert.equal(matchesKeyword('basher', '!basher'), true);      // ! am Wortrand egal
+  assert.equal(matchesKeyword('!bash', '!basher'), false);
+  assert.equal(matchesKeyword('!basherx', '!basher'), false);
+  assert.equal(matchesKeyword('kein keyword hier', '!basher'), false);
+  assert.equal(matchesKeyword('!basher', ''), false);           // Keyword deaktiviert
+  assert.equal(matchesKeyword('!basher', null), false);
 });
 
 // Opt-in per Keyword steht jedem offen (= Zustimmung Regeln). Der Coin-Gate

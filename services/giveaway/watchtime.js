@@ -70,6 +70,24 @@ function sanitizeStr(s, maxLen = 100) {
   return String(s).replace(/[^\x20-\x7e]|[<>"']/g, '').slice(0, maxLen);
 }
 
+// Keyword-Match: das Keyword muss als eigenes Wort in der Nachricht stehen.
+// Exakte Gleichheit der ganzen Nachricht war zu streng — "!basher 🎉" oder
+// "!basher bin dabei" sind eindeutig als Anmeldung gemeint und wurden verworfen.
+// Satzzeichen am Wortrand werden ignoriert, das Keyword selbst behält seine
+// Sonderzeichen (z.B. das führende "!").
+function matchesKeyword(message, keyword) {
+  const kw = sanitizeStr(keyword || '', 100).trim().toLowerCase();
+  if (!kw) return false;
+  const strip = (w) => w.replace(/^[.,;:!?"'()\[\]]+|[.,;:!?"'()\[\]]+$/g, '');
+  const kwBare = strip(kw);
+  for (const word of String(message || '').toLowerCase().split(/\s+/)) {
+    if (!word) continue;
+    if (word === kw) return true;
+    if (kwBare && strip(word) === kwBare) return true;
+  }
+  return false;
+}
+
 function countWords(msg) {
   let count = 0, inWord = false;
   for (const ch of msg) {
@@ -246,7 +264,7 @@ class WatchtimeEngine {
     await this.redis.sadd(K.chIndex(t, ch), u);
 
     const keyword = await this.redis.get(K.gwKeyword(t));
-    if (keyword && cleanMsg.toLowerCase() === keyword.toLowerCase()) {
+    if (matchesKeyword(cleanMsg, keyword)) {
       await this.redis.incr(K.chMsgs(t, ch, u));
       return this._tryRegister(t, u, username);
     }
@@ -581,7 +599,7 @@ class WatchtimeEngine {
 }
 
 module.exports = {
-  WatchtimeEngine, K, sanitizeUsername, sanitizeChannel, sanitizeStr, sanitizeTeamId, countWords, coinsFromSec,
+  WatchtimeEngine, K, sanitizeUsername, sanitizeChannel, sanitizeStr, sanitizeTeamId, countWords, coinsFromSec, matchesKeyword,
   SECS_PER_COIN, CHAT_BONUS_SEC, CHAT_COOLDOWN, CHAT_MIN_WORDS, TICK_SEC, PRESENCE_TTL,
   JOIN_MIN_COINS, MIN_CHANNELS, ABUSE,
 };
