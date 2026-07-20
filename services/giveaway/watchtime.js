@@ -79,8 +79,10 @@ function countWords(msg) {
   return count;
 }
 
-function coinsFromSec(watchSec) {
-  return Math.round((watchSec / SECS_PER_COIN) * 10000) / 10000;
+// Coin-Basis ist per-Team konfigurierbar (getCoinBaseSec). SECS_PER_COIN = Default.
+function coinsFromSec(watchSec, baseSec) {
+  const base = (Number.isFinite(baseSec) && baseSec > 0) ? baseSec : SECS_PER_COIN;
+  return Math.round((watchSec / base) * 10000) / 10000;
 }
 
 function sanitizeTeamId(t) {
@@ -129,18 +131,23 @@ class WatchtimeEngine {
     await this.redis.set(K.cfgFollowMin(t), String(v));
     return v;
   }
-  // Min. Viewtime (Sek.) um im Lostopf berücksichtigt zu werden (per-Team).
-  // 0 = jede Viewtime >0 reicht (Chance bleibt viewtime-gewichtet). Default 2h.
-  async getDrawMinSec(teamId) {
+  // Coin-Basis (Sek.) = EIN Wert für zwei Dinge (per-Team):
+  //   1 Coin  = coinBaseSec Viewtime
+  //   Lostopf = ab 1 Coin, also ebenfalls coinBaseSec Viewtime
+  // Redis-Key bleibt cfgDrawMinSec (Abwärtskompatibilität bestehender Configs).
+  async getCoinBaseSec(teamId) {
     const v = parseInt(await this.redis.get(K.cfgDrawMinSec(sanitizeTeamId(teamId))), 10);
-    return (Number.isFinite(v) && v >= 0) ? v : SECS_PER_COIN;   // 7200 = 2h
+    return (Number.isFinite(v) && v >= 60) ? v : SECS_PER_COIN;   // 7200 = 2h
   }
-  async setDrawMinSec(teamId, sec) {
+  async setCoinBaseSec(teamId, sec) {
     const t = sanitizeTeamId(teamId);
-    const v = Math.max(0, Math.min(360000, Math.round(parseFloat(sec) || 0)));  // 0..100h
+    const v = Math.max(60, Math.min(360000, Math.round(parseFloat(sec) || 0)));  // 1min..100h
     await this.redis.set(K.cfgDrawMinSec(t), String(v));
     return v;
   }
+  // Alias: Schwelle für den Lostopf == Coin-Basis (1 Coin).
+  async getDrawMinSec(teamId) { return this.getCoinBaseSec(teamId); }
+  async setDrawMinSec(teamId, sec) { return this.setCoinBaseSec(teamId, sec); }
   async setMultiplier(teamId, factor, seconds) {
     const t = sanitizeTeamId(teamId);
     const f = Math.max(1, Math.min(10, parseFloat(factor) || 1));
@@ -203,6 +210,7 @@ class WatchtimeEngine {
       const sid = await this.redis.get(K.gwSessionId(t));
       const channels = await this.getChannels(t);
       const mult = await this.getMultiplier(t);
+      const base = await this.getCoinBaseSec(t);
       const inc  = TICK_SEC * mult;
       for (const ch of channels) {
         const users = await this.redis.smembers(K.chIndex(t, ch));
@@ -212,7 +220,7 @@ class WatchtimeEngine {
           if (!this._followAllowed(await this.redis.get(K.chFollows(t, ch, u)))) continue;
           const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), inc));
           await this._logEvent(t, u, 'tick', inc, sid, ch);
-          updates.push({ teamId: t, username: u, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec) });
+          updates.push({ teamId: t, username: u, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec, base) });
         }
       }
     }
@@ -261,7 +269,7 @@ class WatchtimeEngine {
     const newSec = parseFloat(await this.redis.incrbyfloat(K.chWatch(t, ch, u), inc));
     await this._logEvent(t, u, 'chat_bonus', inc, sid, ch);
 
-    return { added: inc, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec) };
+    return { added: inc, channel: ch, watchSec: newSec, coins: coinsFromSec(newSec, await this.getCoinBaseSec(t)) };
   }
 
   async _tryRegister(teamId, username, displayName) {
@@ -316,6 +324,7 @@ class WatchtimeEngine {
     const t = sanitizeTeamId(teamId);
     const u = sanitizeUsername(username);
     const channels = await this.getChannels(t);
+    const base = await this.getCoinBaseSec(t);
     const perChannel = {};
     let totalWatch = 0, totalMsgs = 0, followed = 0;
     for (const ch of channels) {
@@ -324,21 +333,21 @@ class WatchtimeEngine {
       // Follow-Gate STRIKT: nur bestätigte Follows (Live-Event '1' oder Helix) zählen.
       // (Viewtime-Accrual bleibt permissiv, siehe tickPresentUsers.)
       const follows  = (await this.redis.get(K.chFollows(t, ch, u))) === '1';
-      const coins    = coinsFromSec(watchSec);
+      const coins    = coinsFromSec(watchSec, base);
       perChannel[ch] = { watchSec, coins, msgs, follows };
       totalWatch += watchSec; totalMsgs += msgs;
       if (follows) followed++;   // Follow zählt UNABHÄNGIG vom Gucken
     }
-    const totalCoins = coinsFromSec(totalWatch);
+    const totalCoins = coinsFromSec(totalWatch, base);
     const followMin  = await this.getFollowMin(t);
-    const drawMinSec = await this.getDrawMinSec(t);
+    const drawMinSec = base;   // Lostopf-Schwelle == 1 Coin == Coin-Basis
     const registered = await this.redis.get(K.gwRegistered(t, u)) === '1';
     const banned     = await this.redis.get(K.gwBanned(t, u)) === '1';
-    // Lostopf: Keyword + folgt ≥followMin Kanälen + ≥drawMinSec Viewtime (irgendwo geguckt).
-    const eligible   = registered && !banned && followed >= followMin && totalWatch > 0 && totalWatch >= drawMinSec;
+    // Lostopf: Keyword + folgt ≥followMin Kanälen + ≥1 Coin (irgendwo geguckt).
+    const eligible   = registered && !banned && followed >= followMin && totalCoins >= 1;
     return {
       username: u, perChannel, totalWatchSec: totalWatch, totalCoins,
-      channelsQualified: followed, channelsFollowed: followed, followMin, drawMinSec,
+      channelsQualified: followed, channelsFollowed: followed, followMin, drawMinSec, coinBaseSec: base,
       registered, banned, eligible,
       coins: totalCoins, watchSec: totalWatch, msgs: totalMsgs,
     };

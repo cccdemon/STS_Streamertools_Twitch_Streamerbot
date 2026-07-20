@@ -93,8 +93,8 @@
         <div class="card-title">EINSTELLUNGEN</div>
         <div class="cfg-row"><span>Teilnahme: folge</span><input type="number" id="cfg-follow-min" min="0" max="10" value="2" class="in-narrow" onchange="saveStreamSettings()"><span>Kanälen</span></div>
         <div class="cfg-hint">Gucken zählt auf allen Kanälen aufs gleiche Konto — Folgen ist die Bedingung.</div>
-        <div class="cfg-row"><span>Im Lostopf ab</span><input type="number" id="cfg-draw-min" min="0" max="100" step="0.5" value="2" class="in-narrow" onchange="saveStreamSettings()"><span>Std Viewtime</span></div>
-        <div class="cfg-hint">0 = jede Viewtime zählt (jeder Zuschauer im Topf). Chance bleibt immer nach Viewtime gewichtet.</div>
+        <div class="cfg-row"><span>1 Coin =</span><input type="number" id="cfg-draw-min" min="0.05" max="100" step="0.25" value="2" class="in-narrow" onchange="saveStreamSettings()"><span>Std Viewtime</span></div>
+        <div class="cfg-hint">Gleicher Wert für beides: 1 Coin pro X Std — und im Lostopf ist, wer <b>≥1 Coin</b> hat. Chance bleibt nach Coins gewichtet.</div>
         <label class="cfg-row"><input type="checkbox" id="cfg-auto-pause" onchange="saveStreamSettings()"><span>Pause wenn alle Streams <b>offline</b></span></label>
         <label class="cfg-row"><input type="checkbox" id="cfg-auto-resume" onchange="saveStreamSettings()"><span>Start/Fortsetzen wenn ein Stream <b>online</b></span></label>
       </div>

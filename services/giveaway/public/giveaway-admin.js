@@ -233,7 +233,7 @@ function saveStreamSettings() {
   var ar = !!(document.getElementById('cfg-auto-resume') || {}).checked;
   var fm = CC.validate.sanitizeInt((document.getElementById('cfg-follow-min') || {}).value, 0, 10, 2);
   var dmRaw = parseFloat((document.getElementById('cfg-draw-min') || {}).value);
-  var dm = isFinite(dmRaw) && dmRaw >= 0 ? Math.min(100, dmRaw) : 2;
+  var dm = isFinite(dmRaw) && dmRaw >= 0.05 ? Math.min(100, dmRaw) : 2;
   send({ event: 'gw_cmd', cmd: 'gw_set_stream_settings', autoPause: ap, autoResume: ar, followMin: fm, drawMinHours: dm });
   log('Einstellungen: folge≥' + fm + ' · Pause=' + ap + ' Start=' + ar, 'cyan');
 }
@@ -469,7 +469,7 @@ function renderTable(hlKey=null) {
   document.getElementById('tbl').innerHTML = entries.map(([key,p],i) => `
     <tr class="${p.banned?'banned':''} ${p.eligible?'eligible':''} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
-      <td class="name">${esc(p.display||key)}${p.eligible?` <span class="elig-badge" title="Im Lostopf: ≥${fmtTime(gwDrawMinSec)} Viewtime, folgt ${p.follows}/${gwFollowMin}, angemeldet">&#9679; LOSTOPF</span>`:''}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
+      <td class="name">${esc(p.display||key)}${p.eligible?` <span class="elig-badge" title="Im Lostopf: ≥1 Coin (${fmtDurShort(gwDrawMinSec)}), folgt ${p.follows}/${gwFollowMin}, angemeldet">&#9679; LOSTOPF</span>`:''}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       ${gwChannels.map(ch => `<td class="watchtime pc">${fmtTime((p.perChannel && p.perChannel[ch] && p.perChannel[ch].watchSec) || 0)}</td>`).join('')}
       <td class="watchtime total">${fmtTime(p.watchSec)}</td>
@@ -496,9 +496,10 @@ function updateStats() {
   const elig = active.filter(p => p.eligible).length;
   const overTime = active.filter(p => (p.watchSec||0) >= gwDrawMinSec).length;
   document.getElementById('s-eligible').textContent = elig;
-  document.getElementById('s-eligible-lbl').textContent = `IM LOSTOPF (≥${fmtDurShort(gwDrawMinSec)})`;
+  document.getElementById('s-eligible-lbl').textContent = 'IM LOSTOPF (≥1 COIN)';
   document.getElementById('s-eligible-box').title =
-    `${elig} berechtigt (Keyword + ≥${gwFollowMin} Follows + ≥${fmtTime(gwDrawMinSec)} Viewtime)\n`
+    `${elig} berechtigt (Keyword + ≥${gwFollowMin} Follows + ≥1 Coin)\n`
+    + `1 Coin = ${fmtDurShort(gwDrawMinSec)} Viewtime\n`
     + `${overTime} über der Viewtime-Schwelle`;
 }
 

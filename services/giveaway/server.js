@@ -505,8 +505,8 @@ function subscribeToGiveaway() {
         const kwTxt = kw ? `"${kw}"` : 'das Keyword';
         const fm = await wte.getFollowMin(teamId);
         const dmSec = await wte.getDrawMinSec(teamId);
-        const dmTxt = dmSec > 0 ? ` + mind. ${fmtDur(dmSec)} Zuschauzeit` : '';
-        const info = `🎁 Team-Giveaway: schau auf EINEM der Team-Kanäle zu — die Zuschauzeit zählt zusammen (2h = 1 Punkt), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: schreib ${kwTxt} im Chat (= anmelden). Für den Lostopf: folge ≥${fm} ${kw2(fm)}${dmTxt}. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
+        const dmTxt = dmSec > 0 ? ` + mind. 1 Punkt (${fmtDur(dmSec)} Zuschauzeit)` : '';
+        const info = `🎁 Team-Giveaway: schau auf EINEM der Team-Kanäle zu — die Zuschauzeit zählt zusammen (${fmtDur(dmSec)} = 1 Punkt), sinnvoller Chat (>3 Wörter) gibt Bonus. Mitmachen: schreib ${kwTxt} im Chat (= anmelden). Für den Lostopf: folge ≥${fm} ${kw2(fm)}${dmTxt}. Befehle: !los = dein Status & Chance · !giveaway = diese Info. Regeln: ${host}/viewer/terms?team=${teamId} | Status: ${host}/viewer/status`;
         redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', channel: msg.channel, message: info }));
         break;
       }

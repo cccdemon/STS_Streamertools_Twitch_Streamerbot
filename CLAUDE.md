@@ -11,7 +11,7 @@ Viewtime-basierte Punkte/Lose. Alles Nicht-Giveaway (Spacefight, Alerts, HUD-Cha
 Gamescenes, Stats, Hauling) wurde entfernt.
 
 ## Mechanik (Spec)
-- **Viewtime pro Zuschauer.** 2h (7200s) Viewtime auf einem Kanal = **1 Punkt/Ticket** (`SECS_PER_COIN=7200`).
+- **Viewtime pro Zuschauer.** **Coin-Basis ist per-Team konfigurierbar** (Admin: „1 Coin = X Std Viewtime", Redis `cfgDrawMinSec`, Default 7200s = 2h, `SECS_PER_COIN` nur noch Fallback). Derselbe Wert ist auch die Lostopf-Schwelle: **im Lostopf ab ≥1 Coin**. `coinsFromSec(sec, baseSec)`, `getCoinBaseSec(teamId)`.
 - **Chat = selber Pott wie Viewtime.** Jede sinnvolle Nachricht mit **>3 Wörtern** = **+2s** Viewtime (`CHAT_BONUS_SEC=2`, `CHAT_MIN_WORDS=4`), Cooldown gegen Spam. Viewtime-Multiplier gilt auch hier (×2 → +4s).
 - **Viewtime-Multiplier:** Admin kann zeitlich begrenzt beschleunigen („nächste 15 min doppelte Viewtime", gilt auch für Chat) — time-boxed Faktor auf Tick + Chat-Bonus.
 - **Teilnahme:** Folge ≥2 der teilnehmenden Kanäle (konfigurierbar) + Viewtime + sinnvoller Chat. Lurken allein = keine Lose. Ab ≥1 Ticket per Keyword im Chat opt-in (= Zustimmung Teilnahmebedingungen).

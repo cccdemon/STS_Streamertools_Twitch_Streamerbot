@@ -95,15 +95,21 @@ test('multiplier clamps + removes at 1', async () => {
   assert.equal(await e.getMultiplier(TEAM), 1);
 });
 
-test('keyword opt-in requires >=1 coin', async () => {
+// Opt-in per Keyword steht jedem offen (= Zustimmung Regeln). Der Coin-Gate
+// sitzt in `eligible`, nicht in der Anmeldung.
+test('keyword opt-in registers everyone, eligibility still needs >=1 coin', async () => {
   const e = engine();
   await e.redis.set(K.gwOpen(TEAM), 'true');
   await e.redis.set(K.gwKeyword(TEAM), 'join');
+  await e.redis.set(K.chFollows(TEAM, 'jerichoramirez', 'bob'), '1');
   let r = await e.handleChatMessage(TEAM, 'justcallmedeimos', 'bob', 'join', true);
-  assert.equal(r.registered, false);
+  assert.equal(r.registered, true);
+  assert.equal(r.isNew, true);
+  assert.equal(r.eligible, false);        // angemeldet, aber 0 Coins
   await e.redis.set(K.chWatch(TEAM, 'justcallmedeimos', 'bob'), String(SECS_PER_COIN));
   r = await e.handleChatMessage(TEAM, 'justcallmedeimos', 'bob', 'join', true);
-  assert.equal(r.registered, true);
+  assert.equal(r.isNew, false);
+  assert.equal(r.eligible, true);
 });
 
 test('eligible only with valid coins on >=2 channels + registered', async () => {
@@ -146,6 +152,24 @@ test('followMin is configurable per team', async () => {
   a = await e.getUserAggregate(TEAM, 'dave');
   assert.equal(a.followMin, 1);
   assert.equal(a.eligible, true);       // now 1 follow suffices
+});
+
+test('coin base is configurable and doubles as the draw threshold', async () => {
+  const e = engine();
+  await e.setCoinBaseSec(TEAM, 3600);                                 // 1 Coin = 1h
+  await e.redis.set(K.chWatch(TEAM, 'justcallmedeimos', 'erin'), '1800');
+  await e.redis.set(K.chFollows(TEAM, 'justcallmedeimos', 'erin'), '1');
+  await e.redis.set(K.chFollows(TEAM, 'jerichoramirez', 'erin'), '1');
+  await e.redis.set(K.gwRegistered(TEAM, 'erin'), '1');
+  let a = await e.getUserAggregate(TEAM, 'erin');
+  assert.equal(a.totalCoins, 0.5);
+  assert.equal(a.coinBaseSec, 3600);
+  assert.equal(a.drawMinSec, 3600);
+  assert.equal(a.eligible, false);      // <1 Coin
+  await e.redis.set(K.chWatch(TEAM, 'justcallmedeimos', 'erin'), '3600');
+  a = await e.getUserAggregate(TEAM, 'erin');
+  assert.equal(a.totalCoins, 1);
+  assert.equal(a.eligible, true);       // genau 1 Coin reicht
 });
 
 test('team isolation: users/coins do not leak across teams', async () => {
