@@ -454,6 +454,24 @@ function renderHead() {
     + `<th class="num">AKTIONEN</th>`;
 }
 
+// Vorgemerkt = Keyword ist drin (bleibt dauerhaft), aber die Lostopf-Bedingungen
+// sind noch nicht erfüllt. Sobald der Coin voll ist, rutscht er ohne weiteres
+// Zutun in den Lostopf — das Keyword muss nicht erneut geschrieben werden.
+function isPending(p) { return p.registered && !p.banned && !p.eligible; }
+
+function statusBadge(p) {
+  if (p.eligible) {
+    const t = `Im Lostopf: angemeldet, folgt ${p.follows}/${gwFollowMin}, ≥1 Coin (${fmtDurShort(gwDrawMinSec)})`;
+    return ` <span class="elig-badge" title="${esc(t)}">&#9679; LOSTOPF</span>`;
+  }
+  if (!isPending(p)) return '';
+  const missing = [];
+  if (p.follows < gwFollowMin)      missing.push(`Follows ${p.follows}/${gwFollowMin}`);
+  if ((p.coins || 0) < 1)           missing.push(`noch ${fmtTime(Math.max(0, gwDrawMinSec - (p.watchSec||0)))} bis 1 Coin`);
+  const t = `Vorgemerkt (angemeldet). Fehlt: ${missing.join(' + ') || '—'}. Keyword muss nicht erneut geschrieben werden.`;
+  return ` <span class="pend-badge" title="${esc(t)}">&#9675; VORGEMERKT</span>`;
+}
+
 function renderTable(hlKey=null) {
   const search = document.getElementById('search').value.toLowerCase();
   const entries = Object.entries(participants)
@@ -467,9 +485,9 @@ function renderTable(hlKey=null) {
 
   document.getElementById('list-count').textContent = entries.length;
   document.getElementById('tbl').innerHTML = entries.map(([key,p],i) => `
-    <tr class="${p.banned?'banned':''} ${p.eligible?'eligible':''} ${key===hlKey?'winner-row':''}">
+    <tr class="${p.banned?'banned':''} ${p.eligible?'eligible':(isPending(p)?'pending':'')} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
-      <td class="name">${esc(p.display||key)}${p.eligible?` <span class="elig-badge" title="Im Lostopf: ≥1 Coin (${fmtDurShort(gwDrawMinSec)}), folgt ${p.follows}/${gwFollowMin}, angemeldet">&#9679; LOSTOPF</span>`:''}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
+      <td class="name">${esc(p.display||key)}${statusBadge(p)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       ${gwChannels.map(ch => `<td class="watchtime pc">${fmtTime((p.perChannel && p.perChannel[ch] && p.perChannel[ch].watchSec) || 0)}</td>`).join('')}
       <td class="watchtime total">${fmtTime(p.watchSec)}</td>
@@ -493,14 +511,16 @@ function updateStats() {
   document.getElementById('s-tickets').textContent = active.reduce((s,p)=>s+(parseFloat(p.coins)||0),0).toFixed(4).replace(/\.?0+$/,'');
   document.getElementById('s-msgs').textContent    = active.reduce((s,p)=>s+(parseInt(p.msgs)||0),0);
   // Berechtigte = Server-Flag `eligible` (Keyword + Follow-Gate + ≥drawMinSec Viewtime)
-  const elig = active.filter(p => p.eligible).length;
-  const overTime = active.filter(p => (p.watchSec||0) >= gwDrawMinSec).length;
-  document.getElementById('s-eligible').textContent = elig;
-  document.getElementById('s-eligible-lbl').textContent = 'IM LOSTOPF (≥1 COIN)';
+  const elig    = active.filter(p => p.eligible).length;
+  const pending = active.filter(isPending).length;
+  const noKey   = active.filter(p => !p.registered && (p.coins||0) >= 1).length;
+  document.getElementById('s-eligible').textContent = pending ? `${elig}+${pending}` : String(elig);
+  document.getElementById('s-eligible-lbl').textContent = pending ? 'LOSTOPF + VORGEMERKT' : 'IM LOSTOPF (≥1 COIN)';
   document.getElementById('s-eligible-box').title =
-    `${elig} berechtigt (Keyword + ≥${gwFollowMin} Follows + ≥1 Coin)\n`
-    + `1 Coin = ${fmtDurShort(gwDrawMinSec)} Viewtime\n`
-    + `${overTime} über der Viewtime-Schwelle`;
+    `${elig} im Lostopf (Keyword + ≥${gwFollowMin} Follows + ≥1 Coin)\n`
+    + `${pending} vorgemerkt (Keyword da, Bedingung offen)\n`
+    + `${noKey} hätten ≥1 Coin, aber kein Keyword\n`
+    + `1 Coin = ${fmtDurShort(gwDrawMinSec)} Viewtime`;
 }
 
 // OBS-Overlay (giveaway-overlay.html) ist winner-only. Der Server broadcastet
