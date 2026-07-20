@@ -16,6 +16,8 @@ let participants = {};
 let gwChannels   = [];
 let gwIsOpen     = false;
 let gwPaused     = false;
+let gwDrawMinSec = 7200;   // Viewtime-Schwelle für den Lostopf (vom Server, gw_data)
+let gwFollowMin  = 2;
 let sortField    = 'coins';
 let sortDir      = -1;
 let gwWs         = null;
@@ -143,8 +145,13 @@ function handle(msg) {
           coins:    parseDec(p.coins),
           banned:   !!p.banned,
           flags:    Array.isArray(p.flags) ? p.flags : [],
-          perChannel: p.perChannel || {}
+          perChannel: p.perChannel || {},
+          eligible:   !!p.eligible,
+          registered: !!p.registered,
+          follows:    parseInt(p.channelsFollowed) || 0
         };
+        if (Number.isFinite(parseInt(p.drawMinSec))) gwDrawMinSec = parseInt(p.drawMinSec);
+        if (Number.isFinite(parseInt(p.followMin)))  gwFollowMin  = parseInt(p.followMin);
       });
       updateGwStatus();
       renderHead();
@@ -169,6 +176,9 @@ function handle(msg) {
         var arEl = document.getElementById('cfg-auto-resume'); if (arEl) arEl.checked = !!msg.autoResume;
         var fmEl = document.getElementById('cfg-follow-min');  if (fmEl && msg.followMin !== undefined) fmEl.value = msg.followMin;
         var dmEl = document.getElementById('cfg-draw-min');    if (dmEl && msg.drawMinHours !== undefined) dmEl.value = msg.drawMinHours;
+        if (msg.followMin !== undefined)    gwFollowMin  = parseInt(msg.followMin) || 0;
+        if (msg.drawMinHours !== undefined) gwDrawMinSec = Math.round(parseFloat(msg.drawMinHours) * 3600) || 0;
+        updateStats(); renderTable();
         break;
       }
       if (msg.type === 'keyword') { const kw = msg.keyword || ''; document.getElementById('kw-current').textContent = kw || '- (deaktiviert)'; document.getElementById('kw-input').value = kw; break; }
@@ -457,9 +467,9 @@ function renderTable(hlKey=null) {
 
   document.getElementById('list-count').textContent = entries.length;
   document.getElementById('tbl').innerHTML = entries.map(([key,p],i) => `
-    <tr class="${p.banned?'banned':''} ${key===hlKey?'winner-row':''}">
+    <tr class="${p.banned?'banned':''} ${p.eligible?'eligible':''} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
-      <td class="name">${esc(p.display||key)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
+      <td class="name">${esc(p.display||key)}${p.eligible?` <span class="elig-badge" title="Im Lostopf: ≥${fmtTime(gwDrawMinSec)} Viewtime, folgt ${p.follows}/${gwFollowMin}, angemeldet">&#9679; LOSTOPF</span>`:''}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       ${gwChannels.map(ch => `<td class="watchtime pc">${fmtTime((p.perChannel && p.perChannel[ch] && p.perChannel[ch].watchSec) || 0)}</td>`).join('')}
       <td class="watchtime total">${fmtTime(p.watchSec)}</td>
@@ -482,6 +492,14 @@ function updateStats() {
   document.getElementById('s-total').textContent   = active.length;
   document.getElementById('s-tickets').textContent = active.reduce((s,p)=>s+(parseFloat(p.coins)||0),0).toFixed(4).replace(/\.?0+$/,'');
   document.getElementById('s-msgs').textContent    = active.reduce((s,p)=>s+(parseInt(p.msgs)||0),0);
+  // Berechtigte = Server-Flag `eligible` (Keyword + Follow-Gate + ≥drawMinSec Viewtime)
+  const elig = active.filter(p => p.eligible).length;
+  const overTime = active.filter(p => (p.watchSec||0) >= gwDrawMinSec).length;
+  document.getElementById('s-eligible').textContent = elig;
+  document.getElementById('s-eligible-lbl').textContent = `IM LOSTOPF (≥${fmtDurShort(gwDrawMinSec)})`;
+  document.getElementById('s-eligible-box').title =
+    `${elig} berechtigt (Keyword + ≥${gwFollowMin} Follows + ≥${fmtTime(gwDrawMinSec)} Viewtime)\n`
+    + `${overTime} über der Viewtime-Schwelle`;
 }
 
 // OBS-Overlay (giveaway-overlay.html) ist winner-only. Der Server broadcastet
@@ -580,6 +598,14 @@ function dlFile(name, content, mime) {
 function fmtTime(s) {
   if (!s) return '0:00:00';
   return `${Math.floor(s/3600)}:${String(Math.floor((s%3600)/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+// Kurzform für Labels: 7200 -> "2h", 5400 -> "1.5h", 1800 -> "30m"
+function fmtDurShort(s) {
+  if (!s) return '0';
+  if (s < 3600) return `${Math.round(s/60)}m`;
+  const h = s/3600;
+  return `${(Math.round(h*10)/10).toString().replace(/\.0$/,'')}h`;
 }
 
 function log(msg, type='') {
