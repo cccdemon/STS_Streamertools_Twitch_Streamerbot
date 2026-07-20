@@ -16,6 +16,9 @@ let participants = {};
 let gwChannels   = [];
 let gwIsOpen     = false;
 let gwPaused     = false;
+// Streamermodus: Zuschauernamen + Ingest-Tokens werden maskiert, damit das Panel
+// live gezeigt werden kann. Nur Anzeige — COPY kopiert weiterhin den echten Wert.
+let privacyOn    = localStorage.getItem('cc_privacy') === '1';
 let gwDrawMinSec = 7200;   // Viewtime-Schwelle für den Lostopf (vom Server, gw_data)
 let gwFollowMin  = 2;
 let sortField    = 'coins';
@@ -318,7 +321,8 @@ function renderIngest() {
       var body = tok
         ? '<div class="ig-lbl">Token · ' + esc(ch) + '</div>'
           + '<div class="cf">'
-          + '<input class="cf-val mono" readonly value="' + esc(tok) + '" onclick="this.select()">'
+          + '<input class="cf-val mono" readonly value="' + esc(maskToken(tok)) + '"'
+          + (privacyOn ? '' : ' onclick="this.select()"') + '>'
           + '<button class="btn btn-cyan btn-sm cf-btn" onclick="copyVal(' + "'" + jsStr(tok) + "'" + ',this)">COPY</button>'
           + '<button class="btn btn-gold btn-sm" onclick="genIngestToken(\'' + jsStr(ch) + '\')">NEU</button>'
           + '</div>'
@@ -454,6 +458,39 @@ function renderHead() {
     + `<th class="num">AKTIONEN</th>`;
 }
 
+// ── Streamermodus ─────────────────────────────────────────
+// Ersetzt Zuschauernamen durch stabile Pseudonyme und blendet Tokens aus.
+// Die echten Werte bleiben im Speicher — Aktionen (+1/BAN/Suche) arbeiten
+// weiter mit dem echten Key, nur die Darstellung ändert sich.
+function togglePrivacy() {
+  privacyOn = !privacyOn;
+  localStorage.setItem('cc_privacy', privacyOn ? '1' : '0');
+  applyPrivacy();
+  log(privacyOn ? 'Streamermodus AN – Namen & Tokens maskiert' : 'Streamermodus AUS', 'gold');
+}
+
+function applyPrivacy() {
+  document.body.classList.toggle('privacy', privacyOn);
+  const b = document.getElementById('privacy-badge');
+  if (b) {
+    b.className = 'ws-badge priv ' + (privacyOn ? 'on' : 'off');
+    b.innerHTML = (privacyOn ? '&#128064;' : '&#128065;') + ' STREAMERMODUS: ' + (privacyOn ? 'AN' : 'AUS');
+  }
+  if (document.getElementById('tbl'))         renderTable();
+  if (document.getElementById('ingest-list')) renderIngest();
+}
+
+// Pseudonym bleibt gleich, egal wie sortiert/gefiltert wird: Position in der
+// alphabetisch sortierten Gesamtliste.
+function maskName(key, fallback) {
+  if (!privacyOn) return fallback;
+  const all = Object.keys(participants).sort();
+  const i = all.indexOf(key);
+  return 'Zuschauer ' + String(i < 0 ? 0 : i + 1).padStart(2, '0');
+}
+
+function maskToken(tok) { return privacyOn ? '•'.repeat(Math.min(32, String(tok).length)) : tok; }
+
 // Vorgemerkt = Keyword ist drin (bleibt dauerhaft), aber die Lostopf-Bedingungen
 // sind noch nicht erfüllt. Sobald der Coin voll ist, rutscht er ohne weiteres
 // Zutun in den Lostopf — das Keyword muss nicht erneut geschrieben werden.
@@ -487,7 +524,7 @@ function renderTable(hlKey=null) {
   document.getElementById('tbl').innerHTML = entries.map(([key,p],i) => `
     <tr class="${p.banned?'banned':''} ${p.eligible?'eligible':(isPending(p)?'pending':'')} ${key===hlKey?'winner-row':''}">
       <td class="rank">${i+1}</td>
-      <td class="name">${esc(p.display||key)}${statusBadge(p)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
+      <td class="name">${esc(maskName(key, p.display||key))}${statusBadge(p)}${p.banned?' <span style="color:var(--red);font-size:10px;">[BAN]</span>':''}${(p.flags&&p.flags.length)?` <span title="${esc(p.flags.map(f=>f.reason+' x'+f.count).join(', '))}" style="color:var(--gold);font-size:11px;cursor:help;">&#9888;${p.flags.length}</span>`:''}</td>
       <td class="tickets">${parseDec(p.coins).toFixed(2)}</td>
       ${gwChannels.map(ch => `<td class="watchtime pc">${fmtTime((p.perChannel && p.perChannel[ch] && p.perChannel[ch].watchSec) || 0)}</td>`).join('')}
       <td class="watchtime total">${fmtTime(p.watchSec)}</td>
@@ -649,6 +686,8 @@ function clearLog() {
 
 // ── Init ──────────────────────────────────────────────────
 if (!window._sfUnitTests) {
+  applyPrivacy();               // vor connectWS: Zustand steht, bevor Daten kommen
   connectWS();
   log('Admin-Panel gestartet', 'cyan');
+  if (privacyOn) log('Streamermodus aktiv (gespeichert)', 'gold');
 }

@@ -57,6 +57,12 @@ body {
 .ws-badge { font-family:var(--mono); cursor:pointer; font-size:10px; letter-spacing:1.5px; border:1px solid; border-radius:20px; padding:6px 12px; display:inline-flex; align-items:center; gap:7px; }
 .ws-badge::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 7px currentColor; }
 .ws-badge.on  { color:var(--green); border-color:rgba(34,224,122,.35); }
+/* Streamermodus-Schalter */
+.ws-badge.priv     { cursor:pointer; }
+.ws-badge.priv.on  { color:var(--gold); border-color:rgba(240,165,0,.5); background:rgba(240,165,0,.1); }
+/* Event-Log enthält Klarnamen aus ACKs → im Streamermodus unlesbar machen */
+body.privacy .event-log { filter:blur(5px); user-select:none; }
+body.privacy .event-log:hover { filter:blur(5px); }
 .ws-badge.off { color:var(--dim);   border-color:rgba(200,220,232,.12); }
 .ws-badge.off::before { box-shadow:none; }
 
