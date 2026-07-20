@@ -63,6 +63,18 @@ body {
 /* Event-Log enthält Klarnamen aus ACKs → im Streamermodus unlesbar machen */
 body.privacy .event-log { filter:blur(5px); user-select:none; }
 body.privacy .event-log:hover { filter:blur(5px); }
+
+/* Audit-Log */
+.audit-list { max-height:320px; overflow-y:auto; margin-top:6px; }
+.audit-row { padding:6px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.audit-row.denied { border-left:3px solid var(--gold); padding-left:7px; }
+.audit-row.err    { border-left:3px solid var(--red);  padding-left:7px; }
+.audit-head { display:flex; gap:6px; align-items:baseline; font-size:12px; color:var(--text); }
+.audit-head b { color:var(--cyan); font-weight:600; }
+.audit-ts { margin-left:auto; color:var(--dim); font-size:10px; white-space:nowrap; }
+.audit-sum { font-size:11px; color:var(--dim); margin-top:2px; }
+.audit-flag { font-size:9px; letter-spacing:1px; color:var(--gold); margin-top:2px; }
+.in-wide { flex:1 1 auto; min-width:0; }
 .ws-badge.off { color:var(--dim);   border-color:rgba(200,220,232,.12); }
 .ws-badge.off::before { box-shadow:none; }
 

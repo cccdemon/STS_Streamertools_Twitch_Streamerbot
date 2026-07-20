@@ -140,6 +140,44 @@ async function memberChannel(login, teamId) {
   return r.rows[0] ? sanitizeChannel(r.rows[0].channel) : null;
 }
 
+// ── Audit ─────────────────────────────────────────────────
+// Append-only Protokoll jeder Aktion, die den Giveaway-Stand verändern kann.
+// Nur-Lese-Cmds sind ausgenommen, sonst ersäuft der Log in Polling-Rauschen.
+const AUDIT_SKIP = new Set([
+  'gw_get_channels', 'gw_get_multiplier', 'gw_get_stream_settings',
+  'gw_get_keyword', 'gw_get_ingest_tokens',
+]);
+
+async function audit(entry) {
+  const row = {
+    teamId: entry.teamId || null, sessionId: entry.sessionId || null,
+    actor: entry.actor || 'unknown', ip: entry.ip || null,
+    action: entry.action, target: entry.target || null,
+    result: entry.result || 'ok', detail: entry.detail || {},
+  };
+  try {
+    await pg.query(
+      `INSERT INTO audit_log (team_id, session_id, actor, actor_ip, action, target, result, detail)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [row.teamId, row.sessionId, row.actor, row.ip, row.action, row.target, row.result, JSON.stringify(row.detail)]);
+  } catch (e) {
+    // Die Aktion ist bereits passiert — sie nachträglich zu verwerfen wäre
+    // schlimmer als der Protokollverlust. Laut loggen, damit es auffällt.
+    logErr('Audit', `WRITE FAILED action=${row.action} actor=${row.actor} target=${row.target}: ${e.message}`);
+  }
+}
+
+// Nur die Felder des Cmds protokollieren, die etwas aussagen (kein Token!).
+function auditDetail(msg) {
+  const out = {};
+  for (const k of ['keyword', 'user', 'channel', 'amount', 'factor', 'minutes',
+                   'followMin', 'drawMinHours', 'autoPause', 'autoResume', 'prize', 'test']) {
+    if (msg[k] !== undefined && msg[k] !== null && msg[k] !== '') out[k] = msg[k];
+  }
+  return out;
+}
+function auditTarget(msg) { return sanitizeUsername(msg.user || '') || sanitizeChannel(msg.channel || '') || null; }
+
 // ── Session (per team) ────────────────────────────────────
 async function openGiveaway(teamId, keyword) {
   const sid = `sess_${Date.now()}`;
@@ -172,11 +210,15 @@ async function handleStreamOnline(teamId, channel) {
       await redis.del(K.gwAutoPaused(teamId));
       broadcastTeam(teamId, { event: 'gw_status', status: 'open' });
       log('Auto', `[${teamId}] stream online (${ch}) → resume`);
+      await audit({ teamId, actor: 'system', action: 'auto_resume', target: ch,
+                    sessionId: await wte.getSessionId(teamId), detail: { trigger: 'stream_online' } });
     }
   } else {
     const kw = await redis.get(K.gwKeyword(teamId)) || '';
-    await openGiveaway(teamId, kw);
+    const newSid = await openGiveaway(teamId, kw);
     log('Auto', `[${teamId}] stream online (${ch}) → open`);
+    await audit({ teamId, actor: 'system', action: 'auto_open', target: ch,
+                  sessionId: newSid, detail: { trigger: 'stream_online', keyword: kw } });
   }
 }
 async function handleStreamOffline(teamId, channel) {
@@ -190,6 +232,8 @@ async function handleStreamOffline(teamId, channel) {
     await redis.set(K.gwAutoPaused(teamId), '1');
     broadcastTeam(teamId, { event: 'gw_status', status: 'paused' });
     log('Auto', `[${teamId}] alle Streams offline → pause`);
+    await audit({ teamId, actor: 'system', action: 'auto_pause', target: ch,
+                  sessionId: await wte.getSessionId(teamId), detail: { trigger: 'stream_offline' } });
   }
 }
 
@@ -290,20 +334,45 @@ const MEMBER_CMDS = new Set([
 ]);
 async function handleAdminCmd(send, msg, meta) {
   const teamId = sanitizeTeamId(msg.teamId);
-  const owner = await ownsTeam(meta.authUser, teamId);
+  const actor  = meta.authUser || '(unauthenticated)';
+  const owner  = await ownsTeam(meta.authUser, teamId);
+  // Abgelehnte Versuche gehören genauso ins Protokoll wie erfolgreiche.
+  const auditBase = { teamId, actor, ip: meta.ip, action: msg.cmd, target: auditTarget(msg) };
   if (!owner) {
     if (!MEMBER_CMDS.has(msg.cmd) || !await isMember(meta.authUser, teamId)) {
+      await audit({ ...auditBase, result: 'denied', detail: auditDetail(msg) });
       send({ event: 'gw_ack', type: 'forbidden' }); return;
     }
   }
   const sid = () => wte.getSessionId(teamId);
+  // Cases hängen hier an, was das Ergebnis war (Gewinner, Faktor, alter Wert …).
+  const outcome = {};
+
+  try {
+    await runAdminCmd(send, msg, meta, { teamId, owner, sid, outcome });
+  } catch (e) {
+    await audit({ ...auditBase, sessionId: await sid().catch(() => null),
+                  result: 'error', detail: { ...auditDetail(msg), error: e.message } });
+    logErr('GW', `cmd ${msg.cmd} failed:`, e.message);
+    send({ event: 'gw_ack', type: 'cmd_error', cmd: msg.cmd, error: e.message });
+    return;
+  }
+  if (!AUDIT_SKIP.has(msg.cmd)) {
+    await audit({ ...auditBase, sessionId: await sid().catch(() => null),
+                  result: 'ok', detail: { ...auditDetail(msg), ...outcome } });
+  }
+}
+
+async function runAdminCmd(send, msg, meta, ctx) {
+  const { teamId, owner, sid, outcome } = ctx;
 
   switch (msg.cmd) {
     case 'gw_open':
-      await openGiveaway(teamId, sanitizeStr(msg.keyword || '', 100));
+      outcome.sessionOpened = await openGiveaway(teamId, sanitizeStr(msg.keyword || '', 100));
       send({ event: 'gw_status', status: 'open' });
       break;
     case 'gw_close':
+      outcome.sessionClosed = await wte.getSessionId(teamId);
       await closeGiveaway(teamId);
       send({ event: 'gw_status', status: 'closed' });
       break;
@@ -326,9 +395,12 @@ async function handleAdminCmd(send, msg, meta) {
       if (ap) await redis.set(K.cfgAutoPause(teamId), '1'); else await redis.del(K.cfgAutoPause(teamId));
       if (ar) await redis.set(K.cfgAutoResume(teamId), '1'); else await redis.del(K.cfgAutoResume(teamId));
       let fm = await wte.getFollowMin(teamId);
+      const fmBefore = fm, dmBefore = await wte.getDrawMinSec(teamId);
       if (msg.followMin !== undefined && msg.followMin !== null) fm = await wte.setFollowMin(teamId, msg.followMin);
-      let dm = await wte.getDrawMinSec(teamId);
+      let dm = dmBefore;
       if (msg.drawMinHours !== undefined && msg.drawMinHours !== null) dm = await wte.setDrawMinSec(teamId, parseFloat(msg.drawMinHours) * 3600);
+      Object.assign(outcome, { followMinBefore: fmBefore, followMinAfter: fm,
+                               coinBaseSecBefore: dmBefore, coinBaseSecAfter: dm });
       send({ event: 'gw_ack', type: 'stream_settings', autoPause: ap, autoResume: ar, followMin: fm, drawMinHours: dm / 3600 });
       log('GW', `[${teamId}] settings: pause=${ap} resume=${ar} followMin=${fm} drawMin=${dm}s`);
       break;
@@ -342,6 +414,8 @@ async function handleAdminCmd(send, msg, meta) {
       break;
     case 'gw_set_keyword': {
       const kw = sanitizeStr(msg.keyword || '', 100);
+      outcome.keywordBefore = await redis.get(K.gwKeyword(teamId)) || '';
+      outcome.keywordAfter  = kw;
       await redis.set(K.gwKeyword(teamId), kw);
       const s = await sid(); if (s) await pg.query('UPDATE sessions SET keyword=$1 WHERE id=$2', [kw, s]);
       send({ event: 'gw_ack', type: 'keyword_set', keyword: kw });
@@ -358,20 +432,30 @@ async function handleAdminCmd(send, msg, meta) {
     }
     case 'gw_add_ticket': {
       const u = sanitizeUsername(msg.user); if (!u) return;
+      const base = await wte.getCoinBaseSec(teamId);
+      const before = (await wte.getUserAggregate(teamId, u)).totalWatchSec;
       await wte.registerUser(teamId, u);
-      const r = await wte.adjustWatch(teamId, u, msg.channel, await wte.getCoinBaseSec(teamId));
+      const r = await wte.adjustWatch(teamId, u, msg.channel, base);
+      Object.assign(outcome, { deltaSec: base, coinsDelta: 1, channel: r.channel,
+                               watchSecBefore: before, watchSecAfter: r.watchSec });
       send({ event: 'gw_ack', type: 'ticket_added', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }
     case 'gw_sub_ticket': {
       const u = sanitizeUsername(msg.user); if (!u) return;
-      const r = await wte.adjustWatch(teamId, u, msg.channel, -(await wte.getCoinBaseSec(teamId)));
+      const base = await wte.getCoinBaseSec(teamId);
+      const before = (await wte.getUserAggregate(teamId, u)).totalWatchSec;
+      const r = await wte.adjustWatch(teamId, u, msg.channel, -base);
+      Object.assign(outcome, { deltaSec: -base, coinsDelta: -1, channel: r.channel,
+                               watchSecBefore: before, watchSecAfter: r.watchSec });
       send({ event: 'gw_ack', type: 'ticket_removed', user: u, channel: r.channel, watchSec: r.watchSec });
       break;
     }
     case 'gw_ban': {
       const u = sanitizeUsername(msg.user); if (!u) return;
+      const a = await wte.getUserAggregate(teamId, u);
       await wte.setBanned(teamId, u, true);
+      Object.assign(outcome, { coinsAtBan: a.totalCoins, wasEligible: a.eligible });
       send({ event: 'gw_ack', type: 'banned', user: u });
       break;
     }
@@ -381,13 +465,24 @@ async function handleAdminCmd(send, msg, meta) {
       send({ event: 'gw_ack', type: 'unbanned', user: u });
       break;
     }
-    case 'gw_reset':
+    case 'gw_reset': {
+      // Destruktiv: Stand vorher festhalten, sonst ist der Verlust nicht belegbar.
+      const before = await wte.getAllParticipants(teamId);
+      Object.assign(outcome, {
+        wipedParticipants: before.length,
+        wipedCoins: Math.round(before.reduce((s, p) => s + p.totalCoins, 0) * 10000) / 10000,
+        wipedEligible: before.filter(p => p.eligible).length,
+        sessionBefore: await wte.getSessionId(teamId),
+      });
       await closeGiveaway(teamId);
       await wte.resetGiveaway(teamId);
       send({ event: 'gw_ack', type: 'reset' });
       break;
+    }
     case 'gw_set_multiplier': {
+      const prev = await wte.multiplierState(teamId);
       const r = await wte.setMultiplier(teamId, msg.factor, (parseInt(msg.minutes) || 0) * 60);
+      Object.assign(outcome, { factorBefore: prev.factor, factorAfter: r.factor, seconds: r.seconds });
       broadcastTeam(teamId, { event: 'gw_multiplier', factor: r.factor, secondsLeft: r.seconds });
       send({ event: 'gw_ack', type: 'multiplier_set', factor: r.factor, seconds: r.seconds });
       break;
@@ -403,6 +498,8 @@ async function handleAdminCmd(send, msg, meta) {
       const key = teamId + '::' + ch;
       const token = crypto.randomBytes(24).toString('base64url');
       const old = await redis.hget('ingest:team_tokens', key);
+      // Token selbst wird NIE protokolliert — nur dass rotiert wurde.
+      Object.assign(outcome, { channel: ch, rotated: !!old });
       if (old) await redis.hdel('ingest:tokens', old);
       await redis.hset('ingest:tokens', token, key);
       await redis.hset('ingest:team_tokens', key, token);
@@ -427,10 +524,14 @@ async function handleAdminCmd(send, msg, meta) {
         // Vor echter Ziehung Follows via Helix verifizieren (Phase 4).
         if (!msg.test) { try { await verifyFollows(teamId); } catch(e) { logErr('Helix', 'pre-draw verify:', e.message); } }
         const result = await wte.drawWinner(teamId, await sid(), { test: !!msg.test, prize: msg.prize });
-        if (!result) { send({ event: 'gw_ack', type: 'no_winner' }); break; }
+        if (!result) { outcome.winner = null; send({ event: 'gw_ack', type: 'no_winner' }); break; }
+        Object.assign(outcome, { winner: result.winner, winnerCoins: result.coins, drawId: result.drawId,
+                                 eligibleCount: result.eligibleCount, totalCoins: result.total,
+                                 randValue: result.rand, isTest: !!result.isTest });
         send({ event: 'gw_ack', type: 'winner_drawn', winner: result.winner, watchSec: result.watchSec, coins: result.coins, drawId: result.drawId, prize: result.prize });
         broadcastTeam(teamId, { event: 'gw_overlay', winner: result.winner, coins: result.coins });
       } catch (e) {
+        outcome.error = e.message;
         logErr('GW', 'draw failed:', e.message);
         send({ event: 'gw_ack', type: 'draw_error', error: e.message });
       }
@@ -548,6 +649,25 @@ app.get('/api/participants', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Audit-Log: nur der Team-Owner sieht, wer was gemacht hat.
+app.get('/api/audit', async (req, res) => {
+  try {
+    const teamId = sanitizeTeamId(req.query.team);
+    if (!await ownsTeam(reqUser(req), teamId)) return res.status(403).json({ error: 'forbidden' });
+    const limit  = Math.min(500, Math.max(1, parseInt(req.query.limit) || 100));
+    const params = [teamId];
+    let where = 'team_id = $1';
+    if (req.query.actor)  { params.push(sanitizeUsername(req.query.actor));  where += ` AND actor = $${params.length}`; }
+    if (req.query.target) { params.push(sanitizeUsername(req.query.target)); where += ` AND target = $${params.length}`; }
+    if (req.query.action) { params.push(sanitizeStr(req.query.action, 50));  where += ` AND action = $${params.length}`; }
+    params.push(limit);
+    const r = await pg.query(
+      `SELECT id, ts, actor, actor_ip, action, target, result, detail, session_id
+       FROM audit_log WHERE ${where} ORDER BY ts DESC, id DESC LIMIT $${params.length}`, params);
+    res.json({ team: teamId, entries: r.rows });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Zuschauer-Statusseite: eigener Stand über alle Teams (nur eigene Daten).
 app.get('/api/my-status', async (req, res) => {
   try {
@@ -653,7 +773,24 @@ async function ensureSchema() {
     )`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_abuse_team ON abuse_flags(team_id)`);
   await pg.query(`CREATE INDEX IF NOT EXISTS idx_abuse_session ON abuse_flags(session_id)`);
-  log('Schema', 'multi-tenant + abuse schema ensured');
+  // Audit: append-only, jede Aktion mit Einfluss auf das Giveaway.
+  await pg.query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id         BIGSERIAL PRIMARY KEY,
+      ts         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      team_id    TEXT,
+      session_id TEXT,
+      actor      TEXT NOT NULL,
+      actor_ip   TEXT,
+      action     TEXT NOT NULL,
+      target     TEXT,
+      result     TEXT NOT NULL DEFAULT 'ok',
+      detail     JSONB
+    )`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_audit_team_ts ON audit_log(team_id, ts DESC)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target)`);
+  await pg.query(`CREATE INDEX IF NOT EXISTS idx_audit_actor ON audit_log(actor)`);
+  log('Schema', 'multi-tenant + abuse + audit schema ensured');
 }
 
 async function main() {

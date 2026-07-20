@@ -111,7 +111,7 @@ function onTeamChange() {
   refresh();
 }
 
-function refresh() { requestData(); loadKeyword(); loadHistory(); }
+function refresh() { requestData(); loadKeyword(); loadHistory(); loadAudit(); }
 
 function requestData() {
   send({ event: 'gw_get_all' });
@@ -198,6 +198,8 @@ function handle(msg) {
       if (msg.type === 'winner_drawn') { showWinnerAnimation(msg.winner, msg.watchSec, msg.coins, msg.prize); loadHistory(); }
       if (msg.type === 'no_winner') log('Keine Teilnehmer mit Coins im Pool!', 'red');
       if (msg.type === 'draw_error') log('ZIEHUNG FEHLGESCHLAGEN: ' + (msg.error || '?') + ' – nichts gespeichert, bitte erneut ziehen', 'red');
+      if (msg.type === 'cmd_error') log('BEFEHL FEHLGESCHLAGEN (' + (msg.cmd || '?') + '): ' + (msg.error || '?'), 'red');
+      loadAudit();          // jede Mutation erzeugt einen Audit-Eintrag
       requestData();
       break;
     }
@@ -478,6 +480,7 @@ function applyPrivacy() {
   }
   if (document.getElementById('tbl'))         renderTable();
   if (document.getElementById('ingest-list')) renderIngest();
+  if (document.getElementById('audit-list'))  renderAudit();
 }
 
 // Pseudonym bleibt gleich, egal wie sortiert/gefiltert wird: Position in der
@@ -569,6 +572,88 @@ function clearOverlay() {
 function verifyFollows() {
   log('Prüfe Follows via Helix …', 'cyan');
   send({ event: 'gw_cmd', cmd: 'gw_verify_follows' });
+}
+
+// ── Audit-Log ─────────────────────────────────────────────
+let auditRows = [];
+
+function loadAudit() {
+  if (!currentTeam) return;
+  fetch('/giveaway/api/audit?limit=200&team=' + encodeURIComponent(currentTeam))
+    .then(function(r) { return r.json(); })
+    .then(function(d) { auditRows = (d && Array.isArray(d.entries)) ? d.entries : []; renderAudit(); })
+    .catch(function() {
+      const el = document.getElementById('audit-list');
+      if (el) el.innerHTML = '<div class="wsc-empty">Audit-Log nicht ladbar</div>';
+    });
+}
+
+// Freitext für die Liste: nur die Felder, die für den Menschen zählen.
+function auditSummary(e) {
+  const d = e.detail || {};
+  switch (e.action) {
+    case 'gw_add_ticket': return `+1 Coin (${d.deltaSec}s) auf ${d.channel || '?'}`;
+    case 'gw_sub_ticket': return `-1 Coin (${d.deltaSec}s) auf ${d.channel || '?'}`;
+    case 'gw_ban':        return `gebannt (hatte ${parseDec(d.coinsAtBan).toFixed(2)} Coins${d.wasEligible ? ', war im Lostopf' : ''})`;
+    case 'gw_unban':      return 'entbannt';
+    case 'gw_set_multiplier':
+      return d.factorAfter > 1 ? `Multiplier ×${d.factorAfter} für ${Math.round((d.seconds||0)/60)} min`
+                               : 'Multiplier aus';
+    case 'gw_set_keyword': return `Keyword "${d.keywordBefore || '–'}" → "${d.keywordAfter || '–'}"`;
+    case 'gw_set_stream_settings':
+      return `Follows ${d.followMinBefore}→${d.followMinAfter}, Coin-Basis ${fmtDurShort(d.coinBaseSecBefore)}→${fmtDurShort(d.coinBaseSecAfter)}`;
+    case 'gw_draw_winner':
+      if (d.error) return 'Ziehung fehlgeschlagen: ' + d.error;
+      if (!d.winner) return 'Ziehung ohne Teilnehmer';
+      return `${d.isTest ? 'TEST-' : ''}Ziehung: ${d.winner} (${parseDec(d.winnerCoins).toFixed(2)} Coins von ${d.eligibleCount} Teilnehmern)`;
+    case 'gw_reset':
+      return `RESET – ${d.wipedParticipants} Teilnehmer / ${d.wipedCoins} Coins gelöscht`;
+    case 'gw_open':   return `geöffnet (${d.sessionOpened || '?'})`;
+    case 'gw_close':  return `geschlossen (${d.sessionClosed || '?'})`;
+    case 'gw_pause':  return 'pausiert';
+    case 'gw_resume': return 'fortgesetzt';
+    case 'auto_pause':  return 'Auto-Pause (alle Streams offline)';
+    case 'auto_resume': return 'Auto-Resume (Stream online)';
+    case 'auto_open':   return 'Auto-Open (Stream online)';
+    case 'gw_gen_ingest_token': return d.rotated ? 'Ingest-Token rotiert' : 'Ingest-Token erstellt';
+    case 'gw_verify_follows':   return 'Follow-Abgleich (Helix)';
+    default: return e.action;
+  }
+}
+
+function renderAudit() {
+  const el = document.getElementById('audit-list');
+  if (!el) return;
+  const f = (document.getElementById('audit-filter') || {}).value || '';
+  const q = f.toLowerCase();
+  const rows = auditRows.filter(e => !q
+    || (e.actor || '').toLowerCase().includes(q)
+    || (e.target || '').toLowerCase().includes(q)
+    || (e.action || '').toLowerCase().includes(q));
+  if (!rows.length) { el.innerHTML = '<div class="wsc-empty">Keine Einträge</div>'; return; }
+  el.innerHTML = rows.map(e => {
+    const when = fmtDrawDate(e.ts);
+    const who  = privacyOn ? 'Admin' : esc(e.actor || '?');
+    const tgt  = e.target ? ' → ' + esc(privacyOn ? 'Zuschauer' : e.target) : '';
+    const cls  = e.result === 'ok' ? '' : (e.result === 'denied' ? 'denied' : 'err');
+    return '<div class="audit-row ' + cls + '">'
+      + '<div class="audit-head"><b>' + who + '</b>' + tgt
+      + '<span class="audit-ts">' + when + '</span></div>'
+      + '<div class="audit-sum">' + esc(auditSummary(e)) + '</div>'
+      + (e.result !== 'ok' ? '<div class="audit-flag">' + esc(e.result.toUpperCase()) + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function exportAudit() {
+  if (!auditRows.length) { log('Audit-Log leer', 'red'); return; }
+  const rows = [['Zeitpunkt','Actor','IP','Aktion','Ziel','Ergebnis','Details']];
+  auditRows.forEach(e => rows.push([
+    e.ts, e.actor || '', e.actor_ip || '', e.action, e.target || '', e.result,
+    JSON.stringify(e.detail || {}).replace(/;/g, ','),
+  ]));
+  dlFile('audit_log.csv', rows.map(r => r.join(';')).join('\n'), 'text/csv;charset=utf-8');
+  log('Audit-Log exportiert (' + auditRows.length + ' Einträge)', 'cyan');
 }
 
 // ── Gewinner-Historie ─────────────────────────────────────

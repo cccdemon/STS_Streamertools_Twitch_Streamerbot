@@ -148,6 +148,16 @@
         <button class="btn btn-red btn-full mt-6" onclick="resetAll()">GIVEAWAY RESET</button>
       </div>
 
+      <!-- Audit-Log -->
+      <div class="card">
+        <div class="card-title">AUDIT-LOG <span class="link-cyan" onclick="loadAudit()">↻</span></div>
+        <div class="cfg-row" style="gap:6px">
+          <input type="text" id="audit-filter" placeholder="Filter: Name oder Aktion" class="in-wide" oninput="renderAudit()">
+          <button class="btn btn-cyan btn-sm" onclick="exportAudit()">CSV</button>
+        </div>
+        <div class="audit-list" id="audit-list"><div class="wsc-empty">Lade…</div></div>
+      </div>
+
       <!-- Event Log -->
       <div class="card">
         <div class="card-title">EVENT LOG <span class="link-cyan" onclick="clearLog()">CLR</span></div>
