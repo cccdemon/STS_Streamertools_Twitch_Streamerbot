@@ -165,18 +165,19 @@ function loadPlayerRank(username, cb) {
     .catch(function(){ cb(null); });
 }
 
-// ── Wall of Fame anzeigen ─────────────────────────────────
-// The station ident is shown only while the overlay actually has
-// something on screen: a duel in progress, or the Bestenliste. The
-// arena is transparent the rest of the time, and a permanently visible
-// signet is the mark sitting in the stream around the clock.
+// ── Station ident ─────────────────────────────────────────
+// The ident belongs to the DUEL and to nothing else: it goes up with the
+// arena and comes down in the teardown. The arena is transparent between
+// fights, so a static ident would leave the signet in the stream around
+// the clock. The Bestenliste is its own panel with its own header and
+// does not carry it.
 function syncIdent() {
   var el = document.getElementById('sf-ident');
   if (!el) return;
-  var on = !!arenaState || wofVisible;
-  el.classList.toggle('sf-ident-on', on);
+  el.classList.toggle('sf-ident-on', !!arenaState);
 }
 
+// ── Wall of Fame anzeigen ─────────────────────────────────
 function showWoF(highlightUser) {
   var wof = document.getElementById('wof');
   if (!wof) return;
@@ -185,7 +186,6 @@ function showWoF(highlightUser) {
   wofTimer = setTimeout(hideWoF, WOF_SHOW_SECS * 1000);
 
   wofVisible = true;
-  syncIdent();
   document.getElementById('wof-list').innerHTML = '<div class="wof-empty">Lade...</div>';
   var rankEl = document.getElementById('wof-player-rank');
   if (rankEl) rankEl.style.display = 'none';
@@ -231,7 +231,6 @@ function hideWoF() {
   var wof = document.getElementById('wof');
   if (!wof) return;
   wofVisible = false;
-  syncIdent();
   wof.classList.remove('wof-in');
   wof.classList.add('wof-out');
   if (wofTimer) { clearTimeout(wofTimer); wofTimer = null; }
