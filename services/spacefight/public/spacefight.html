@@ -8,11 +8,18 @@
 <link rel="stylesheet" href="rdoc-overlay.css">
 <style>
   /* OBS source canvas for this overlay. Everything else lives in
-     rdoc-overlay.css — see the HUD rules at the top of that file. */
-  html, body { width: 640px; height: 200px; overflow: hidden; }
+     rdoc-overlay.css — see the HUD rules at the top of that file.
+
+     The page fills whatever source OBS gives it and #sf-stage floats
+     the 640x200 arena in the middle of it. The page used to BE 640x200,
+     which pinned the duel to the top-left corner of any larger source. */
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
 </style>
 </head>
 <body>
+<!-- The stage is centred in the source; the arena keeps its own fixed
+     640x200 coordinate system inside it. -->
+<div id="sf-stage">
 <div id="arena">
   <canvas id="sf-canvas" width="640" height="200"></canvas>
 </div>
@@ -36,6 +43,17 @@
   <div class="wof-player-rank" id="wof-player-rank"></div>
 </div>
 
+</div>
+
+<script>
+  // Arena size in the source. ?scale=2 doubles the duel for a large
+  // OBS source; the arena's own 640x200 coordinate system is unchanged,
+  // so nothing in spacefight.js has to know about it.
+  (function () {
+    var q = parseFloat(new URLSearchParams(location.search).get('scale'));
+    if (q > 0 && q <= 8) document.documentElement.style.setProperty('--sf-scale', q);
+  })();
+</script>
 <script src="spacefight.js"></script>
 </body>
 </html>

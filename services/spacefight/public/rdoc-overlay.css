@@ -305,6 +305,30 @@ body {
    chat.html and force it to fight back with !important.
    ════════════════════════════════════════════════════════════════ */
 
+/* ── The stage ────────────────────────────────────────────────
+   The arena is a fixed 640x200 field: ARENA_W / ARENA_H in
+   spacefight.js, the canvas backing store, the ship home
+   positions and SHIP_SEPARATION are all in those coordinates,
+   so the field itself must not be resized by the viewport.
+
+   It used to be pinned to the document origin, which is correct
+   only if the OBS source is exactly 640x200. At any larger source
+   the whole duel sat in the top-left corner. The stage now floats
+   in the middle of whatever source it is given, so the fight is
+   centred at 640x200, at 1920x1080 and at anything between, and
+   the JS coordinate system is untouched.
+
+   --sf-scale is set from ?scale= by the page. Default 1. */
+#sf-stage {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 640px;
+  height: 200px;
+  transform: translate(-50%, -50%) scale(var(--sf-scale, 1));
+  transform-origin: center center;
+}
+
 #arena { position: absolute; inset: 0; overflow: hidden; }
 
 #sf-canvas {

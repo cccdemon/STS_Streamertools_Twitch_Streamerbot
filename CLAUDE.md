@@ -294,7 +294,7 @@ Known roles: `spacefight-admin`, `spacefight-overlay`.
 | Alert overlay (fullscreen, **the** alert renderer) | `/alerts/overlay.html` (clean/live by default; `?demo=1` = demo panel) |
 | HUD Chat | `/alerts/chat.html?channel=DEIN_KANAL` |
 | Hauling | `/alerts/haul.html` |
-| Spacefight | `/spacefight/spacefight.html` (`?test=1` for local test fights) |
+| Spacefight | `/spacefight/spacefight.html` (`?test=1` for local test fights, `?scale=N` to enlarge) |
 | Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
 
 ## REST API Endpoints
@@ -357,8 +357,25 @@ service.
   consistent C# ↔ JS
 
 ## Spacefight Overlay (`services/spacefight/`)
-The OBS overlay (`/spacefight/spacefight.html`, 640×200, transparent) is a
-pixel-ship arena, not a text fight card. Both pilots fly pixel-art ships that
+The OBS overlay (`/spacefight/spacefight.html`, transparent) is a
+pixel-ship arena, not a text fight card.
+
+**Source size vs arena size — they are not the same thing.** The arena is a
+fixed 640×200 field: `ARENA_W`/`ARENA_H`, the canvas backing store, the ship
+home positions and `SHIP_SEPARATION` all live in those coordinates, and nothing
+may resize it. `#sf-stage` floats that field in the middle of whatever source
+OBS gives the page, so the browser source can be any size — the duel stays
+centred. It used to be pinned to the document origin, which only looked right
+at a source of exactly 640×200 and put the whole fight in the top-left corner of
+anything larger. `?scale=N` (0–8) enlarges the stage via `--sf-scale` without
+touching the coordinate system.
+
+The ship box is a second value that must not be duplicated: `spacefight.js`
+publishes `SHIP_DISPLAY` (`SHIP_FRAME * SHIP_SCALE`) to the `--ov-ship` CSS
+variable on boot, because the renderer positions ships by centre
+(`drawX - SHIP_DISPLAY/2`) while the box lives in `rdoc-overlay.css`. Hardcoding
+it in both is what put every ship, label and HP bar 24 px off when the roster
+moved to 3.5× cutouts. Both pilots fly pixel-art ships that
 drift, fire projectiles, recoil on hit and explode on death. The outcome still
 comes from the 5-round `runFight` engine in `spacefight.js` — only the renderer
 changed; queue, cooldown, WS protocol, REST API and admin commands are untouched.
