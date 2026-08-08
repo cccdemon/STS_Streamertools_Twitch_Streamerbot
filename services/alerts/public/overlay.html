@@ -134,10 +134,24 @@
     80%  { transform:translateX(7px); }
     100% { transform:translateX(0); }
   }
-  @keyframes ccSoPanelOut {
+  /* Shoutout exit, two beats.
+     Beat 1: the centre text tucks to the right, toward the panel.
+     Beat 2: text and panel leave the frame to the right together, so
+     they read as one object being pulled off rather than two elements
+     that happen to end at the same time. The panel keyframe therefore
+     has no anticipation bounce any more - a 9px kick on one of two
+     things moving in lockstep is what broke the pairing. */
+  @keyframes ccSoTextTuck {
     0%   { transform:translateX(0); }
-    35%  { transform:translateX(9px); }
-    100% { transform:translateX(104%); }
+    100% { transform:translateX(520px); }
+  }
+  @keyframes ccSoTextOut {
+    0%   { transform:translateX(520px); opacity:1; }
+    100% { transform:translateX(1180px); opacity:0; }
+  }
+  @keyframes ccSoPanelOut {
+    0%   { transform:translateX(0); opacity:1; }
+    100% { transform:translateX(104%); opacity:0; }
   }
   @keyframes ccSoRing   { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
   @keyframes ccEnergy   { 0% { transform:translateY(-100%); } 50% { transform:translateY(100%); } 100% { transform:translateY(-100%); } }
@@ -308,10 +322,18 @@
     <div id="cc-so-bg" style="position:absolute; inset:0; background:rgba(18,20,22,0); transition:background 0.5s ease;"></div>
     <div id="cc-so-beam" style="position:absolute; top:0; bottom:0; right:101%; width:4px; background:#2B3135; opacity:0; pointer-events:none;"></div>
 
-    <!-- left: ambient stage -->
-    <div style="position:absolute; left:0; top:0; bottom:0; right:600px; display:flex; align-items:center; justify-content:center; padding:80px 70px; overflow:hidden;">
-      <div id="cc-so-ambient" style="position:absolute; font-family:var(--rdoc-font-display); font-size:210px; color:rgba(79,181,181,0.035); letter-spacing:16px; text-transform:uppercase; white-space:nowrap; user-select:none; transform:rotate(-10deg);"></div>
-      <div style="position:relative; text-align:center;">
+    <!-- left: ambient stage.
+         The clip used to sit on this container, which meant the centre
+         text was cut off at the panel edge and could never travel with
+         the panel on the way out. The ambient word is the only thing
+         that actually needs clipping - it is 210px and set nowrap - so
+         it gets its own clipped layer and the stage lets the text
+         through. -->
+    <div style="position:absolute; left:0; top:0; bottom:0; right:600px; display:flex; align-items:center; justify-content:center; padding:80px 70px;">
+      <div style="position:absolute; inset:0; overflow:hidden; pointer-events:none;">
+        <div id="cc-so-ambient" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-10deg); font-family:var(--rdoc-font-display); font-size:210px; color:rgba(79,181,181,0.035); letter-spacing:16px; text-transform:uppercase; white-space:nowrap; user-select:none;"></div>
+      </div>
+      <div id="cc-so-text" style="position:relative; text-align:center;">
         <div id="cc-so-hdr" class="cc-eyebrow" style="font-size:11px; color:#4FB5B5; margin-bottom:30px; opacity:0; transition:opacity 0.45s;">RDOC // SHOUTOUT</div>
         <div style="font-family:var(--rdoc-font-display); font-size:86px; color:#F2F2F0; letter-spacing:0; line-height:1.1;">SCHAUT<br>VORBEI</div>
         <div id="cc-so-bigname" style="font-family:var(--rdoc-font-display); font-size:40px; font-weight:400; color:#F2F2F0; letter-spacing:0; line-height:1.15; margin-top:22px; opacity:0; transition:opacity 0.45s;"></div>
@@ -542,7 +564,7 @@ class CCOverlay {
       stat: $('cc-stat'), statNum: $('cc-stat-num'), statLbl: $('cc-stat-lbl'),
       glow: $('cc-glow'),
       so: $('cc-so'), soBg: $('cc-so-bg'), soBeam: $('cc-so-beam'),
-      soAmbient: $('cc-so-ambient'), soHdr: $('cc-so-hdr'), soBigName: $('cc-so-bigname'), soBigUrl: $('cc-so-bigurl'),
+      soAmbient: $('cc-so-ambient'), soText: $('cc-so-text'), soHdr: $('cc-so-hdr'), soBigName: $('cc-so-bigname'), soBigUrl: $('cc-so-bigurl'),
       soPanel: $('cc-so-panel'), soAv: $('cc-so-av'), soName: $('cc-so-name'),
       soCursor: $('cc-so-cursor'), soGame: $('cc-so-game'), soMsg: $('cc-so-msg'), soUrl: $('cc-so-url'),
       rfs: $('cc-rfs'), rfsLbl: $('cc-rfs-lbl'), rfsAv: $('cc-rfs-av'),
@@ -1304,6 +1326,8 @@ class CCOverlay {
     E.soCursor.style.display = 'inline-block';
     E.soHdr.style.opacity = '0'; E.soBigName.style.opacity = '0'; E.soBigUrl.style.opacity = '0';
     E.soPanel.style.animation = 'none'; E.soPanel.style.transform = 'translateX(104%)';
+    E.soText.style.animation = 'none'; E.soText.style.transform = 'translateX(0)'; E.soText.style.opacity = '1';
+    E.soAmbient.style.transition = 'none'; E.soAmbient.style.opacity = '1';
     E.soAv.classList.remove('cc-decrypt');
     E.so.style.opacity = '1';
     void E.soPanel.offsetWidth;
@@ -1335,18 +1359,43 @@ class CCOverlay {
     this.dbg('Shoutout: ' + user, 'ok');
   }
 
+  // Exit in two beats: the centre text tucks to the right first, then
+  // it and the image panel leave the frame together.
+  //
+  // The old exit slid the panel out while the three text lines simply
+  // faded where they stood, so the two halves of the shoutout came
+  // apart - one walked off, the other dissolved. The text now travels,
+  // and the second beat moves both on the same curve and the same
+  // duration so they read as one object.
   hideShoutout() {
     const E = this.els;
-    E.soPanel.style.animation = 'ccSoPanelOut 0.5s ease-in forwards';
-    E.soHdr.style.opacity = '0'; E.soBigName.style.opacity = '0'; E.soBigUrl.style.opacity = '0';
+    const TUCK = 420, OUT = 500;
+    const EASE_OUT = 'cubic-bezier(0.4,0,1,1)';
+
+    // Beat 1 - tuck right. The lines keep their opacity: they are
+    // moving, not disappearing.
+    E.soText.style.animation = `ccSoTextTuck ${TUCK}ms cubic-bezier(0.4,0,0.6,1) forwards`;
+
+    // Beat 2 - both leave right, with the backdrop and the ambient word.
     setTimeout(() => {
+      E.soText.style.animation = `ccSoTextOut ${OUT}ms ${EASE_OUT} forwards`;
+      E.soPanel.style.animation = `ccSoPanelOut ${OUT}ms ${EASE_OUT} forwards`;
+      E.soAmbient.style.transition = `opacity ${OUT}ms ease-in`;
+      E.soAmbient.style.opacity = '0';
       E.soBg.style.background = 'rgba(18,20,22,0)';
-      setTimeout(() => {
-        E.so.style.opacity = '0';
-        E.soPanel.style.animation = 'none';
-        E.soPanel.style.transform = 'translateX(104%)';
-      }, 500);
-    }, 250);
+    }, TUCK);
+
+    // Park everything off-stage for the next shoutout.
+    setTimeout(() => {
+      E.so.style.opacity = '0';
+      E.soText.style.animation = 'none';
+      E.soText.style.transform = 'translateX(0)';
+      E.soText.style.opacity = '1';
+      E.soPanel.style.animation = 'none';
+      E.soPanel.style.transform = 'translateX(104%)';
+      E.soAmbient.style.transition = 'none';
+      E.soAmbient.style.opacity = '1';
+    }, TUCK + OUT + 60);
   }
 
   // Setzt den Shoutout-Text sicher (textContent → Sonderzeichen/Umlaute korrekt)
