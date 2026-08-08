@@ -434,7 +434,7 @@ function newShipState(side, displayName, shipName, homeX, homeY) {
     homeX: homeX, homeY: homeY,
     targetX: homeX, targetY: homeY,
     bobPhase: Math.random() * Math.PI * 2,
-    rot: 0,
+    rot: 0, targetRot: 0,
     hp: 100, hpDisplay: 100,
     mode: 'idle', modeUntil: 0,
     frame: 0, frameTimer: 0,
@@ -474,7 +474,8 @@ function spawnProjectile(state, fromShip, toShip, willHit) {
     vx: (endX - startX) / travelMs,
     vy: (endY - startY) / travelMs,
     color: sideColor(fromShip.side),
-    life: travelMs + 200, age: 0, trail: []
+    life: travelMs + 200, age: 0, trail: [],
+    width: 5 + Math.floor(Math.random() * 4)
   });
   // Muzzle flash: same series colour, not a lightened variant of it.
   // A tint ladder is the start of a gradient.
@@ -482,7 +483,7 @@ function spawnProjectile(state, fromShip, toShip, willHit) {
 }
 
 function spawnImpact(state, ship, dmg) {
-  var n = Math.min(28, 10 + Math.floor(dmg * 0.6));
+  var n = Math.min(42, 16 + Math.floor(dmg * 0.9));
   for (var i = 0; i < n; i++) {
     var ang = Math.random() * Math.PI * 2;
     var spd = 0.04 + Math.random() * 0.14;
@@ -494,23 +495,46 @@ function spawnImpact(state, ship, dmg) {
       color: sideColor(ship.side)
     });
   }
-  state.shake = Math.min(6, state.shake + 1.2 + dmg * 0.06);
+  state.shockwaves.push({ x: ship.x, y: ship.y, age: 0, life: 260, maxR: 22, color: sideColor(ship.side) });
+  state.whiteout = Math.min(0.38, state.whiteout + 0.16);
+  state.shake = Math.min(9, state.shake + 2 + dmg * 0.08);
 }
 
 function spawnExplosion(state, ship) {
-  for (var i = 0; i < 36; i++) {
+  for (var i = 0; i < 72; i++) {
     var ang = Math.random() * Math.PI * 2;
     var spd = 0.05 + Math.random() * 0.22;
     state.sparks.push({
       x: ship.x, y: ship.y,
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd - 0.02,
-      life: 600 + Math.random()*400, age: 0,
+      life: 700 + Math.random()*650, age: 0,
       // A kill is a state: Warning core, Error edge. No fire ramp.
       color: i < 18 ? PAL.warning : PAL.error
     });
   }
-  state.shake = 6;
+  state.shockwaves.push({ x: ship.x, y: ship.y, age: 0, life: 620, maxR: 76, color: PAL.warning });
+  state.shockwaves.push({ x: ship.x, y: ship.y, age: -110, life: 720, maxR: 54, color: PAL.error });
+  state.whiteout = 0.9;
+  state.shake = 13;
+
+  setTimeout(function() {
+    if (state.stopped) return;
+    for (var j = 0; j < 28; j++) {
+      var a = Math.random() * Math.PI * 2;
+      var v = 0.06 + Math.random() * 0.18;
+      state.sparks.push({
+        x: ship.x + (Math.random() - 0.5) * 24,
+        y: ship.y + (Math.random() - 0.5) * 18,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+        life: 500 + Math.random() * 450, age: 0,
+        color: j % 2 ? PAL.warning : PAL.error
+      });
+    }
+    state.shockwaves.push({ x: ship.x, y: ship.y, age: 0, life: 420, maxR: 46, color: PAL.error });
+    state.whiteout = 0.5;
+    state.shake = Math.max(state.shake, 8);
+  }, 180);
 }
 
 function initStarfield() {
@@ -548,6 +572,7 @@ function arenaTick(state, dt) {
     var k = (ship.mode === 'thrust') ? 0.22 : 0.08;
     ship.x += (ship.targetX - ship.x) * k;
     ship.y += (ship.targetY - ship.y) * k;
+    ship.rot += (ship.targetRot - ship.rot) * 0.14;
     // idle bob
     ship.bobPhase += dt * 0.003;
     var bob = Math.sin(ship.bobPhase) * 3;
@@ -595,6 +620,12 @@ function arenaTick(state, dt) {
     if (sp.age > sp.life) state.sparks.splice(k2, 1);
   }
 
+  for (var w = state.shockwaves.length - 1; w >= 0; w--) {
+    state.shockwaves[w].age += dt;
+    if (state.shockwaves[w].age > state.shockwaves[w].life) state.shockwaves.splice(w, 1);
+  }
+  state.whiteout *= Math.pow(0.82, dt / 16);
+
   // ─ shake decay ─
   state.shake *= Math.pow(0.86, dt / 16);
   if (state.shake < 0.05) state.shake = 0;
@@ -626,13 +657,13 @@ function arenaDraw(state) {
       var a = (t + 1) / P.trail.length;
       ctx.globalAlpha = a * 0.6;
       ctx.fillStyle = P.color;
-      ctx.fillRect(P.trail[t].x | 0, P.trail[t].y | 0, 2, 2);
+      ctx.fillRect((P.trail[t].x | 0) - 1, (P.trail[t].y | 0) - 1, 3, 3);
     }
     ctx.globalAlpha = 1;
     ctx.fillStyle = PAL.ink;
     ctx.fillRect((P.x | 0) - 1, (P.y | 0) - 1, 3, 3);
     ctx.fillStyle = P.color;
-    ctx.fillRect((P.x | 0) - 2, (P.y | 0), 5, 1);
+    ctx.fillRect((P.x | 0) - P.width, (P.y | 0) - 1, P.width * 2, 3);
   }
 
   // muzzle flashes
@@ -654,6 +685,23 @@ function arenaDraw(state) {
     ctx.fillStyle = SP.color;
     ctx.fillRect(SP.x | 0, SP.y | 0, 2, 2);
   }
+
+  for (var w = 0; w < state.shockwaves.length; w++) {
+    var W = state.shockwaves[w];
+    if (W.age < 0) continue;
+    var wp = W.age / W.life;
+    ctx.globalAlpha = Math.max(0, 1 - wp);
+    ctx.strokeStyle = W.color;
+    ctx.lineWidth = Math.max(1, 4 * (1 - wp));
+    ctx.beginPath();
+    ctx.arc(W.x, W.y, 4 + W.maxR * wp, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (state.whiteout > 0.01) {
+    ctx.globalAlpha = Math.min(0.9, state.whiteout);
+    ctx.fillStyle = PAL.ink;
+    ctx.fillRect(0, 0, ARENA_W, ARENA_H);
+  }
   ctx.globalAlpha = 1;
   ctx.restore();
 
@@ -663,6 +711,10 @@ function arenaDraw(state) {
     var tx = Math.round(ship.drawX - SHIP_DISPLAY/2 + sx);
     var ty = Math.round(ship.drawY - SHIP_DISPLAY/2 + sy);
     ship.el.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
+    if (ship.spriteEl) {
+      var mirror = ship.side === 'defender' ? -1 : 1;
+      ship.spriteEl.style.transform = 'scaleX(' + mirror + ') rotate(' + (ship.rot * mirror).toFixed(1) + 'deg)';
+    }
     // High-resolution cutouts use contain; legacy sheets are frame-cropped.
     if (ship.sprite && ship.sprite.ready && ship.spriteEl) {
       if (!ship.spriteSrc) {
@@ -688,6 +740,7 @@ function arenaDraw(state) {
     if (ship.mode === 'hit') ship.el.classList.add('hit');
     else                     ship.el.classList.remove('hit');
     if (ship.mode === 'dead') ship.el.classList.add('dead');
+    ship.el.classList.toggle('thrust', ship.mode === 'thrust');
     // hp bar
     if (ship.hpEl) {
       ship.hpDisplay += (ship.hp - ship.hpDisplay) * 0.18;
@@ -725,6 +778,8 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
     projectiles: [],
     flashes: [],
     sparks: [],
+    shockwaves: [],
+    whiteout: 0,
     shake: 0,
     stopped: false,
     raf: 0,
@@ -750,7 +805,7 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
 
   // schedule round events
   var introMs = 600;
-  var roundMs = 900;
+  var roundMs = 1050;
   var timeouts = [];
   rounds.forEach(function(r, i) {
     var at = introMs + i * roundMs;
@@ -792,12 +847,16 @@ function runRound(state, round, isFinal, aName, dName, winner, loser) {
     spawnExplosion(state, loseShip);
     // winner flexes: thrust + slight forward push
     winShip.mode = 'thrust';
-    winShip.modeUntil = state.now + 600;
-    winShip.targetX = winShip.homeX + (winShip.side === 'attacker' ? 30 : -30);
+    winShip.modeUntil = state.now + 850;
+    winShip.targetX = winShip.homeX + (winShip.side === 'attacker' ? 76 : -76);
+    winShip.targetY = winShip.homeY - 24;
+    winShip.targetRot = winShip.side === 'attacker' ? -12 : 12;
     setTimeout(function() {
       winShip.targetX = winShip.homeX;
+      winShip.targetY = winShip.homeY;
+      winShip.targetRot = 0;
       winShip.mode = 'idle';
-    }, 600);
+    }, 850);
     return;
   }
 
@@ -806,38 +865,60 @@ function runRound(state, round, isFinal, aName, dName, winner, loser) {
   var shooter = attackerSide === 'attacker' ? shipA : shipD;
   var target  = attackerSide === 'attacker' ? shipD : shipA;
 
-  // shooter thrusts forward briefly
+  // The shooter changes lane and banks into the attack instead of sliding on
+  // a fixed horizontal rail.
+  var attackLane = (Math.random() < 0.5 ? -1 : 1) * (12 + Math.random() * 16);
   shooter.mode = 'thrust';
-  shooter.modeUntil = state.now + 260;
+  shooter.modeUntil = state.now + 430;
   shooter.frameIdx = 0;
-  shooter.targetX = shooter.homeX + (shooter.side === 'attacker' ? 22 : -22);
+  shooter.targetX = shooter.homeX + (shooter.side === 'attacker' ? 42 : -42);
+  shooter.targetY = shooter.homeY + attackLane;
+  shooter.targetRot = attackLane * 0.42 * (shooter.side === 'attacker' ? 1 : -1);
   setTimeout(function() {
     shooter.targetX = shooter.homeX;
-  }, 260);
+    shooter.targetY = shooter.homeY;
+    shooter.targetRot = 0;
+  }, 430);
 
+  // Three-bolt salvos add visual tempo while damage is still applied only
+  // once from the authoritative round result.
   spawnProjectile(state, shooter, target, willHit);
+  setTimeout(function() { if (!state.stopped) spawnProjectile(state, shooter, target, willHit); }, 70);
+  setTimeout(function() { if (!state.stopped) spawnProjectile(state, shooter, target, willHit); }, 140);
 
-  // schedule impact / dodge after projectile travel (~320ms hit, ~480ms miss)
-  var travelMs = willHit ? 320 : 480;
+  // Resolve after the last bolt in the salvo reaches the target.
+  var travelMs = (willHit ? 320 : 480) + 140;
   setTimeout(function() {
     if (willHit) {
       target.mode = 'hit';
       target.modeUntil = state.now + 200;
       target.frameIdx = 0;
       // recoil: small kick away from shooter
-      var kick = 18;
+      var kick = 28;
       var dir  = target.side === 'attacker' ? -1 : 1;
       target.targetX = target.homeX + dir * kick;
-      setTimeout(function() { target.targetX = target.homeX; }, 220);
+      target.targetY = target.homeY + (Math.random() < 0.5 ? -18 : 18);
+      target.targetRot = (Math.random() < 0.5 ? -1 : 1) * 14;
+      setTimeout(function() {
+        target.targetX = target.homeX;
+        target.targetY = target.homeY;
+        target.targetRot = 0;
+      }, 300);
       // HP drop using authoritative round.hp values
       shipA.hp = Math.max(0, round.hp_a);
       shipD.hp = Math.max(0, round.hp_d);
       spawnImpact(state, target, round.dmg);
     } else {
       // miss: target swerves vertically
-      var swerve = (Math.random() < 0.5 ? -1 : 1) * 16;
+      var swerve = (Math.random() < 0.5 ? -1 : 1) * (34 + Math.random() * 14);
       target.targetY = target.homeY + swerve;
-      setTimeout(function() { target.targetY = target.homeY; }, 280);
+      target.targetX = target.homeX + (target.side === 'attacker' ? 24 : -24);
+      target.targetRot = swerve * 0.55 * (target.side === 'attacker' ? 1 : -1);
+      setTimeout(function() {
+        target.targetY = target.homeY;
+        target.targetX = target.homeX;
+        target.targetRot = 0;
+      }, 420);
     }
   }, travelMs);
 }
