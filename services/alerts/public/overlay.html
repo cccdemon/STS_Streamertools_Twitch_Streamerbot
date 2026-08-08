@@ -347,11 +347,18 @@
       <div style="position:absolute; inset:0; overflow:hidden; pointer-events:none;">
         <div id="cc-so-ambient" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%) rotate(-10deg); font-family:var(--rdoc-font-display); font-size:210px; color:rgba(79,181,181,0.035); letter-spacing:16px; text-transform:uppercase; white-space:nowrap; user-select:none;"></div>
       </div>
+      <!-- The left half is the FRAME, not a second payload.
+           It used to repeat the name at 40px and the URL at 14px while
+           the panel showed both again, so there were two landing zones
+           ~1300px apart and the eye had nowhere to settle. The name and
+           the URL now live in one place: the panel, where the avatar is
+           already holding the gaze.
+           SCHAUT VORBEI came down from 86px because it carries no
+           information - it was the largest thing on screen and the
+           payload was less than half its size. -->
       <div id="cc-so-text" style="position:relative; text-align:center;">
-        <div id="cc-so-hdr" class="cc-eyebrow" style="font-size:11px; color:#4FB5B5; margin-bottom:30px; opacity:0; transition:opacity 0.45s;">RDOC // SHOUTOUT</div>
-        <div style="font-family:var(--rdoc-font-display); font-size:86px; color:#F2F2F0; letter-spacing:0; line-height:1.1;">SCHAUT<br>VORBEI</div>
-        <div id="cc-so-bigname" style="font-family:var(--rdoc-font-display); font-size:40px; font-weight:400; color:#F2F2F0; letter-spacing:0; line-height:1.15; margin-top:22px; opacity:0; transition:opacity 0.45s;"></div>
-        <div id="cc-so-bigurl" class="cc-eyebrow" style="font-size:14px; color:#76828D; margin-top:18px; opacity:0; transition:opacity 0.45s;"></div>
+        <div id="cc-so-hdr" class="cc-eyebrow" style="font-size:16px; color:#4FB5B5; margin-bottom:26px; opacity:0; transition:opacity 0.45s;">RDOC // SHOUTOUT</div>
+        <div style="font-family:var(--rdoc-font-display); font-size:44px; color:#F2F2F0; letter-spacing:0; line-height:1.15;">SCHAUT<br>VORBEI</div>
       </div>
     </div>
 
@@ -371,7 +378,7 @@
       <!-- The one signet of the shoutout view. -->
       <div style="display:flex; align-items:center; gap:14px; margin-bottom:30px;">
         <span class="cc-signet" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" role="img" aria-label="RDOC"><title>RDOC</title><g transform="translate(-60 -60) scale(0.3125)"><path fill="currentColor" d="M523.168,192.195 A320 320 0 0 1 784.845,344.8 L682.528,407.5 A200 200 0 0 0 518.98,312.122 Z M795.843,364.24 A320 320 0 0 1 799.614,652.279 L691.759,599.674 A200 200 0 0 0 689.402,419.65 Z M789.128,672 A320 320 0 0 1 657.277,797.122 L602.798,690.201 A200 200 0 0 0 685.205,612 Z M444.124,680 L579.876,680 L631.874,808.699 A320 320 0 0 1 586.703,823.158 L575.497,776.485 A272 272 0 0 0 589.252,772.799 L573.612,720 L450.388,720 L434.748,772.799 A272 272 0 0 0 448.503,776.485 L437.297,823.158 A320 320 0 0 1 392.126,808.699 Z M366.723,797.122 A320 320 0 0 1 234.872,672 L338.795,612 A200 200 0 0 0 421.202,690.201 Z M224.386,652.279 A320 320 0 0 1 228.157,364.24 L334.598,419.65 A200 200 0 0 0 332.241,599.674 Z M239.155,344.8 A320 320 0 0 1 500.832,192.195 L505.02,312.122 A200 200 0 0 0 341.472,407.5 Z"/></g></svg></span>
-        <span class="cc-eyebrow" style="font-size:11px; color:#C48A4A;">Shoutout</span>
+        <span class="cc-eyebrow" style="font-size:16px; color:#C48A4A;">Shoutout</span>
       </div>
 
       <div id="cc-so-avwrap" style="position:relative; width:186px; height:186px; margin-bottom:28px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
@@ -384,15 +391,22 @@
         <div style="position:absolute; bottom:-3px; right:-3px; width:17px; height:17px; border-bottom:2px solid #4FB5B5; border-right:2px solid #4FB5B5;"></div>
       </div>
 
-      <div style="display:flex; align-items:center; justify-content:center; width:100%; margin-bottom:10px; min-height:38px;">
-        <div id="cc-so-name" style="font-family:var(--rdoc-font-display); font-size:28px; font-weight:400; color:#F2F2F0; letter-spacing:0; text-transform:uppercase; text-align:center; line-height:1.2; word-break:break-all;"></div>
-        <div id="cc-so-cursor" style="display:inline-block; width:3px; height:28px; background:#4FB5B5; margin-left:4px; animation:ccBlink 0.55s step-end infinite; flex-shrink:0;"></div>
+      <!-- The name is the one thing the viewer is here to read, so it is
+           the largest informative element on the view. fitSoName()
+           measures it and picks the biggest size that still fits one
+           line in the panel. -->
+      <div style="display:flex; align-items:center; justify-content:center; width:100%; margin-bottom:14px; min-height:56px;">
+        <div id="cc-so-name" style="font-family:var(--rdoc-font-display); font-size:48px; font-weight:400; color:#F2F2F0; letter-spacing:0; text-transform:uppercase; text-align:center; line-height:1.15; word-break:normal; overflow-wrap:anywhere;"></div>
+        <div id="cc-so-cursor" style="display:inline-block; width:4px; height:48px; background:#4FB5B5; margin-left:6px; animation:ccBlink 0.55s step-end infinite; flex-shrink:0;"></div>
       </div>
 
-      <div id="cc-so-game" class="cc-eyebrow" style="font-size:11px; color:#4FB5B5; margin-bottom:20px; text-align:center; min-height:14px;"></div>
+      <div id="cc-so-game" class="cc-eyebrow" style="font-size:20px; color:#4FB5B5; margin-bottom:22px; text-align:center; min-height:24px;"></div>
       <div style="width:100%; height:1px; background:#2B3135; margin-bottom:20px;"></div>
-      <div id="cc-so-msg" style="font-family:var(--rdoc-font-text); font-size:16px; letter-spacing:0; color:#F2F2F0; line-height:1.6; text-align:center;"></div>
-      <div id="cc-so-url" class="cc-eyebrow" style="font-size:11px; color:#76828D; margin-top:20px; text-align:center;"></div>
+      <!-- Left-aligned: this runs to several lines, and centred ragged
+           copy makes the eye hunt for the start of every line. The name
+           above stays centred under the avatar - one line, no hunting. -->
+      <div id="cc-so-msg" style="font-family:var(--rdoc-font-text); font-size:24px; letter-spacing:0; color:#F2F2F0; line-height:1.55; text-align:left; width:100%;"></div>
+      <div id="cc-so-url" class="cc-eyebrow" style="font-size:20px; color:#76828D; margin-top:22px; text-align:center;"></div>
     </div>
   </div>
 
@@ -578,7 +592,7 @@ class CCOverlay {
       stat: $('cc-stat'), statNum: $('cc-stat-num'), statLbl: $('cc-stat-lbl'),
       glow: $('cc-glow'),
       so: $('cc-so'), soBg: $('cc-so-bg'), soBeam: $('cc-so-beam'),
-      soAmbient: $('cc-so-ambient'), soText: $('cc-so-text'), soHdr: $('cc-so-hdr'), soBigName: $('cc-so-bigname'), soBigUrl: $('cc-so-bigurl'),
+      soAmbient: $('cc-so-ambient'), soText: $('cc-so-text'), soHdr: $('cc-so-hdr'),
       soPanel: $('cc-so-panel'), soAv: $('cc-so-av'), soName: $('cc-so-name'),
       soCursor: $('cc-so-cursor'), soGame: $('cc-so-game'), soMsg: $('cc-so-msg'), soUrl: $('cc-so-url'),
       rfs: $('cc-rfs'), rfsLbl: $('cc-rfs-lbl'), rfsAv: $('cc-rfs-av'),
@@ -1328,9 +1342,8 @@ class CCOverlay {
     const U = user.toUpperCase();
 
     E.soAmbient.textContent = U;
-    E.soBigName.textContent = U;
-    E.soBigUrl.textContent = 'TWITCH.TV/' + user.toUpperCase();
-    E.soGame.textContent = game ? '▶ ZULETZT: ' + game.toUpperCase() : '';
+    E.soGame.textContent = game ? 'ZULETZT: ' + game.toUpperCase() : '';
+    this.fitSoName(U);
     // Fallback sofort sichtbar; AI-Summary (falls verfügbar) ersetzt ihn asynchron.
     this.setSoMsg(`Schaut bei ${U} vorbei! Die Crew empfiehlt diesen Kanal. o7`, false);
     this.loadShoutoutSummary(user, game, data);
@@ -1340,7 +1353,7 @@ class CCOverlay {
     // reset
     E.soName.textContent = '';
     E.soCursor.style.display = 'inline-block';
-    E.soHdr.style.opacity = '0'; E.soBigName.style.opacity = '0'; E.soBigUrl.style.opacity = '0';
+    E.soHdr.style.opacity = '0';
     E.soPanel.style.animation = 'none'; E.soPanel.style.transform = 'translateX(104%)';
     E.soText.style.animation = 'none'; E.soText.style.transform = 'translateX(0)'; E.soText.style.opacity = '1';
     E.soAmbient.style.transition = 'none'; E.soAmbient.style.opacity = '1';
@@ -1364,7 +1377,6 @@ class CCOverlay {
       E.soHdr.style.opacity = '1';
     }, 560);
     setTimeout(() => { E.soAv.classList.add('cc-decrypt'); }, 1000);
-    setTimeout(() => { E.soBigName.style.opacity = '1'; E.soBigUrl.style.opacity = '1'; }, 1150);
     // type name
     setTimeout(() => this.typeIn(E.soName, U, 70, () => {
       setTimeout(() => { E.soCursor.style.display = 'none'; }, 600);
@@ -1383,6 +1395,31 @@ class CCOverlay {
   // apart - one walked off, the other dissolved. The text now travels,
   // and the second beat moves both on the same curve and the same
   // duration so they read as one object.
+  // The name is the payload, so it runs as large as the panel allows.
+  // The panel is 600px wide with 46px of padding, and the cursor takes
+  // another 10px, so one line has about 470px to live in.
+  //
+  // Measured, not estimated: a character-count table was wrong for every
+  // name near a bucket edge, because Michroma's advance varies enough
+  // between M and I that 14 characters can be anywhere from 380 to 560px.
+  // Measuring costs one layout pass on a panel that is off-stage anyway.
+  fitSoName(name) {
+    const el = this.els.soName;
+    const prevWrap = el.style.whiteSpace;
+    el.textContent = String(name || '');
+    el.style.whiteSpace = 'nowrap';        // or it wraps and measures short
+    let px = 56;
+    el.style.fontSize = px + 'px';
+    let guard = 40;
+    while (px > 24 && el.scrollWidth > 470 && guard-- > 0) {
+      px -= 2;
+      el.style.fontSize = px + 'px';
+    }
+    el.style.whiteSpace = prevWrap || 'normal';
+    this.els.soCursor.style.height = px + 'px';
+    el.textContent = '';                   // typeIn refills it
+  }
+
   hideShoutout() {
     const E = this.els;
     const TUCK = 380, OUT = 560;   // OUT carries a longer travel now
@@ -1423,12 +1460,16 @@ class CCOverlay {
     el.style.wordBreak = 'break-word';
     el.style.width = '100%';            // sonst max-content im zentrierten Flex → eine Zeile, h. abgeschnitten
     el.style.maxWidth = '100%';
-    el.style.maxHeight = '360px';       // Sicherheitsnetz gegen vertikalen Überlauf
+    el.style.maxHeight = '330px';       // Sicherheitsnetz gegen vertikalen Überlauf
     el.style.overflow = 'hidden';
     el.style.transition = 'opacity 0.35s ease';
     el.style.opacity = '0';
     el.textContent = String(text == null ? '' : text);
-    this.fitText(el, isSummary ? 17 : 14, 9, 350);
+    // 20px is the floor. Below that the panel is unreadable on a 1080p
+    // stream, let alone on a phone - it used to shrink to 9px, which is
+    // a shape, not a sentence. Anything that still does not fit is cut
+    // off by the max-height instead.
+    this.fitText(el, isSummary ? 26 : 24, 20, 330);
     void el.offsetWidth;
     el.style.opacity = '1';
   }
