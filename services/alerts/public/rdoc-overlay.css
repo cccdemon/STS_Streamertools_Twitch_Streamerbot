@@ -476,10 +476,16 @@ body {
    A table. Its head is a section marker, so Patina — the header
    used to be Copper, which collided with rank 1 below it. Rank 1
    is the single Copper element in this panel. */
+/* Fixed to the SOURCE, not to the stage. The leaderboard is a panel
+   about the game, not a part of the duel field, so it belongs in the
+   corner of the picture. Inside #sf-stage it rode along with the
+   centred arena and ended up floating in the middle of a large source.
+   It also stays at native size when ?scale= enlarges the stage - a
+   table does not want to be blown up with the ships. */
 #wof {
-  position: absolute;
-  right: 8px;
-  top: 8px;
+  position: fixed;
+  right: 16px;
+  top: 16px;
   width: 280px;
   overflow: hidden;
   transform: translateX(120%);
