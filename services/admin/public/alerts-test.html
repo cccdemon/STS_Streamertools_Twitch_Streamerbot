@@ -1,20 +1,23 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<title>Chaos Crew – Alert Test Console</title>
-<link rel="stylesheet" href="chaos-crew-admin.css">
+<title>RDOC – Alert Test Console</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="rdoc-brand.css">
+<link rel="stylesheet" href="rdoc-admin.css">
 </head>
 <body>
 <script src="admin-shared.js"></script>
 
 <div class="page-header">
-  <div class="page-title">CHAOS<span> //</span> <em>ALERT</em> TEST</div>
+  <div class="page-title">RDOC<span> //</span> <em>Alert</em> Test</div>
   <div class="header-right">
     <span id="status" class="badge off">OFFLINE</span>
-    <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.25);letter-spacing:1px;">/alerts/ws</span>
-    <button class="btn btn-cyan btn-sm" onclick="reconnect()">VERBINDEN</button>
-    <button class="btn btn-red  btn-sm" onclick="disconnect()">TRENNEN</button>
+    <span class="ws-path">/alerts/ws</span>
+    <button class="btn btn-struct btn-sm" onclick="reconnect()">VERBINDEN</button>
+    <button class="btn btn-danger btn-sm" onclick="disconnect()">TRENNEN</button>
   </div>
 </div>
 
@@ -26,7 +29,7 @@
     <div class="test-section">
       <div class="test-section-title">OVERLAY TESTEN</div>
       <div class="test-section-body">
-        <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.3);letter-spacing:1px;line-height:1.6;">
+        <div class="hint">
           Sendet Test-Alerts an das Overlay <b>/alerts/overlay.html</b> (Browserquelle in OBS).<br>
           Das Overlay muss live laufen (ohne <b>?demo=1</b>). Ton nur wenn „Audio über OBS steuern" aktiv ist.
         </div>
@@ -69,15 +72,15 @@
       <div class="test-section-title">BIG ALERTS (MITTE)</div>
       <div class="test-section-body">
         <div class="test-row">
-          <button class="btn btn-cyan  btn-sm" onclick="fire('follow')">FOLLOW</button>
-          <button class="btn btn-gold  btn-sm" onclick="fire('sub')">SUB</button>
-          <button class="btn btn-gold  btn-sm" onclick="fire('bits')">BITS</button>
-          <button class="btn btn-gold  btn-sm" onclick="fire('subbomb')">SUB BOMB</button>
+          <button class="btn btn-struct btn-sm" onclick="fire('follow')">FOLLOW</button>
+          <button class="btn btn-accent btn-sm" onclick="fire('sub')">SUB</button>
+          <button class="btn btn-accent btn-sm" onclick="fire('bits')">BITS</button>
+          <button class="btn btn-accent btn-sm" onclick="fire('subbomb')">SUB BOMB</button>
         </div>
         <div class="test-row">
-          <button class="btn btn-red   btn-sm" onclick="fire('raid')">RAID (FLOTTE)</button>
-          <button class="btn btn-green btn-sm" onclick="fire('hypetrain')">HYPE TRAIN</button>
-          <button class="btn btn-gold  btn-sm" onclick="fire('resub')">RESUB</button>
+          <button class="btn btn-danger btn-sm" onclick="fire('raid')">RAID (FLOTTE)</button>
+          <button class="btn btn-ok btn-sm" onclick="fire('hypetrain')">HYPE TRAIN</button>
+          <button class="btn btn-accent btn-sm" onclick="fire('resub')">RESUB</button>
         </div>
       </div>
     </div>
@@ -87,9 +90,9 @@
       <div class="test-section-title">COMPACT (OBEN RECHTS)</div>
       <div class="test-section-body">
         <div class="test-row">
-          <button class="btn btn-cyan btn-sm" onclick="fire('outraid')">OUTRAID</button>
-          <button class="btn btn-cyan btn-sm" onclick="fire('streamstart')">STREAMSTART</button>
-          <button class="btn btn-red  btn-sm" onclick="fire('alert')">RED ALERT</button>
+          <button class="btn btn-struct btn-sm" onclick="fire('outraid')">OUTRAID</button>
+          <button class="btn btn-struct btn-sm" onclick="fire('streamstart')">STREAMSTART</button>
+          <button class="btn btn-danger btn-sm" onclick="fire('alert')">RED ALERT</button>
         </div>
       </div>
     </div>
@@ -99,14 +102,14 @@
       <div class="test-section-title">CHANNEL REWARDS (REDEEM)</div>
       <div class="test-section-body">
         <div class="test-row">
-          <button class="btn btn-red  btn-sm" onclick="fireReward('Erschreck den Streamer. Alarm!')">RED ALERT</button>
-          <button class="btn btn-cyan btn-sm" onclick="fireReward('mach ein selfie und poste es sofort')">SELFIE</button>
-          <button class="btn btn-red  btn-sm" onclick="fireReward('rip')">RIP</button>
+          <button class="btn btn-danger btn-sm" onclick="fireReward('Erschreck den Streamer. Alarm!')">RED ALERT</button>
+          <button class="btn btn-struct btn-sm" onclick="fireReward('mach ein selfie und poste es sofort')">SELFIE</button>
+          <button class="btn btn-danger btn-sm" onclick="fireReward('rip')">RIP</button>
         </div>
         <div class="test-row">
           <span class="row-label">REWARD</span>
           <input type="text" class="wide" id="t-reward" value="paulcontent" placeholder="Reward-Titel">
-          <button class="btn btn-gold btn-sm" onclick="fireReward(document.getElementById('t-reward').value)">SENDEN</button>
+          <button class="btn btn-accent btn-sm" onclick="fireReward(document.getElementById('t-reward').value)">SENDEN</button>
         </div>
       </div>
     </div>
@@ -116,9 +119,9 @@
       <div class="test-section-title">FULLSCREEN</div>
       <div class="test-section-body">
         <div class="test-row">
-          <button class="btn btn-gold btn-sm" onclick="fire('shoutout')">SHOUTOUT</button>
-          <button class="btn btn-cyan btn-sm" onclick="fire('profile')">PROFIL (!id)</button>
-          <span style="font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(200,220,232,0.3);letter-spacing:1px;">Resub ≥12 Monate löst zusätzlich Fullscreen aus. PROFIL nutzt „User"-Feld als Login (echte Daten).</span>
+          <button class="btn btn-accent btn-sm" onclick="fire('shoutout')">SHOUTOUT</button>
+          <button class="btn btn-struct btn-sm" onclick="fire('profile')">PROFIL (!id)</button>
+          <span class="hint">Resub ≥12 Monate löst zusätzlich Fullscreen aus. PROFIL nutzt „User"-Feld als Login (echte Daten).</span>
         </div>
       </div>
     </div>

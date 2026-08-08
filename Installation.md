@@ -1,4 +1,4 @@
-# Installation – Chaos Crew Streamer Tools
+# Installation – RDOC Streamer Tools
 
 Diese Anleitung beschreibt, wie OBS-Overlays und Streamerbot-Actions eingerichtet werden, damit das komplette System live läuft.
 
@@ -20,8 +20,6 @@ Basis-URL: `http://192.168.178.34` (LXC Host mit Caddy auf Port 80)
 
 | Overlay | URL | Empf. Größe | Szene |
 |---|---|---|---|
-| Giveaway Overlay | `http://192.168.178.34/giveaway/giveaway-overlay.html` | 1920×1080 | Main / Gaming |
-| Giveaway Join-Animation | `http://192.168.178.34/giveaway/giveaway-join.html` | 1920×1080 | Main / Gaming |
 | Spacefight | `http://192.168.178.34/spacefight/spacefight.html` | 1920×1080 | Main / Gaming |
 | HUD Chat | `http://192.168.178.34/alerts/chat.html?channel=justcallmedeimos` | 450×1080 (rechte Seite) | Main / Gaming |
 | Alert Bar (Follow/Sub/Bits/Raid…) | `http://192.168.178.34/alerts/alerts.html` | 1920×200 (unten) | ALLE Szenen |
@@ -33,7 +31,6 @@ Basis-URL: `http://192.168.178.34` (LXC Host mit Caddy auf Port 80)
 Für Einrichtung ohne Live-Event Quelle duplizieren und zusätzlichen Parameter anhängen:
 
 - `spacefight.html?test=1`
-- `giveaway-join.html?test=1`
 - `raid-info.html?test=raid&user=TestRaider&viewers=42`
 - `shoutout-info.html?test=shoutout&user=TestStreamer&game=Star+Citizen`
 
@@ -83,10 +80,6 @@ Für **jede** `.cs`-Datei aus `streamerbot/`:
 | [CC_ClipCreated.cs](streamerbot/CC_ClipCreated.cs) | CC – Clip Created | **Twitch → Clip Created** | `cc-chat` |
 | [CC_AdBreakStart.cs](streamerbot/CC_AdBreakStart.cs) | CC – Ad Break Start | **Twitch → Ad Break Begin** | `cc-chat` |
 | [CC_AdBreakEnd.cs](streamerbot/CC_AdBreakEnd.cs) | CC – Ad Break End | **Twitch → Ad Break End** | `cc-chat` |
-| [GW_A_ViewerTick.cs](streamerbot/GW_A_ViewerTick.cs) | GW – Viewer Tick | **Twitch → Present Viewer** | `gw-tick` |
-| [GW_B_ChatMessage.cs](streamerbot/GW_B_ChatMessage.cs) | GW – Chat Message | **Twitch → Chat Message** (keine Filter) | `gw-chat` |
-| [GW_TimeInfo.cs](streamerbot/GW_TimeInfo.cs) | GW – Time Info | **Core → Command** → `!time` UND `!coin` | `gw-chat` |
-| [GW_Leaderboard.cs](streamerbot/GW_Leaderboard.cs) | GW – Leaderboard | **Core → Command** → `!top` | `gw-chat` |
 
 ### 4. Queues anlegen
 
@@ -97,14 +90,12 @@ Streamerbot → **Queues** → **Add** für jede Queue aus Tabelle:
 | `cc-core` | 1 | Session-Register, darf nie parallel laufen |
 | `cc-alerts` | 1 | Alerts sequenziell – verhindert überlappende Sounds |
 | `cc-chat` | 2 | Chat-Antworten, niedrige Latenz OK |
-| `gw-tick` | 1 | Viewer-Ticks alle X Sek, nie stauen |
-| `gw-chat` | 2 | `!time`, `!top`, Chat-Messages parallel |
 
 ### 5. Funktionsprüfung
 
 1. Docker-Stack auf LXC starten → Bridge verbindet sich zu `ws://192.168.178.39:9090`
 2. In Streamerbot-Logs sollte `[CC] API registriert – Session: …` erscheinen
-3. Test: `!time` im Chat → `GW – Time Info` antwortet → Chat-Reply über `CC – Chat Reply Handler`
+3. Test: `!fight @user` im Chat → `SF – Fight Cmd` antwortet → Chat-Reply über `CC – Chat Reply Handler`
 4. Health-Check im Browser öffnen: `http://192.168.178.34/health`
 
 ### Troubleshooting

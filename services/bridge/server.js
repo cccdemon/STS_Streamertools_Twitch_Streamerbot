@@ -1,12 +1,11 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Bridge Service
+// RDOC – Bridge Service
 // Connects to Streamerbot WS (9090), routes all events
 // to Redis Pub/Sub channels by domain.
 //
 // Channels (publish):
-//   ch:giveaway   – viewer_tick, chat_msg, time_cmd
 //   ch:spacefight – fight_cmd, spacefight_challenge,
 //                   spacefight_result, spacefight_rejected,
 //                   stream_online, stream_offline
@@ -68,14 +67,12 @@ async function redisReady() {
 // ── Event routing table ───────────────────────────────────
 // event → channel(s) to publish on
 const ROUTES = {
-  viewer_tick:           ['ch:giveaway'],
-  chat_msg:              ['ch:giveaway', 'ch:chat'],
-  time_cmd:              ['ch:giveaway'],
+  chat_msg:              ['ch:chat'],
   fight_cmd:             ['ch:spacefight'],
   spacefight_challenge:  ['ch:spacefight'],
   spacefight_result:     ['ch:spacefight'],
   spacefight_rejected:   ['ch:spacefight'],
-  stream_online:         ['ch:spacefight', 'ch:giveaway'],
+  stream_online:         ['ch:spacefight'],
   stream_offline:        ['ch:spacefight'],
   follow:                ['ch:alerts'],
   cheer:                 ['ch:alerts'],
@@ -85,7 +82,6 @@ const ROUTES = {
   clip_created:          ['ch:chat'],
   ad_break_start:        ['ch:chat'],
   ad_break_end:          ['ch:chat'],
-  cc_debug:              ['ch:giveaway'],
 };
 
 // ── Streamerbot WS Client ─────────────────────────────────

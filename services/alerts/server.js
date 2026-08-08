@@ -1,7 +1,7 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Alert Service
+// RDOC – Alert Service
 // Follow, cheer, raid, shoutout, sub, hype train,
 // clip, ad break alerts. Claude AI summaries.
 // Twitch user lookup. Chat send.
@@ -43,7 +43,6 @@ const CFG = {
     lazyConnect:   true,
     retryStrategy: (t) => Math.min(t * 500, 5000),
   },
-  giveawayUrl:   process.env.GIVEAWAY_URL   || 'http://giveaway:3001',
   spacefightUrl: process.env.SPACEFIGHT_URL || 'http://spacefight:3002',
 };
 
@@ -393,18 +392,13 @@ async function aggregateProfile(login, extras = {}) {
   const u = sanitizeUsername(login);
   if (!u) throw new Error('invalid login');
 
-  let watchSec = 0, giveawayWins = 0, msgs = 0, sfWins = 0, sfLosses = 0;
-
-  try {
-    const r = await fetch(`${CFG.giveawayUrl}/api/user/${u}`, { signal: AbortSignal.timeout(3000) });
-    if (r.ok) {
-      const j = await r.json();
-      const lt = j.lifetime || {};
-      watchSec     = parseInt(lt.total_watch_sec || 0, 10) + parseInt(j.watchSec || 0, 10);
-      giveawayWins = parseInt(lt.times_won || 0, 10);
-      msgs         = parseInt(lt.total_msgs || 0, 10) + parseInt(j.msgs || 0, 10);
-    }
-  } catch (e) { logErr('Profile', 'giveaway lookup:', e.message); }
+  // watchSec / giveawayWins / msgs came from the giveaway service, which
+  // has moved to its own repo (CC-Giveaway). They stay declared and zero:
+  // buildProfile renders a zero as "—", so profile.js, its unit tests and
+  // the overlay markup need no change. Re-add a lookup here if this stack
+  // ever gets a watchtime source again.
+  const watchSec = 0, giveawayWins = 0, msgs = 0;
+  let sfWins = 0, sfLosses = 0;
 
   try {
     const r = await fetch(`${CFG.spacefightUrl}/api/spacefight/player/${u}`, { signal: AbortSignal.timeout(3000) });

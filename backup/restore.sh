@@ -56,12 +56,8 @@ psql \
   -d "${PG_DB}" \
   --no-password \
   -c "
-    TRUNCATE TABLE watchtime_events CASCADE;
-    TRUNCATE TABLE session_participants CASCADE;
-    TRUNCATE TABLE sessions CASCADE;
     TRUNCATE TABLE spacefight_results CASCADE;
     TRUNCATE TABLE spacefight_stats CASCADE;
-    TRUNCATE TABLE users CASCADE;
   "
 
 echo "[Restore] Lade Backup ein..."
@@ -82,9 +78,6 @@ psql \
   -d "${PG_DB}" \
   --no-password \
   -c "
-    SELECT 'users' AS table, COUNT(*) FROM users
-    UNION ALL SELECT 'sessions', COUNT(*) FROM sessions
-    UNION ALL SELECT 'session_participants', COUNT(*) FROM session_participants
-    UNION ALL SELECT 'watchtime_events', COUNT(*) FROM watchtime_events
-    UNION ALL SELECT 'spacefight_results', COUNT(*) FROM spacefight_results;
+    SELECT 'spacefight_results' AS table, COUNT(*) FROM spacefight_results
+    UNION ALL SELECT 'spacefight_stats', COUNT(*) FROM spacefight_stats;
   "

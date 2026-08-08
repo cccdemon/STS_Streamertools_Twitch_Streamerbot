@@ -1,5 +1,5 @@
 /**
- * Chaos Crew – Microservice Shared Lib
+ * RDOC – Microservice Shared Lib
  * CC.validate + Navigation + Debug Console
  * Used by all admin pages across all services.
  */
@@ -93,20 +93,13 @@
   }
 
   var ALLOWED_EVENTS = [
-    'gw_get_all', 'gw_cmd', 'gw_overlay', 'gw_join',
-    'gw_ack', 'gw_data', 'gw_status', 'gw_keyword',
-    'spacefight_result', 'chat_msg', 'viewer_tick',
+    'spacefight_result', 'chat_msg',
     'sf_cmd', 'sf_status_request', 'sf_status',
     'cc_identify', 'cc_first_chatter_status', 'cc_test',
     'ws:connect', 'ws:close', 'http:GET', 'http:POST', 'http:PUT', 'http:DELETE', 'http:PATCH'
   ];
 
   var ALLOWED_CMDS = [
-    'gw_open', 'gw_close', 'gw_reset',
-    'gw_draw_winner',
-    'gw_add_ticket', 'gw_sub_ticket',
-    'gw_ban', 'gw_unban',
-    'gw_set_keyword', 'gw_get_keyword',
     'cc_first_chatter_toggle',
     'sf_start', 'sf_stop', 'sf_reset',
     'sf_delete_player', 'sf_edit_player'
@@ -120,7 +113,7 @@
       console.warn('[validate] Unbekanntes WS Event blockiert:', evt);
       return false;
     }
-    if (evt === 'gw_cmd' || evt === 'sf_cmd') {
+    if (evt === 'sf_cmd') {
       if (!obj.cmd || ALLOWED_CMDS.indexOf(obj.cmd) === -1) {
         console.warn('[validate] Unbekanntes cmd blockiert:', obj.cmd);
         return false;
@@ -189,18 +182,13 @@
 // ── Navigation ────────────────────────────────────────────
 (function() {
   var PAGES = [
-    { href: '/giveaway/giveaway-admin.html', label: 'GW ADMIN',     group: 'giveaway' },
-    { href: '/stats/stats.html',             label: 'STATISTIKEN',  group: 'giveaway' },
+    { href: '/spacefight/spacefight-admin.html', label: 'SF ADMIN', group: 'spacefight', color: 'accent' },
+    { href: '/stats/stats.html',             label: 'STATISTIKEN',  group: 'spacefight' },
     { sep: true },
-    { href: '/spacefight/spacefight-admin.html', label: 'SF ADMIN', group: 'spacefight', color: 'gold' },
-    { sep: true },
-    { href: '/admin/giveaway-test.html',     label: 'TEST CONSOLE', group: 'tools' },
-    { href: '/admin/alerts-test.html',       label: 'ALERT TEST',   group: 'tools', color: 'gold' },
+    { href: '/admin/alerts-test.html',       label: 'ALERT TEST',   group: 'tools', color: 'accent' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
-    { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'gold' },
+    { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'accent' },
     { sep: true },
-    { href: '/giveaway/giveaway-overlay.html',      label: 'GW OVERLAY', group: 'obs', obs: true },
-    { href: '/giveaway/giveaway-join.html?test=1',  label: 'JOIN ANIM',  group: 'obs', obs: true },
     { href: '/alerts/chat.html?channel=justcallmedeimos', label: 'HUD CHAT', group: 'obs', obs: true },
     { href: '/alerts/overlay.html',          label: 'ALERT OVERLAY', group: 'obs', obs: true },
     { href: '/spacefight/spacefight.html?test=1',   label: 'RAUMKAMPF',  group: 'obs', obs: true },
@@ -215,11 +203,19 @@
   var home = document.createElement('a');
   home.href = '/admin/';
   home.className = 'cc-nav-home';
+  // RDOC dock ring, micro cut, rendered at 24 px by the CSS. The
+  // micro cut exists precisely for 24-32 px and is never the
+  // standard ring scaled down. Geometry is a verbatim copy of
+  // RDOC-Brandkit digital/icon/rdoc_signet_micro_copper.svg with
+  // fill switched to currentColor so the nav hover state applies.
+  // Do not retype these coordinates - re-copy them from the kit.
   home.innerHTML =
-    '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">' +
-      '<path d="M6 1L11 5.5V11H8V8H4V11H1V5.5L6 1Z" stroke="currentColor" stroke-width="1.2" fill="none"/>' +
+    '<svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RDOC">' +
+      '<g transform="translate(-60 -60) scale(0.3125)">' +
+        '<path fill="currentColor" d="M528.748,192.439 A320 320 0 0 1 779.563,336.473 L679.227,402.295 A200 200 0 0 0 522.467,312.274 Z M796.445,365.402 A320 320 0 0 1 805.202,640.19 L695.251,592.119 A200 200 0 0 0 689.778,420.376 Z M790.196,670.136 A320 320 0 0 1 667.139,791.878 L608.962,686.924 A200 200 0 0 0 685.872,610.835 Z M444.124,680 L579.876,680 L631.874,808.699 A320 320 0 0 1 586.703,823.158 L575.497,776.485 A272 272 0 0 0 589.252,772.799 L573.612,720 L450.388,720 L434.748,772.799 A272 272 0 0 0 448.503,776.485 L437.297,823.158 A320 320 0 0 1 392.126,808.699 Z M356.861,791.878 A320 320 0 0 1 233.804,670.136 L338.128,610.835 A200 200 0 0 0 415.038,686.924 Z M218.798,640.19 A320 320 0 0 1 227.555,365.402 L334.222,420.376 A200 200 0 0 0 328.749,592.119 Z M244.437,336.473 A320 320 0 0 1 495.252,192.439 L501.533,312.274 A200 200 0 0 0 344.773,402.295 Z"/>' +
+      '</g>' +
     '</svg>' +
-    'CHAOS CREW';
+    'RDOC';
   if (currentPage === 'admin/index.html' || currentPage === 'admin/') home.classList.add('active');
   nav.appendChild(home);
 
@@ -270,36 +266,43 @@
   var filterText  = '';
   var consoleOpen = false;
 
+  // Every colour below is an RDOC token from rdoc-brand.css, which
+  // the page loads before this lib. Nothing here defines a hex.
+  // send/recv/err are directions, i.e. states -> functional colour.
+  // Patina is structure (labels, event names), Copper stays free
+  // for the page's own single action.
   var style = document.createElement('style');
   style.textContent = [
-    '.cc-dbg-bar{position:fixed;bottom:0;left:0;right:0;z-index:9999;font-family:"Share Tech Mono",monospace;font-size:11px;}',
-    '.cc-dbg-handle{background:#04060a;border-top:1px solid rgba(0,212,255,0.2);height:28px;display:flex;align-items:center;padding:0 12px;gap:10px;cursor:pointer;user-select:none;}',
-    '.cc-dbg-handle:hover{background:#080e14;}',
-    '.cc-dbg-label{color:rgba(0,212,255,0.6);letter-spacing:1.5px;font-size:10px;}',
-    '.cc-dbg-dot{width:6px;height:6px;border-radius:50%;background:#333;flex-shrink:0;transition:background 0.2s;}',
-    '.cc-dbg-dot.send{background:#00d4ff;} .cc-dbg-dot.recv{background:#00ff88;} .cc-dbg-dot.err{background:#ff4444;}',
-    '.cc-dbg-count{color:rgba(200,220,232,0.3);font-size:9px;margin-left:auto;}',
+    '.cc-dbg-bar{position:fixed;bottom:0;left:0;right:0;z-index:9999;font-family:var(--rdoc-font-mono);font-size:11px;}',
+    '.cc-dbg-handle{background:var(--rdoc-bg);border-top:1px solid var(--rdoc-border);height:30px;display:flex;align-items:center;padding:0 12px;gap:10px;cursor:pointer;user-select:none;}',
+    '.cc-dbg-handle:hover{background:var(--rdoc-surface);}',
+    '.cc-dbg-label{color:var(--rdoc-accent-2);letter-spacing:0.07em;font-size:10px;text-transform:uppercase;}',
+    '.cc-dbg-dot{width:6px;height:6px;border-radius:50%;background:var(--rdoc-border);flex-shrink:0;transition:background 0.2s;}',
+    '.cc-dbg-dot.send{background:var(--rdoc-info);} .cc-dbg-dot.recv{background:var(--rdoc-success);} .cc-dbg-dot.err{background:var(--rdoc-error);}',
+    '.cc-dbg-count{color:var(--rdoc-text-muted);font-size:10px;margin-left:auto;}',
     '.cc-dbg-btns{display:flex;gap:6px;margin-left:8px;}',
-    '.cc-dbg-btn{background:transparent;border:1px solid rgba(0,212,255,0.2);color:rgba(200,220,232,0.5);font-family:"Share Tech Mono",monospace;font-size:9px;letter-spacing:1px;padding:2px 8px;cursor:pointer;transition:all 0.15s;}',
-    '.cc-dbg-btn:hover{border-color:rgba(0,212,255,0.5);color:rgba(200,220,232,0.9);}',
-    '.cc-dbg-btn.active{border-color:#ff4444;color:#ff4444;}',
-    '.cc-dbg-panel{background:#04060a;border-top:1px solid rgba(0,212,255,0.15);height:240px;display:none;flex-direction:column;}',
+    '.cc-dbg-btn{background:transparent;border:1px solid var(--rdoc-border);color:var(--rdoc-text-muted);font-family:var(--rdoc-font-mono);font-size:10px;letter-spacing:0.07em;padding:2px 8px;cursor:pointer;transition:border-color 0.15s,color 0.15s;text-transform:uppercase;}',
+    '.cc-dbg-btn:hover{border-color:var(--rdoc-accent-2);color:var(--rdoc-text);}',
+    '.cc-dbg-btn.active{border-color:var(--rdoc-error);color:var(--rdoc-error);}',
+    '.cc-dbg-btn:focus-visible{outline:2px solid var(--rdoc-focus);outline-offset:2px;}',
+    '.cc-dbg-panel{background:var(--rdoc-bg);border-top:1px solid var(--rdoc-border);height:240px;display:none;flex-direction:column;}',
     '.cc-dbg-panel.open{display:flex;}',
-    '.cc-dbg-toolbar{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid rgba(0,212,255,0.08);flex-shrink:0;}',
-    '.cc-dbg-filter{background:rgba(255,255,255,0.04);border:1px solid rgba(0,212,255,0.15);color:rgba(200,220,232,0.8);font-family:"Share Tech Mono",monospace;font-size:10px;padding:3px 8px;width:180px;outline:none;}',
-    '.cc-dbg-filter:focus{border-color:rgba(0,212,255,0.4);}',
-    '.cc-dbg-filter::placeholder{color:rgba(200,220,232,0.2);}',
+    '.cc-dbg-toolbar{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--rdoc-border);flex-shrink:0;}',
+    '.cc-dbg-filter{background:var(--rdoc-surface);border:1px solid var(--rdoc-border);color:var(--rdoc-text);font-family:var(--rdoc-font-mono);font-size:11px;padding:3px 8px;width:180px;outline:none;}',
+    '.cc-dbg-filter:focus{border-color:var(--rdoc-accent-2);}',
+    '.cc-dbg-filter::placeholder{color:var(--rdoc-text-muted);}',
     '.cc-dbg-log{flex:1;overflow-y:auto;padding:4px 0;}',
-    '.cc-dbg-log::-webkit-scrollbar{width:3px;} .cc-dbg-log::-webkit-scrollbar-track{background:#04060a;} .cc-dbg-log::-webkit-scrollbar-thumb{background:rgba(0,212,255,0.2);}',
-    '.cc-dbg-entry{display:flex;align-items:baseline;gap:8px;padding:2px 10px;border-bottom:1px solid rgba(255,255,255,0.02);cursor:pointer;}',
-    '.cc-dbg-entry:hover{background:rgba(0,212,255,0.04);}',
+    '.cc-dbg-log::-webkit-scrollbar{width:3px;} .cc-dbg-log::-webkit-scrollbar-track{background:var(--rdoc-bg);} .cc-dbg-log::-webkit-scrollbar-thumb{background:var(--rdoc-border);}',
+    '.cc-dbg-entry{display:flex;align-items:baseline;gap:8px;padding:2px 10px;border-bottom:1px solid var(--rdoc-border);cursor:pointer;}',
+    '.cc-dbg-entry:hover{background:var(--rdoc-surface);}',
     '.cc-dbg-entry.expanded .cc-dbg-body{white-space:pre;overflow-x:auto;}',
-    '.cc-dbg-ts{color:rgba(200,220,232,0.25);font-size:9px;flex-shrink:0;min-width:65px;}',
+    '.cc-dbg-ts{color:var(--rdoc-text-muted);font-size:10px;flex-shrink:0;min-width:65px;}',
     '.cc-dbg-dir{font-size:10px;flex-shrink:0;min-width:14px;}',
-    '.cc-dbg-dir.send{color:rgba(0,212,255,0.7);} .cc-dbg-dir.recv{color:rgba(0,255,136,0.7);} .cc-dbg-dir.err{color:rgba(255,68,68,0.8);} .cc-dbg-dir.info{color:rgba(240,165,0,0.6);}',
-    '.cc-dbg-evt{color:rgba(0,212,255,0.5);flex-shrink:0;min-width:120px;}',
-    '.cc-dbg-body{color:rgba(200,220,232,0.55);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}',
-    '.cc-dbg-body.send-color{color:rgba(0,212,255,0.55);} .cc-dbg-body.recv-color{color:rgba(0,255,136,0.55);} .cc-dbg-body.err-color{color:rgba(255,68,68,0.7);}',
+    '.cc-dbg-dir.send{color:var(--rdoc-info);} .cc-dbg-dir.recv{color:var(--rdoc-success);} .cc-dbg-dir.err{color:var(--rdoc-error);} .cc-dbg-dir.info{color:var(--rdoc-text-muted);}',
+    '.cc-dbg-evt{color:var(--rdoc-accent-2);flex-shrink:0;min-width:120px;}',
+    '.cc-dbg-body{color:var(--rdoc-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}',
+    '.cc-dbg-body.send-color{color:var(--rdoc-info);} .cc-dbg-body.recv-color{color:var(--rdoc-success);} .cc-dbg-body.err-color{color:var(--rdoc-error);}',
+    '.cc-dbg-hint{color:var(--rdoc-text-muted);font-size:10px;margin-left:auto;}',
   ].join('');
   document.head.appendChild(style);
 
@@ -324,7 +327,7 @@
   panel.innerHTML =
     '<div class="cc-dbg-toolbar">' +
       '<input class="cc-dbg-filter" id="cc-dbg-filter" placeholder="Filter (event, cmd, user...)" type="text">' +
-      '<span style="color:rgba(200,220,232,0.2);font-size:9px;margin-left:auto;">Klick auf Zeile = Details</span>' +
+      '<span class="cc-dbg-hint">Klick auf Zeile = Details</span>' +
     '</div>' +
     '<div class="cc-dbg-log" id="cc-dbg-log"></div>';
   bar.appendChild(panel);

@@ -1,27 +1,26 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<title>Chaos Crew – Control Center</title>
-<link rel="stylesheet" href="chaos-crew-admin.css">
+<title>RDOC – Control Center</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="rdoc-brand.css">
+<link rel="stylesheet" href="rdoc-admin.css">
 </head>
 <body>
 <script src="admin-shared.js"></script>
-<div class="scanlines"></div>
 
 <div class="index-header">
   <div class="index-logo">
-    <span class="logo-cc">CHAOS</span>
-    <span class="logo-sep">//</span>
-    <span class="logo-crew">CREW</span>
+    <img src="rdoc-logo.svg" alt="RDOC">
   </div>
-  <span class="logo-sub">CONTROL CENTER // v6.0</span>
+  <span class="logo-sub">Control Center // v6.0</span>
   <div class="header-time" id="clock"></div>
 </div>
 
 <div class="health-bar">
   <div id="h-bridge"     class="health-svc loading"><div class="health-dot"></div>BRIDGE</div>
-  <div id="h-giveaway"   class="health-svc loading"><div class="health-dot"></div>GIVEAWAY</div>
   <div id="h-spacefight" class="health-svc loading"><div class="health-dot"></div>SPACEFIGHT</div>
   <div id="h-alerts"     class="health-svc loading"><div class="health-dot"></div>ALERTS</div>
   <div id="h-stats"      class="health-svc loading"><div class="health-dot"></div>STATS</div>
@@ -35,57 +34,23 @@
 <div class="index-main">
 
   <section class="module-group">
-    <div class="group-title">GIVEAWAY SYSTEM</div>
-    <div class="module-grid">
-
-      <a href="/giveaway/giveaway-admin.html" class="module-card cyan">
-        <div class="module-icon">&#x25A3;</div>
-        <div class="module-info">
-          <div class="module-name">ADMIN PANEL</div>
-          <div class="module-desc">Giveaway steuern, Gewinner ziehen, Teilnehmer verwalten</div>
-        </div>
-        <div class="module-arrow">&#x2192;</div>
-      </a>
-
-      <a href="/stats/stats.html" class="module-card gold">
-        <div class="module-icon">&#x25B3;</div>
-        <div class="module-info">
-          <div class="module-name">STATISTIKEN</div>
-          <div class="module-desc">Teilnehmer, Gewinner-Historie, Leaderboard, Sessions</div>
-        </div>
-        <div class="module-arrow">&#x2192;</div>
-      </a>
-
-      <a href="/admin/giveaway-test.html" class="module-card dim">
-        <div class="module-icon">&#x25C6;</div>
-        <div class="module-info">
-          <div class="module-name">TEST CONSOLE</div>
-          <div class="module-desc">WebSocket Events manuell senden und debuggen</div>
-        </div>
-        <div class="module-arrow">&#x2192;</div>
-      </a>
-
-      <a href="/admin/alerts-test.html" class="module-card gold">
-        <div class="module-icon">&#x25C6;</div>
-        <div class="module-info">
-          <div class="module-name">ALERT TEST</div>
-          <div class="module-desc">Test-Alerts an das OBS-Overlay senden (Follow, Sub, Raid, Shoutout&hellip;)</div>
-        </div>
-        <div class="module-arrow">&#x2192;</div>
-      </a>
-
-    </div>
-  </section>
-
-  <section class="module-group">
     <div class="group-title">SPACEFIGHT</div>
     <div class="module-grid">
 
-      <a href="/spacefight/spacefight-admin.html" class="module-card gold">
+      <a href="/spacefight/spacefight-admin.html" class="module-card accent">
         <div class="module-icon">&#x2694;</div>
         <div class="module-info">
           <div class="module-name">RAUMKAMPF ADMIN</div>
           <div class="module-desc">Wall of Fame, Kampf-Historie, Spieler-Stats</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+      <a href="/stats/stats.html" class="module-card accent">
+        <div class="module-icon">&#x25B3;</div>
+        <div class="module-info">
+          <div class="module-name">STATISTIKEN</div>
+          <div class="module-desc">Wall of Fame und Kampf-Historie</div>
         </div>
         <div class="module-arrow">&#x2192;</div>
       </a>
@@ -97,27 +62,7 @@
     <div class="group-title">OBS OVERLAYS</div>
     <div class="module-grid">
 
-      <a href="/giveaway/giveaway-overlay.html" class="module-card cyan" target="_blank">
-        <div class="module-icon">&#x25A0;</div>
-        <div class="module-info">
-          <div class="module-name">GIVEAWAY OVERLAY</div>
-          <div class="module-desc">320&times;400px &mdash; Gewinner-Einblendung bei der Ziehung</div>
-          <div class="module-tag">OBS Browser Source</div>
-        </div>
-        <div class="module-arrow">&#x2197;</div>
-      </a>
-
-      <a href="/giveaway/giveaway-join.html?test=1" class="module-card cyan" target="_blank">
-        <div class="module-icon">&#x25B6;</div>
-        <div class="module-info">
-          <div class="module-name">JOIN ANIMATION</div>
-          <div class="module-desc">620&times;110px &mdash; Teilnahme-Animation mit Warteschlange</div>
-          <div class="module-tag">OBS Browser Source &mdash; ?test=1 aktiv</div>
-        </div>
-        <div class="module-arrow">&#x2197;</div>
-      </a>
-
-      <a href="/alerts/chat.html?channel=justcallmedeimos" class="module-card cyan" target="_blank">
+      <a href="/alerts/chat.html?channel=justcallmedeimos" class="module-card struct" target="_blank">
         <div class="module-icon">&#x25CB;</div>
         <div class="module-info">
           <div class="module-name">HUD CHAT</div>
@@ -127,17 +72,27 @@
         <div class="module-arrow">&#x2197;</div>
       </a>
 
-      <a href="/alerts/overlay.html" class="module-card gold" target="_blank">
+      <a href="/alerts/overlay.html" class="module-card accent" target="_blank">
         <div class="module-icon">&#x25C9;</div>
         <div class="module-info">
           <div class="module-name">ALERT OVERLAY</div>
-          <div class="module-desc">1920&times;1080px &mdash; Follow/Sub/Raid/Shoutout (Redesign). Tests via ALERT TEST.</div>
+          <div class="module-desc">1920&times;1080px &mdash; Follow/Sub/Raid/Shoutout. Tests via ALERT TEST.</div>
           <div class="module-tag">OBS Browser Source &mdash; ?demo=1 f&uuml;r Demo-Panel</div>
         </div>
         <div class="module-arrow">&#x2197;</div>
       </a>
 
-      <a href="/spacefight/spacefight.html?test=1" class="module-card gold" target="_blank">
+      <a href="/alerts/haul.html" class="module-card struct" target="_blank">
+        <div class="module-icon">&#x25AD;</div>
+        <div class="module-info">
+          <div class="module-name">HAULING</div>
+          <div class="module-desc">Hauling-Overlay f&uuml;r Cargo-Runs</div>
+          <div class="module-tag">OBS Browser Source</div>
+        </div>
+        <div class="module-arrow">&#x2197;</div>
+      </a>
+
+      <a href="/spacefight/spacefight.html?test=1" class="module-card accent" target="_blank">
         <div class="module-icon">&#x2605;</div>
         <div class="module-info">
           <div class="module-name">RAUMKAMPF</div>
@@ -151,10 +106,35 @@
   </section>
 
   <section class="module-group">
+    <div class="group-title">TOOLS</div>
+    <div class="module-grid">
+
+      <a href="/admin/alerts-test.html" class="module-card accent">
+        <div class="module-icon">&#x25C6;</div>
+        <div class="module-info">
+          <div class="module-name">ALERT TEST</div>
+          <div class="module-desc">Test-Alerts an das OBS-Overlay senden (Follow, Sub, Raid, Shoutout&hellip;)</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+      <a href="/admin/tests/test-runner.html" class="module-card dim">
+        <div class="module-icon">&#x25C7;</div>
+        <div class="module-info">
+          <div class="module-name">TEST SUITE</div>
+          <div class="module-desc">Browser-Unit-Tests f&uuml;r Shared Utilities und Navigation</div>
+        </div>
+        <div class="module-arrow">&#x2192;</div>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="module-group">
     <div class="group-title">STREAMERBOT</div>
     <div class="module-grid">
 
-      <a href="/admin/streamerbot.html" class="module-card gold">
+      <a href="/admin/streamerbot.html" class="module-card accent">
         <div class="module-icon">&#x25B7;</div>
         <div class="module-info">
           <div class="module-name">C# ACTIONS</div>
@@ -196,7 +176,7 @@
 </div>
 
 <footer>
-  <span class="footer-text">CHAOS IS A PLAN &nbsp;//&nbsp; o7</span>
+  <span class="footer-text">RDOC &nbsp;//&nbsp; Raumdock</span>
   <span class="footer-ver">SYS v6.0 // MICROSERVICES // POSTGRESQL + REDIS</span>
 </footer>
 

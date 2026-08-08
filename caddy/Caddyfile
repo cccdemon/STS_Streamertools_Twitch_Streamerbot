@@ -4,13 +4,6 @@
 
 :80 {
 
-    # ── Giveaway Service ──────────────────────────────────
-    # REST + WebSocket (/giveaway/ws)
-    handle /giveaway/* {
-        uri strip_prefix /giveaway
-        reverse_proxy giveaway:3001
-    }
-
     # ── Spacefight Service ────────────────────────────────
     # REST + WebSocket (/spacefight/ws)
     handle /spacefight/* {
@@ -27,7 +20,7 @@
     }
 
     # ── Stats Service ─────────────────────────────────────
-    # REST only (leaderboards, session history)
+    # REST only (Spacefight-Leaderboard + Kampfhistorie)
     handle /stats/* {
         uri strip_prefix /stats
         reverse_proxy stats:3004

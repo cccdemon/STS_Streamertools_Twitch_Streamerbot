@@ -1,13 +1,13 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Spacefight Service
+// RDOC – Spacefight Service
 // Fight engine, battle results, leaderboard.
 //
 // Redis Sub: ch:spacefight (fight_cmd, spacefight_challenge,
-//            spacefight_result, spacefight_rejected,
-//            stream_online, stream_offline)
-// Redis Pub: ch:chat_reply (challenge/rejection messages)
+//            spacefight_rejected, stream_online, stream_offline)
+//            spacefight_result kommt ausschließlich per WS vom Overlay.
+// Redis Pub: ch:chat_reply (challenge/rejection/result messages)
 // WS:  admin commands + battle broadcasts
 // REST: /api/spacefight/leaderboard, /history, /player/:u
 // ════════════════════════════════════════════════════════
@@ -179,6 +179,8 @@ async function handleSfCmd(send, msg) {
     case 'sf_delete_player': {
       const u = sanitizeUsername(msg.user);
       if (!u) break;
+      // Nur die Statistik des Spielers löschen — die Kampfhistorie bleibt,
+      // sonst verschwinden auch die Kämpfe seiner Gegner aus der Historie.
       await pg.query('DELETE FROM spacefight_stats WHERE username=$1', [u]);
       await redis.zrem(SF_INDEX, u);
       send({ event: 'sf_ack', type: 'player_deleted', user: u });

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Raumkampf v3
+// RDOC – Raumkampf v3
 // Features:
 //  - Spiel muss per Admin-Panel aktiviert werden
 //  - !fight @user via Streamerbot → Bridge → Spacefight → Overlay
