@@ -1,8 +1,13 @@
 # Public Deployment Plan — Chaos Crew Suite
 
+> **Veraltet in einem Punkt:** Das Giveaway-System wurde aus dieser Suite
+> entfernt (eigenes Repo `CC-Giveaway`). Alle Absätze unten, die sich auf
+> `services/giveaway`, `gw_cmd` oder die Giveaway-Overlays beziehen, entfallen
+> ersatzlos — der Rest des Plans gilt unverändert.
+
 ## Context
 
-Heute läuft die komplette Suite (Bridge, Giveaway, Spacefight, Alerts, Stats, Admin, Caddy, Redis, PG) auf der LXC `192.168.178.34` im Heimnetz. Streamerbot (Windows-PC, `192.168.178.39:9090`) und OBS sind ebenfalls lokal.
+Heute läuft die komplette Suite (Bridge, Spacefight, Alerts, Stats, Admin, Caddy, Redis, PG) auf der LXC `192.168.178.34` im Heimnetz. Streamerbot (Windows-PC, `192.168.178.39:9090`) und OBS sind ebenfalls lokal.
 
 Ziel: Suite auf einem **vorhandenen Public-Server** mit **eigener Domain** und HTTPS betreiben — Streamerbot und OBS bleiben **zuhause**.
 

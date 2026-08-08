@@ -1,11 +1,27 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1920">
-<title>Shoutout Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<title>RDOC – Shoutout</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="rdoc-brand.css">
 <style>
+  /* ────────────────────────────────────────────────────────────
+     RDOC – Shoutout panel
+
+     Brand layer: rdoc-brand.css, linked above; data-theme="dark"
+     on <html> keeps an OBS light preference from flipping tokens.
+     Palette literals (rgba() cannot take a variable): Space
+     #121416, Graphite #2B3135, Off White #F2F2F0, Steel #76828D,
+     Copper #C48A4A, Patina #4FB5B5.
+
+     The raid panel and this one are the same object in two states,
+     so they now share one colour role split instead of swapping
+     the two accents: Copper labels the event, Patina is structure.
+     No gradient, glow or text-shadow.
+     ──────────────────────────────────────────────────────────── */
+
   * { margin:0; padding:0; box-sizing:border-box; }
 
   body {
@@ -13,7 +29,7 @@
     height: 1080px;
     background: transparent;
     overflow: hidden;
-    font-family: 'Bebas Neue', sans-serif;
+    font-family: var(--rdoc-font-text);
   }
 
   #so-panel {
@@ -22,8 +38,8 @@
     right: 0;
     width: 560px;
     height: 1080px;
-    background: rgba(0,0,0,0.93);
-    border-left: 1.5px solid rgba(240,165,0,0.35);
+    background: rgba(18,20,22,0.95);
+    border-left: 1.5px solid rgba(79,181,181,0.45);
     pointer-events: none;
     opacity: 0;
     transform: translateX(40px);
@@ -46,7 +62,7 @@
     position: absolute;
     width: 40px;
     height: 40px;
-    border-color: #f0a500;
+    border-color: #C48A4A;
     border-style: solid;
   }
 
@@ -68,7 +84,7 @@
     right:-2px;
     width:40px;
     height:40px;
-    border:3px solid #f0a500;
+    border:3px solid #C48A4A;
     border-width:3px 3px 0 0;
   }
 
@@ -78,18 +94,19 @@
     right:-2px;
     width:40px;
     height:40px;
-    border:3px solid #f0a500;
+    border:3px solid #C48A4A;
     border-width:0 3px 3px 0;
   }
 
+  /* Flat hairlines - the old ones were four-stop gradients. */
   .panel-top-line {
     position: absolute;
     top:0;
     left:40px;
     right:40px;
     height:1px;
-    background: linear-gradient(90deg, transparent, #f0a500, #00d4ff, #f0a500, transparent);
-    opacity: 0.7;
+    background: #C48A4A;
+    opacity: 0.6;
   }
 
   .panel-bottom-line {
@@ -98,24 +115,18 @@
     left:40px;
     right:40px;
     height:1px;
-    background: linear-gradient(90deg, transparent, #00d4ff, #f0a500, #00d4ff, transparent);
-    opacity: 0.5;
+    background: #4FB5B5;
+    opacity: 0.45;
   }
 
+  /* Side bar: flat Patina, pulsing opacity only. */
   .panel-bar {
     position: absolute;
     top:60px;
     bottom:60px;
     left:-10px;
     width:2px;
-    background: linear-gradient(
-      to bottom,
-      transparent,
-      rgba(240,165,0,0.6) 30%,
-      rgba(0,212,255,0.8) 50%,
-      rgba(240,165,0,0.6) 70%,
-      transparent
-    );
+    background: #4FB5B5;
     animation: barPulse 3s ease-in-out infinite;
   }
 
@@ -124,25 +135,14 @@
     50% { opacity:1.0; }
   }
 
-  .panel-scan {
-    position: absolute;
-    inset:0;
-    pointer-events:none;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(240,165,0,0.006) 3px,
-      rgba(240,165,0,0.006) 4px
-    );
-  }
+  /* Scanline texture removed - repeating gradient. */
+  .panel-scan { display:none; }
 
   .so-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 10px;
-    color: #00d4ff;
-    text-shadow: 0 0 12px rgba(0,212,255,0.8);
+    font-family: var(--rdoc-font-mono);
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: #C48A4A;
     text-transform: uppercase;
     margin-bottom: 36px;
   }
@@ -159,7 +159,7 @@
     position: absolute;
     width: 18px;
     height: 18px;
-    border-color: #00d4ff;
+    border-color: #C48A4A;
     border-style: solid;
   }
 
@@ -178,31 +178,29 @@
   #soAvatar {
     width: 180px;
     height: 180px;
-    border: 2px solid rgba(240,165,0,0.7);
+    border: 2px solid #4FB5B5;
     display: block;
     object-fit: cover;
-    filter: drop-shadow(0 0 24px rgba(240,165,0,0.55));
   }
 
+  /* Michroma: one cut, tracking 0, ~1.35x wider than the old
+     Orbitron 900 - hence 30px instead of 38px. */
   #soName {
-    font-family: 'Orbitron', monospace;
-    font-size: 38px;
-    font-weight: 900;
-    color: #f0a500;
-    text-shadow: 0 0 20px rgba(240,165,0,0.9), 0 0 50px rgba(240,165,0,0.3);
-    letter-spacing: 3px;
-    text-transform: uppercase;
+    font-family: var(--rdoc-font-display);
+    font-size: 30px;
+    color: #F2F2F0;
+    letter-spacing: 0;
     text-align: center;
-    line-height: 1.1;
-    margin-bottom: 8px;
-    word-break: break-all;
+    line-height: 1.15;
+    margin-bottom: 10px;
+    word-break: break-word;
   }
 
   #soGame {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 5px;
-    color: rgba(0,212,255,0.75);
+    font-family: var(--rdoc-font-mono);
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    color: #4FB5B5;
     text-transform: uppercase;
     margin-bottom: 28px;
   }
@@ -210,37 +208,36 @@
   .panel-divider {
     width: 100%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(240,165,0,0.4), transparent);
+    background: #2B3135;
     margin-bottom: 28px;
   }
 
   .info-key {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 6px;
-    color: rgba(0,212,255,0.55);
+    font-family: var(--rdoc-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: #4FB5B5;
     text-transform: uppercase;
     margin-bottom: 8px;
   }
 
+  /* A paragraph, so Plex Sans and not uppercased. */
   #soSummary {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 1.5px;
-    color: rgba(204,232,240,0.92);
-    line-height: 1.55;
+    font-family: var(--rdoc-font-text);
+    font-size: 19px;
+    color: #F2F2F0;
+    line-height: 1.6;
     text-align: left;
-    text-transform: none;
     width: 100%;
     word-break: break-word;
     white-space: pre-wrap;
   }
 
   #loadingDots {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 13px;
-    letter-spacing: 4px;
-    color: rgba(240,165,0,0.5);
+    font-family: var(--rdoc-font-mono);
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    color: #4FB5B5;
     text-align: center;
     width: 100%;
     display: none;
@@ -251,10 +248,10 @@
   }
 
   #soUrl {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 4px;
-    color: rgba(0,212,255,0.4);
+    font-family: var(--rdoc-font-mono);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: #76828D;
     margin-top: 28px;
     text-align: center;
     text-transform: lowercase;
@@ -264,10 +261,10 @@
     position: fixed;
     bottom: 12px;
     left: 12px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: rgba(240,165,0,0.5);
-    letter-spacing: 2px;
+    font-family: var(--rdoc-font-mono);
+    font-size: 11px;
+    color: #76828D;
+    letter-spacing: 0.07em;
     pointer-events: none;
     z-index: 9999;
   }

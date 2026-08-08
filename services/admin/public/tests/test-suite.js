@@ -100,14 +100,6 @@
     finally { console.warn = originalWarn; }
   }
 
-  function createInput(id, value) {
-    var el = document.createElement('input');
-    el.id = id;
-    el.value = value;
-    document.body.appendChild(el);
-    return el;
-  }
-
   it('escHtml escapes HTML special chars', function() {
     expect(CC.validate.escHtml('<b>Test & "OK"</b>')).toBe('&lt;b&gt;Test &amp; &quot;OK&quot;&#x2F;&lt;/b&gt;');
   });
@@ -142,77 +134,11 @@
   });
 
   it('validateWsPayload allows safe commands but blocks unknown event names', function() {
-    expect(CC.validate.validateWsPayload({ event: 'gw_cmd', cmd: 'gw_open', user: 'valid_user' })).toBeTruthy();
+    expect(CC.validate.validateWsPayload({ event: 'sf_cmd', cmd: 'sf_start', user: 'valid_user' })).toBeTruthy();
     withMutedConsole(function() {
-      expect(CC.validate.validateWsPayload({ event: 'gw_cmd', cmd: 'unknown_cmd' })).toBeFalsy();
+      expect(CC.validate.validateWsPayload({ event: 'sf_cmd', cmd: 'unknown_cmd' })).toBeFalsy();
       expect(CC.validate.validateWsPayload({ event: 'bad_event' })).toBeFalsy();
     });
-  });
-
-  it('parseDec handles decimal inputs and invalid values correctly', function() {
-    expect(parseDec('1,5')).toBe(1.5);
-    expect(parseDec('3.0000')).toBe(3);
-    expect(parseDec('abc')).toBe(0);
-    expect(parseDec(null)).toBe(0);
-  });
-
-  it('handle processes gw_data payload and builds participant state', function() {
-    var originalUpdateGwStatus = window.updateGwStatus;
-    var originalRenderTable = window.renderTable;
-    var originalUpdateStats = window.updateStats;
-    var originalBroadcastOverlay = window.broadcastOverlay;
-    window.updateGwStatus = function() {};
-    window.renderTable = function() {};
-    window.updateStats = function() {};
-    window.broadcastOverlay = function() {};
-
-    participants = {};
-    gwIsOpen = false;
-    handle({
-      event: 'gw_data',
-      open: true,
-      participants: [{
-        key: 'Alpha',
-        display: 'Alpha',
-        watchSec: '10',
-        msgs: '5',
-        tickets: '1,5',
-        banned: false
-      }]
-    });
-
-    expect(gwIsOpen).toBeTruthy();
-    expect(participants.alpha.tickets).toBe(1.5);
-    expect(participants.alpha.watchSec).toBe(10);
-    expect(participants.alpha.banned).toBe(false);
-
-    window.updateGwStatus = originalUpdateGwStatus;
-    window.renderTable = originalRenderTable;
-    window.updateStats = originalUpdateStats;
-    window.broadcastOverlay = originalBroadcastOverlay;
-  });
-
-  it('manualAdd sends sanitized WS payloads without modifying live data', function() {
-    var nameInput = createInput('m-name', 'Bad$User');
-    var amountInput = createInput('m-amount', '2');
-
-    var originalRequestData = window.requestData;
-    window.requestData = function() {};
-
-    var sent = [];
-    ws = { readyState: 1, send: function(msg) { sent.push(JSON.parse(msg)); } };
-
-    try {
-      manualAdd();
-      expect(sent.length).toBe(2);
-      expect(sent[0].event).toBe('gw_cmd');
-      expect(sent[0].user).toBe('BadUser');
-    } finally {
-      window.requestData = originalRequestData;
-      ws = null;
-      document.body.removeChild(nameInput);
-      document.body.removeChild(amountInput);
-    }
   });
 
   it('isInChat returns active chat users and expires stale entries', function() {

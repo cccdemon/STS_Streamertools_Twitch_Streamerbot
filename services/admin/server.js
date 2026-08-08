@@ -1,7 +1,7 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Admin Dashboard Service
+// RDOC – Admin Dashboard Service
 // Serves static admin pages (index, test console, docs,
 // test runner). Aggregated health check across all services.
 // No WS server – admin pages connect directly to each
@@ -17,7 +17,6 @@ const CFG = {
   port: parseInt(process.env.PORT || '3005'),
   services: {
     bridge:     process.env.BRIDGE_URL     || 'http://bridge:3000',
-    giveaway:   process.env.GIVEAWAY_URL   || 'http://giveaway:3001',
     spacefight: process.env.SPACEFIGHT_URL || 'http://spacefight:3002',
     alerts:     process.env.ALERTS_URL     || 'http://alerts:3003',
     stats:      process.env.STATS_URL      || 'http://stats:3004',

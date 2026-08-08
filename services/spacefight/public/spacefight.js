@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Raumkampf v3
+// RDOC – Raumkampf v3
 // Features:
 //  - Spiel muss per Admin-Panel aktiviert werden
 //  - !fight @user via Streamerbot → Bridge → Spacefight → Overlay
@@ -282,7 +282,7 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
     '<div class="hp-row">' +
       '<span class="hp-label fc-hp-a-lbl">100</span>' +
       '<div class="hp-bar-wrap"><div class="hp-bar attacker fc-hp-a" style="width:100%"></div></div>' +
-      '<span class="hp-label" style="color:rgba(200,220,232,0.2)">HP</span>' +
+      '<span class="hp-label">HP</span>' +
       '<div class="hp-bar-wrap reversed"><div class="hp-bar defender fc-hp-d" style="width:100%"></div></div>' +
       '<span class="hp-label fc-hp-d-lbl">100</span>' +
     '</div>' +
@@ -335,7 +335,7 @@ function updateLog(card, round, aName, dName, winner, loser, isFinal) {
   if (isFinal) {
     var tpl = EVENTS_WIN[Math.floor(Math.random()*EVENTS_WIN.length)];
     var isAWin = winner === aName;
-    log.innerHTML = '<span class="winner '+(isAWin?'cyan':'gold')+'">'+
+    log.innerHTML = '<span class="winner '+(isAWin?'attacker':'defender')+'">'+
       tpl.replace('{W}',esc(winner.toUpperCase())).replace('{L}',esc(loser.toUpperCase()))+'</span>';
     return;
   }

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Raumkampf Admin JS
+// RDOC – Raumkampf Admin JS
 // ════════════════════════════════════════════════════════
 'use strict';
 
@@ -173,7 +173,7 @@ function renderLeaderboard(data) {
       '<td class="ratio-col">'  + (p.ratio||'0') + '%</td>' +
       '<td class="time-col">'   + ts + '</td>' +
       '<td>' +
-        '<button class="btn cyan" style="padding:2px 8px;font-size:9px;" onclick="openEdit(\'' +
+        '<button class="btn struct btn-sm" onclick="openEdit(\'' +
           uSafe + '\',' + (p.wins||0) + ',' + (p.losses||0) + ',\'' + esc(p.display || p.username) + '\')">EDIT</button>' +
       '</td>' +
     '</tr>';
@@ -200,11 +200,11 @@ function renderHistory(data) {
   tbody.innerHTML = data.map(function(f) {
     var ts = f.ts ? new Date(f.ts).toLocaleString('de-DE') : '–';
     return '<tr>' +
-      '<td class="time-col">' + ts + '</td>' +
-      '<td style="color:var(--green)">' + esc(f.winner||'') + '</td>' +
-      '<td style="color:var(--red)">'   + esc(f.loser ||'') + '</td>' +
-      '<td style="color:rgba(200,220,232,0.5)">' + esc(f.ship_w||'') + '</td>' +
-      '<td style="color:rgba(200,220,232,0.3)">' + esc(f.ship_l||'') + '</td>' +
+      '<td class="time-col">'   + ts + '</td>' +
+      '<td class="winner-col">' + esc(f.winner||'') + '</td>' +
+      '<td class="loser-col">'  + esc(f.loser ||'') + '</td>' +
+      '<td class="ship-col">'   + esc(f.ship_w||'') + '</td>' +
+      '<td class="ship-col">'   + esc(f.ship_l||'') + '</td>' +
     '</tr>';
   }).join('');
 }
@@ -231,14 +231,14 @@ function searchPlayerByName(username) {
       document.getElementById('player-result').innerHTML =
         '<div class="pr-name">' + esc(p.display || p.username) + '</div>' +
         '<div class="pr-rank">Rang #' + (p.rank || '?') + '</div>' +
-        '<div class="pr-stat"><span class="pr-label">SIEGE</span><span class="pr-val" style="color:var(--green)">' + (p.wins||0) + '</span></div>' +
-        '<div class="pr-stat"><span class="pr-label">NIEDERLAGEN</span><span class="pr-val" style="color:var(--red)">' + (p.losses||0) + '</span></div>' +
-        '<div class="pr-stat"><span class="pr-label">WINRATE</span><span class="pr-val" style="color:var(--cyan)">' + (p.ratio||'0') + '%</span></div>' +
+        '<div class="pr-stat"><span class="pr-label">SIEGE</span><span class="pr-val pr-wins">' + (p.wins||0) + '</span></div>' +
+        '<div class="pr-stat"><span class="pr-label">NIEDERLAGEN</span><span class="pr-val pr-losses">' + (p.losses||0) + '</span></div>' +
+        '<div class="pr-stat"><span class="pr-label">WINRATE</span><span class="pr-val pr-ratio">' + (p.ratio||'0') + '%</span></div>' +
         '<div class="pr-stat"><span class="pr-label">LETZTER KAMPF</span><span class="pr-val time-col">' + ts + '</span></div>';
     })
     .catch(function(){
       document.getElementById('player-result').innerHTML =
-        '<div style="color:var(--red);font-size:11px;">Fehler beim Laden</div>';
+        '<div class="load-error">Fehler beim Laden</div>';
     });
 }
 

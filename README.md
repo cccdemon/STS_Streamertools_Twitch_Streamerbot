@@ -1,6 +1,8 @@
-# Chaos Crew — Streamer Tools
+# RDOC — Streamer Tools
 
-Twitch-Streamer-Toolset: Giveaway, Spacefight Chat-Game, HUD-Chat-Overlay, Alert-Overlays und Streamerbot-C#-Actions als dockerisierter Microservice-Stack.
+Twitch-Streamer-Toolset: Spacefight Chat-Game, HUD-Chat-Overlay, Alert-Overlays und Streamerbot-C#-Actions als dockerisierter Microservice-Stack.
+
+Oberflaeche und Overlays folgen dem **RDOC Brand Kit** — siehe [Branding](#branding-rdoc-brand-kit).
 
 ---
 
@@ -8,13 +10,12 @@ Twitch-Streamer-Toolset: Giveaway, Spacefight Chat-Game, HUD-Chat-Overlay, Alert
 
 | Modul | Was es tut |
 |---|---|
-| **Giveaway** | Watchtime-basiertes Coin-/Ticket-System, Keyword-Registrierung via Chat, Admin-Panel zum Ziehen |
 | **Spacefight** | Chat-Command `!fight @user`, animiertes OBS-Battle-Overlay, Win/Loss-Leaderboard |
 | **Alerts** | Follow / Sub / Cheer / Raid / Shoutout-Overlays mit Sound + Claude-AI-Zusammenfassungen |
 | **HUD Chat** | Twitch-Chat als Sci-Fi-OBS-Overlay |
-| **Stats** | Read-only-Leaderboards & Session-Historie aus PostgreSQL |
+| **Stats** | Read-only Wall of Fame & Kampf-Historie aus PostgreSQL |
 | **Admin** | Aggregiertes Dashboard, Health-Check, Test-Konsolen |
-| **Streamerbot Actions** | 26 C#-Actions die Twitch-Events in den Stack einspeisen und Replies senden |
+| **Streamerbot Actions** | 22 C#-Actions die Twitch-Events in den Stack einspeisen und Replies senden |
 
 ---
 
@@ -27,10 +28,9 @@ Twitch-Streamer-Toolset: Giveaway, Spacefight Chat-Game, HUD-Chat-Overlay, Alert
                              │
 ┌─ Heim-PC ───────────────────────────────┐    ┌─ Server (Docker) ────────────┐
 │  Streamerbot 1.0.4  WS-Server :9090 ◄───┼────┼─ cc-bridge      :3000        │
-│    └─ 26 C# Actions (siehe streamerbot/)│    │   (WS-Client → Redis Pub/Sub)│
+│    └─ 22 C# Actions (siehe streamerbot/)│    │   (WS-Client → Redis Pub/Sub)│
 │  OBS Studio  Browser-Sources ───────────┼────┼─► cc-web (Caddy) :80 / :443  │
-└─────────────────────────────────────────┘    │   ├─► cc-giveaway   :3001    │
-                                               │   ├─► cc-spacefight :3002    │
+└─────────────────────────────────────────┘    │   ├─► cc-spacefight :3002    │
                                                │   ├─► cc-alerts     :3003    │
                                                │   ├─► cc-stats      :3004    │
                                                │   └─► cc-admin      :3005    │
@@ -42,7 +42,7 @@ Twitch-Streamer-Toolset: Giveaway, Spacefight Chat-Game, HUD-Chat-Overlay, Alert
 
 **Kommunikations-Flow:**
 - Streamerbot ist **WS-Server** (`:9090`), Bridge ist **Client**, verbindet sich rein und hört auf Custom-Server-Messages.
-- Bridge fan-outt eingehende Events nach Redis Pub/Sub-Channels (`ch:giveaway`, `ch:spacefight`, `ch:alerts`, `ch:chat`, `ch:chat_reply`).
+- Bridge fan-outt eingehende Events nach Redis Pub/Sub-Channels (`ch:spacefight`, `ch:alerts`, `ch:chat`, `ch:chat_reply`).
 - Services subscriben auf ihre Channels und broadcasten an verbundene Browser-Clients (Admin-Panels, OBS-Overlays) via eigene WS-Endpoints.
 - Outbound geht alles über `ch:chat_reply` → Bridge → Streamerbot → Twitch.
 
@@ -92,8 +92,8 @@ OBS-integrierter Chromium (CEF) reicht für alle Overlays — moderne WS- und CS
 ## Schnellstart (LAN, HTTP)
 
 ```bash
-git clone <repo-url> chaos-crew
-cd chaos-crew
+git clone <repo-url> rdoc-streamertools
+cd rdoc-streamertools
 cp .env.example .env
 # .env anpassen — siehe Tabelle unten
 docker compose up -d
@@ -143,7 +143,6 @@ Browser: `http://<server>/` → leitet auf `/admin/` (Dashboard).
 | Container | Port | Aufgabe |
 |---|---|---|
 | `cc-bridge` | 3000 | Streamerbot-WS-Client → Redis Pub/Sub Router |
-| `cc-giveaway` | 3001 | Watchtime-Engine + REST + WS-Admin |
 | `cc-spacefight` | 3002 | Fight-Engine + REST + WS-Admin |
 | `cc-alerts` | 3003 | Alert-Overlays + Claude-AI + REST + WS |
 | `cc-stats` | 3004 | Read-only-Statistiken (REST, kein WS) |
@@ -158,7 +157,6 @@ Browser: `http://<server>/` → leitet auf `/admin/` (Dashboard).
 
 | Pfad | → Service |
 |---|---|
-| `/giveaway/*` | giveaway:3001 (REST + WS auf `/giveaway/ws`) |
 | `/spacefight/*` | spacefight:3002 (REST + WS auf `/spacefight/ws`) |
 | `/alerts/*` | alerts:3003 (REST + WS auf `/alerts/ws`) |
 | `/stats/*` | stats:3004 (REST) |
@@ -203,18 +201,14 @@ Die 26 C#-Actions liegen unter [streamerbot/](streamerbot/). Für jede Action:
 | 14 | CC – Clip Created | `CC_ClipCreated.cs` | Clip Created | – | – |
 | 15 | CC – Ad Break Start | `CC_AdBreakStart.cs` | Ad Break Start | – | – |
 | 16 | CC – Ad Break End | `CC_AdBreakEnd.cs` | Ad Break End | – | – |
-| 17 | GW – Viewer Tick | `GW_A_ViewerTick.cs` | Twitch Present Viewer | `GW Viewer Queue` (Non-Blocking) | – |
-| 18 | GW – Chat Message | `GW_B_ChatMessage.cs` | Twitch Chat Message | `GW Chat Queue` (Non-Blocking) | – |
-| 19 | GW – Time Info | `GW_TimeInfo.cs` | Core Command | – | `!time`, `!coin` |
-| 20 | GW – Leaderboard | `GW_Leaderboard.cs` | Core Command | – | `!top` |
-| 21 | SF – Fight Cmd | `SF_FightCmd.cs` | Core Command | – | `!fight` |
-| 22 | SF – Challenge Accept | `SF_ChallengeAccept.cs` | Core Command | – | `!ja` |
-| 23 | SF – Challenge Decline | `SF_ChallengeDecline.cs` | Core Command | – | `!nein` |
-| 24 | SF – Chat Tracker | `SF_ChatTracker.cs` | Twitch Chat Message | – | – |
-| 25 | SF – Stream Online | `SF_StreamOnline.cs` | Stream Online | – | – |
-| 26 | SF – Stream Offline | `SF_StreamOffline.cs` | Stream Offline | – | – |
+| 17 | SF – Fight Cmd | `SF_FightCmd.cs` | Core Command | – | `!fight` |
+| 18 | SF – Challenge Accept | `SF_ChallengeAccept.cs` | Core Command | – | `!ja` |
+| 19 | SF – Challenge Decline | `SF_ChallengeDecline.cs` | Core Command | – | `!nein` |
+| 20 | SF – Chat Tracker | `SF_ChatTracker.cs` | Twitch Chat Message | – | – |
+| 21 | SF – Stream Online | `SF_StreamOnline.cs` | Stream Online | – | – |
+| 22 | SF – Stream Offline | `SF_StreamOffline.cs` | Stream Offline | – | – |
 
-> **Queues:** Viewer-Tick und Chat-Message feuern parallel für jeden Viewer/Message — Non-Blocking-Queue verhindert Race-Conditions. Alle anderen Actions: Default/None.
+> **Queues:** Chat-Message-getriebene Actions feuern parallel für jede Nachricht — Non-Blocking-Queue verhindert Race-Conditions. Alle anderen Actions: Default/None.
 
 > **Bekannter Tech-Debt:** Sub/Resub/SubGift/SubBomb sind getrennte Actions (`e81f770`, `bec98cc`); sollten zu einer konsolidiert werden.
 
@@ -223,7 +217,7 @@ Die 26 C#-Actions liegen unter [streamerbot/](streamerbot/). Für jede Action:
 - `Platforms` → `Twitch` → `Accounts` → Broadcaster (+ optional Bot) verbinden, `Auto Connect` an.
 - `Stream Apps` → `OBS` → `OBS v5 WebSocket` → `127.0.0.1:4455` + Passwort aus OBS, `Auto Connect on Startup` an.
 
-> `GW – Viewer Tick` und `SF – Chat Tracker` nutzen `CPH.ObsIsStreaming(0)` als Gate — ohne aktive OBS-Verbindung **werden keine Events gesendet**.
+> `SF – Chat Tracker` nutzt `CPH.ObsIsStreaming(0)` als Gate — ohne aktive OBS-Verbindung **werden keine Events gesendet**.
 
 ---
 
@@ -233,8 +227,6 @@ Domain in den URLs ersetzen (`<server>` = IP oder Domain).
 
 | Overlay | URL | Größe |
 |---|---|---|
-| Giveaway-Overlay | `http://<server>/giveaway/giveaway-overlay.html` | 320 × 400 |
-| Giveaway-Join-Animation | `http://<server>/giveaway/giveaway-join.html` | 620 × 110 |
 | Spacefight | `http://<server>/spacefight/spacefight.html?channel=DEIN_KANAL` | 1920 × 1080 |
 | HUD Chat | `http://<server>/alerts/chat.html?channel=DEIN_KANAL` | 500 × 600 |
 | Alert Bar | `http://<server>/alerts/alerts.html` | 1920 × 200 |
@@ -243,7 +235,7 @@ Domain in den URLs ersetzen (`<server>` = IP oder Domain).
 
 > **Audio in OBS-Mixer:** in den Browser-Source-Properties **„Control audio via OBS"** aktivieren.
 >
-> **Test-Modi:** `?test=1` an unterstützten Overlays (Spacefight, Giveaway-Join) → spielt Demo-Daten ab, ohne dass ein Stream laufen muss.
+> **Test-Modi:** `?test=1` am Spacefight-Overlay → spielt Demo-Daten ab, ohne dass ein Stream laufen muss.
 
 ---
 
@@ -252,10 +244,8 @@ Domain in den URLs ersetzen (`<server>` = IP oder Domain).
 | URL | Zweck |
 |---|---|
 | `/admin/` | Übersicht + Health |
-| `/giveaway/giveaway-admin.html` | Giveaway öffnen/schließen, Keyword setzen, Tickets verwalten, Gewinner ziehen |
 | `/spacefight/spacefight-admin.html` | Spacefight aktivieren/deaktivieren, Spieler editieren/löschen, Reset |
 | `/stats/stats.html` | Leaderboards, Session-Historie, Spacefight-Stats |
-| `/admin/giveaway-test.html` | Offline-Test-Konsole (Viewer-Ticks und Chat-Messages simulieren) |
 | `/redis-ui/` | Redis Commander (basicauth aus `.env`) |
 
 ---
@@ -288,10 +278,91 @@ docker compose ps                      # Health-Status
 
 - UI-Texte sind durchgehend deutsch.
 - Admin-Pages laden `services/admin/public/admin-shared.js` als erstes Script (Nav, Debug-Konsole, `CC.validate`).
+- Farbe und Schrift kommen ausschliesslich aus den RDOC-Tokens — siehe [Branding](#branding-rdoc-brand-kit). Kein Hex in HTML oder JS.
 - OBS-Overlays laden `admin-shared.js` **nicht** (kein Nav, keine Konsole im Stream).
-- Neue WS-Events / `gw_cmd` / `sf_cmd` müssen in `ALLOWED_EVENTS` / `ALLOWED_CMDS` in `admin-shared.js` registriert werden.
+- Neue WS-Events / `sf_cmd` müssen in `ALLOWED_EVENTS` / `ALLOWED_CMDS` in `admin-shared.js` registriert werden.
 - Logging: `log(tag, ...)` / `logErr(tag, ...)` aus jedem Service — kein direktes `console.log`.
 - `sanitizeUsername(s)` (lowercase, alphanumerisch + `_`, max 25 Zeichen) muss C# ↔ JS identisch bleiben.
+
+---
+
+## Branding (RDOC Brand Kit)
+
+Die gesamte Oberflaeche laeuft auf dem **RDOC Brand Kit**
+(`RDOC-Brandkit/brandkit`, eigenes Repo). Es ist ein Generator: Farben,
+Typografie und die Wortmarke werden dort aus `scripts/tokens.js`,
+`geometry.js` und `svg.js` erzeugt. Dieses Projekt ist reiner Konsument.
+
+### Was aus dem Kit kopiert wird
+
+Jeder Service hat seinen eigenen Docker-Build-Context und kann nicht auf
+das `public/` eines anderen Service zugreifen. Die Brand-Assets liegen
+darum als Kopie in jedem `public/`:
+
+| Datei | Quelle im Brand Kit | liegt in |
+|---|---|---|
+| `rdoc-brand.css` | `digital/web/brand.css` | admin, spacefight, stats, alerts |
+| `favicon.svg` | `digital/web/favicon.svg` | admin, spacefight, stats, alerts |
+| `favicon.ico` | `digital/web/favicon.ico` | admin, spacefight, stats, alerts |
+| `rdoc-logo.svg` | `digital/logo/rdoc_logo_horizontal_dark.svg` | admin, spacefight, stats |
+| `rdoc-logo-mono.svg` | `digital/logo/rdoc_logo_horizontal_mono-offwhite.svg` | admin, spacefight, stats |
+
+`rdoc-brand.css` ist **generierter Code — nie von Hand editieren.** Aendert
+sich das Kit, neu kopieren:
+
+```bash
+BK=../RDOC-Brandkit/brandkit
+for s in admin spacefight stats alerts; do
+  cp $BK/digital/web/brand.css   services/$s/public/rdoc-brand.css
+  cp $BK/digital/web/favicon.svg services/$s/public/favicon.svg
+  cp $BK/digital/web/favicon.ico services/$s/public/favicon.ico
+done
+md5sum services/*/public/rdoc-brand.css   # muessen identisch sein
+```
+
+### Farbrollen
+
+| Rolle | Token | Verwendung im Projekt |
+|---|---|---|
+| Space `#121416` | `--rdoc-space` | Seitenhintergrund |
+| Graphite `#2B3135` | `--rdoc-graphite` | Rahmen, Trennlinien, Flaechen |
+| Off White `#F2F2F0` | `--rdoc-text` | Text |
+| Steel `#76828D` | `--rdoc-text-muted` | Sekundaertext |
+| Copper `#C48A4A` | `--rdoc-accent` | **eine** Aktion pro Ansicht, Event-Label |
+| Patina `#4FB5B5` | `--rdoc-accent-2` | Struktur: Nav, Tabellenkoepfe, Panel-Titel, eine Datenreihe |
+| Success / Warning / Error / Info | `--rdoc-success` usw. | ausschliesslich Zustaende |
+
+Regeln, die der Build nicht erzwingt und die beim Review geprueft werden
+muessen:
+
+- Patina ist **nie** ein Zustand und nie der Signet-Ring.
+- Zustand ist nie nur Farbe — immer mit Wort oder Icon (`SPIEL: AKTIV`,
+  `PASS`, `WS: OFFLINE`).
+- Kein Gradient, Glow, Schatten oder Bevel. Deshalb sind Scanlines,
+  `text-shadow` und die Verlaufs-Hairlines der alten Overlays entfernt.
+- Michroma hat **genau einen Schnitt** und laeuft mit `letter-spacing: 0`.
+  Betonung entsteht ueber Groesse oder Farbe, nie ueber `font-weight`.
+- Der Dockingring erscheint pro Lockup genau einmal. Die Wortmarke wird
+  nie als Text nachgebaut — immer `rdoc-logo.svg` einbinden.
+- Mindestgroessen: Ring regulaer ab 32 px, Micro-Cut 24–32 px. Der
+  Nav-Ring in `admin-shared.js` ist der Micro-Cut bei 24 px.
+
+### Theme
+
+Alle Seiten setzen `data-theme="dark"` auf `<html>`. `rdoc-brand.css`
+bringt eine vollstaendige Light-Palette mit, aber das App-Layer ist noch
+nicht darauf ausgelegt — ohne das Attribut wuerde eine OBS-Quelle mit
+`prefers-color-scheme: light` die Overlay-Tokens umschalten.
+
+### Wo Farbe definiert werden darf
+
+Nur in `rdoc-brand.css` (generiert) und im `:root`-Block von
+`rdoc-admin.css` / `rdoc-overlay.css`, der die Brand-Tokens auf die
+App-Namen (`--bg`, `--accent`, `--struct`, `--ok`, `--err`) abbildet.
+Kein HTML und kein JS enthaelt noch einen Hex-Wert — Ausnahme sind die
+`rgba()`-Literale in den Overlay-Dateien, weil `rgba()` keine CSS-Variable
+als Komponente akzeptiert und OBS ein aelteres CEF als der Browser
+mitbringt (deshalb dort auch kein `color-mix()`).
 
 ---
 
@@ -340,11 +411,11 @@ Bei Schema-Änderung zusätzlich die Migration anwenden (siehe oben).
 ├── postgres/               # Postgres-Image (LXC-Workaround) + init.sql + migrations/
 ├── services/
 │   ├── bridge/             # Streamerbot-WS-Client → Redis-Pub/Sub
-│   ├── giveaway/           # Watchtime-Engine, REST, WS, Admin-Page, Overlays
 │   ├── spacefight/         # Fight-Engine, REST, WS, Admin-Page, Overlay
 │   ├── alerts/             # Alert-Overlays, HUD-Chat, Claude-AI-Endpoint
 │   ├── stats/              # Read-only Aggregat-API + Stats-Page
 │   └── admin/              # Aggregierter Health, statische Admin-Pages, admin-shared.js
+│                           # jedes public/ enthaelt eine Kopie von rdoc-brand.css + Favicons
 ├── streamerbot/            # 26 C#-Actions
 ├── backup/                 # Backup-Script
 ├── docker-compose.yml

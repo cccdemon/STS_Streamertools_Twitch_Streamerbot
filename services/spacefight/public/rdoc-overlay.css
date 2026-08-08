@@ -1,0 +1,366 @@
+/*
+ * RDOC – OBS Overlay CSS (HUD chat + spacefight)
+ * Copyright (C) 2026 justcallmedeimos / RDOC
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * ────────────────────────────────────────────────────────────────
+ * Brand layer: rdoc-brand.css, linked by the overlay HTML before
+ * this file. The pages carry data-theme="dark" so an OBS source
+ * that reports prefers-color-scheme: light cannot flip the tokens.
+ *
+ * Palette hex appears literally inside rgba() only - CSS variables
+ * cannot be used as rgba() components, and OBS ships an older CEF
+ * than the admin pages, so color-mix() is deliberately avoided
+ * here. Every literal is a value from tokens.js:
+ *   Space #121416  Graphite #2B3135  Off White #F2F2F0
+ *   Steel #76828D  Copper #C48A4A    Patina  #4FB5B5
+ *
+ * Copper carries the attacker / highlight, Patina the defender and
+ * all structure. Outcomes use the functional colours. No gradient,
+ * glow or text-shadow anywhere.
+ * ────────────────────────────────────────────────────────────────
+ */
+
+:root {
+  --ov-panel:  rgba(18, 20, 22, 0.94);
+  --ov-msg:    rgba(18, 20, 22, 0.86);
+  --ov-line:   rgba(43, 49, 53, 0.9);
+  --ov-copper: #C48A4A;
+  --ov-patina: #4FB5B5;
+}
+
+/* ── chat.css ──────────────────────────────────────────── */
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: transparent;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--rdoc-font-text);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 8px 8px 8px;
+}
+
+#chat-container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding-bottom: 2px;
+  /* Neue Nachrichten unten, älteste oben werden abgeschnitten */
+  justify-content: flex-end;
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  background: var(--ov-msg);
+  border-left: 2px solid var(--user-color, var(--ov-patina));
+  border-bottom: 1px solid var(--ov-line);
+  padding: 5px 10px 6px 10px;
+  position: relative;
+  animation: slideIn 0.25s ease-out;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.msg::before {
+  content:''; position:absolute; top:0; right:0; width:12px; height:12px;
+  border-top:1px solid rgba(79,181,181,0.45); border-right:1px solid rgba(79,181,181,0.45);
+}
+
+.msg.highlight {
+  border-left-color: var(--ov-copper);
+  border-bottom-color: rgba(196,138,74,0.35);
+}
+.msg.highlight::before { border-color: rgba(196,138,74,0.5); }
+
+.msg-header { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
+.badges     { display:flex; gap:2px; align-items:center; }
+
+.badge { font-size:10px; font-family:var(--rdoc-font-mono); padding:1px 4px; border:1px solid; letter-spacing:0.07em; line-height:1.4; text-transform:uppercase; }
+.badge.broadcaster { color:var(--ov-copper); border-color:rgba(196,138,74,0.6); }
+.badge.moderator   { color:var(--ov-patina); border-color:rgba(79,181,181,0.6); }
+.badge.subscriber  { color:#F2F2F0;          border-color:rgba(242,242,240,0.4); }
+.badge.vip         { color:#76828D;          border-color:rgba(118,130,141,0.55); }
+
+.username { font-family:var(--rdoc-font-text); font-weight:600; font-size:14px; letter-spacing:0.02em; color:var(--user-color, var(--ov-patina)); }
+
+.msg-text { font-family:var(--rdoc-font-text); font-size:14px; font-weight:400; color:#F2F2F0; line-height:1.5; word-break:break-word; }
+.msg-text img.emote { height:20px; vertical-align:middle; margin:0 1px; }
+
+@keyframes slideIn { from{opacity:0;transform:translateX(-12px);} to{opacity:1;transform:translateX(0);} }
+@keyframes fadeOut { from{opacity:1;max-height:80px;} to{opacity:0;max-height:0;padding:0;margin:0;} }
+.msg.removing { animation:fadeOut 0.4s ease-in forwards; }
+
+#status { position:fixed; top:8px; right:10px; font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:0.07em; text-transform:uppercase; opacity:0.6; transition:opacity 0.5s; }
+#status.connected    { color:var(--rdoc-success); }
+#status.disconnected { color:var(--rdoc-warning); }
+#status.hidden       { opacity:0; }
+
+/* ── spacefight.css ──────────────────────────────────────────── */
+/* Source size is NOT set here. The old file ended with a global
+   html,body{width:640px;height:200px} for the spacefight source,
+   which also hit chat.html and forced it to override with
+   !important. Each overlay now declares its own canvas locally. */
+
+#arena {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 8px 8px;
+  gap: 6px;
+}
+
+/* ── Fight Card ──────────────────────────────────────────── */
+.fight-card {
+  background: var(--ov-panel);
+  border: 1px solid var(--ov-line);
+  border-left: 2px solid var(--ov-copper);
+  padding: 10px 16px;
+  position: relative;
+  overflow: hidden;
+  transform: translateY(120%);
+  opacity: 0;
+}
+
+.fight-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 8px; height: 8px;
+  border-top: 1px solid rgba(196,138,74,0.55);
+  border-right: 1px solid rgba(196,138,74,0.55);
+}
+
+.fight-card.enter { animation: slideUp 0.4s cubic-bezier(0.22,1,0.36,1) forwards; }
+.fight-card.exit  { animation: slideDown 0.35s ease-in forwards; }
+
+@keyframes slideUp   { from{transform:translateY(120%);opacity:0;} to{transform:translateY(0);opacity:1;} }
+@keyframes slideDown { from{transform:translateY(0);opacity:1;}   to{transform:translateY(120%);opacity:0;} }
+
+/* ── Combatants Row ──────────────────────────────────────── */
+.combatants {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pilot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 200px;
+}
+
+.pilot-name {
+  font-family: var(--rdoc-font-display);
+  font-size: 16px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Two combatants are two data series, not two states: Copper and
+   Patina are the only two accents and they sit 180 deg apart. */
+.pilot.attacker .pilot-name { color: var(--ov-copper); }
+.pilot.defender .pilot-name { color: var(--ov-patina); text-align: right; }
+
+.pilot-ship {
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  color: #76828D;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.pilot.defender .pilot-ship { text-align: right; }
+
+.vs-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vs-text {
+  font-family: var(--rdoc-font-mono);
+  font-size: 16px;
+  color: #76828D;
+  letter-spacing: 0.07em;
+}
+
+.vs-icon { font-size: 22px; }
+
+/* ── HP Bars ─────────────────────────────────────────────── */
+.hp-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.hp-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: rgba(43,49,53,0.9);
+  position: relative;
+  overflow: hidden;
+}
+
+.hp-bar {
+  height: 100%;
+  width: 100%;
+  transition: width 0.4s ease-out;
+}
+
+.hp-bar.attacker { background: var(--ov-copper); }
+.hp-bar.defender { background: var(--ov-patina); }
+
+.hp-bar-wrap.reversed { direction: rtl; }
+
+.hp-label {
+  font-family: var(--rdoc-font-mono);
+  font-size: 10px;
+  color: #76828D;
+  letter-spacing: 0.07em;
+  min-width: 24px;
+  text-align: center;
+}
+
+/* ── Combat Log ──────────────────────────────────────────── */
+.combat-log {
+  font-family: var(--rdoc-font-mono);
+  font-size: 12px;
+  color: #F2F2F0;
+  min-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.combat-log .hit-a  { color: var(--ov-copper); }
+.combat-log .hit-d  { color: var(--ov-patina); }
+.combat-log .winner { font-size: 13px; letter-spacing: 0.07em; }
+.combat-log .winner.attacker { color: var(--ov-copper); }
+.combat-log .winner.defender { color: var(--ov-patina); }
+
+/* ── Drain Bar ───────────────────────────────────────────── */
+.drain-bar {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--ov-patina);
+}
+
+.drain-bar.running { animation: drain linear forwards; }
+@keyframes drain { from{transform:scaleX(1);} to{transform:scaleX(0);} }
+
+/* ── Wall of Fame ────────────────────────────────────────── */
+#wof {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 280px;
+  background: var(--ov-panel);
+  border: 1px solid var(--ov-line);
+  border-left: 2px solid var(--ov-copper);
+  overflow: hidden;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+}
+
+#wof.wof-in  { transform: translateX(0); opacity: 1; }
+#wof.wof-out { transform: translateX(120%); opacity: 0; }
+
+.wof-header {
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ov-copper);
+  padding: 7px 12px 5px;
+  border-bottom: 1px solid rgba(196,138,74,0.25);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wof-header-icon { font-size: 13px; }
+
+.wof-close {
+  margin-left: auto;
+  cursor: pointer;
+  opacity: 0.5;
+  font-size: 12px;
+  color: #76828D;
+  transition: opacity 0.15s;
+}
+.wof-close:hover { opacity: 1; }
+
+.wof-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid rgba(43,49,53,0.8);
+  font-family: var(--rdoc-font-mono);
+}
+
+.wof-row.wof-highlight {
+  background: rgba(196,138,74,0.1);
+  border-left: 2px solid var(--ov-copper);
+}
+
+.wof-rank   { font-size: 11px; min-width: 22px; color: #76828D; }
+.wof-name   { font-size: 11px; flex: 1; color: #F2F2F0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wof-wins   { font-size: 11px; color: var(--rdoc-success); min-width: 32px; text-align: right; }
+.wof-losses { font-size: 11px; color: var(--rdoc-error);   min-width: 28px; text-align: right; }
+.wof-ratio  { font-size: 11px; color: #76828D; min-width: 36px; text-align: right; }
+
+.wof-player-rank {
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  color: var(--ov-copper);
+  padding: 5px 10px;
+  border-top: 1px solid rgba(196,138,74,0.25);
+  display: none;
+  letter-spacing: 0.02em;
+}
+
+.wof-empty {
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  color: #76828D;
+  padding: 10px;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

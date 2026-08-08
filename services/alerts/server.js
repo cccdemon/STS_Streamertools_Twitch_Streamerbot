@@ -1,7 +1,7 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Alert Service
+// RDOC – Alert Service
 // Follow, cheer, raid, shoutout, sub, hype train,
 // clip, ad break alerts. Claude AI summaries.
 // Twitch user lookup. Chat send.

@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – HUD Chat JS
+// RDOC – HUD Chat JS
 // ════════════════════════════════════════════════════════
 
 var CONFIG = {
@@ -12,10 +12,14 @@ function getParam(key) {
   return new URLSearchParams(window.location.search).get(key);
 }
 
+// Fallback only - Twitch's own colour wins when the chatter set one.
+// Restricted to the RDOC palette: the two accents plus the two
+// neutrals, so an unset chatter can never introduce an off-brand hue.
 var HUD_COLORS = [
-  '#00d4ff','#00e5ff','#29b6f6','#4dd0e1',
-  '#f0a500','#ffb300','#ffc107','#e6ac00',
-  '#80deea','#a0e8ff','#00bcd4','#26c6da'
+  '#C48A4A',  /* Copper   */
+  '#4FB5B5',  /* Patina   */
+  '#F2F2F0',  /* Off White */
+  '#76828D'   /* Steel    */
 ];
 
 function userColor(name, twitchColor) {
@@ -192,10 +196,10 @@ if (CONFIG.channel && CONFIG.channel !== 'DEIN_KANAL') {
   statusEl.className   = 'disconnected';
 
   var DEMO = [
-    { user:'JerichoRamirez', color:'#f0a500', badges:[{cls:'broadcaster',label:'CMD'}], text:'Chaos is a Plan. o7',              highlight:false },
-    { user:'HEADWiG',        color:'#00d4ff', badges:[{cls:'moderator',  label:'MOD'}], text:'Guns are hot, standing by!',        highlight:false },
-    { user:'jazZz',          color:'#a0e8ff', badges:[{cls:'subscriber', label:'SUB'}], text:'Cargo geladen, wir koennen fliegen', highlight:false },
-    { user:'HolderDiePolder',color:'#00e5ff', badges:[],                                text:'Kurs gesetzt. ETA 4 Minuten.',      highlight:false }
+    { user:'JerichoRamirez', color:'#C48A4A', badges:[{cls:'broadcaster',label:'CMD'}], text:'Chaos is a Plan. o7',              highlight:false },
+    { user:'HEADWiG',        color:'#4FB5B5', badges:[{cls:'moderator',  label:'MOD'}], text:'Guns are hot, standing by!',        highlight:false },
+    { user:'jazZz',          color:'#F2F2F0', badges:[{cls:'subscriber', label:'SUB'}], text:'Cargo geladen, wir koennen fliegen', highlight:false },
+    { user:'HolderDiePolder',color:'#76828D', badges:[],                                text:'Kurs gesetzt. ETA 4 Minuten.',      highlight:false }
   ];
 
   DEMO.forEach(function(msg, i) {

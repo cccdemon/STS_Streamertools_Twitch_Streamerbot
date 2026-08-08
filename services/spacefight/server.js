@@ -1,13 +1,13 @@
 'use strict';
 
 // ════════════════════════════════════════════════════════
-// CHAOS CREW – Spacefight Service
+// RDOC – Spacefight Service
 // Fight engine, battle results, leaderboard.
 //
 // Redis Sub: ch:spacefight (fight_cmd, spacefight_challenge,
-//            spacefight_result, spacefight_rejected,
-//            stream_online, stream_offline)
-// Redis Pub: ch:chat_reply (challenge/rejection messages)
+//            spacefight_rejected, stream_online, stream_offline)
+//            spacefight_result kommt ausschließlich per WS vom Overlay.
+// Redis Pub: ch:chat_reply (challenge/rejection/result messages)
 // WS:  admin commands + battle broadcasts
 // REST: /api/spacefight/leaderboard, /history, /player/:u
 // ════════════════════════════════════════════════════════
@@ -179,8 +179,9 @@ async function handleSfCmd(send, msg) {
     case 'sf_delete_player': {
       const u = sanitizeUsername(msg.user);
       if (!u) break;
+      // Nur die Statistik des Spielers löschen — die Kampfhistorie bleibt,
+      // sonst verschwinden auch die Kämpfe seiner Gegner aus der Historie.
       await pg.query('DELETE FROM spacefight_stats WHERE username=$1', [u]);
-      await pg.query('DELETE FROM spacefight_results WHERE winner=$1 OR loser=$1', [u]);
       await redis.zrem(SF_INDEX, u);
       send({ event: 'sf_ack', type: 'player_deleted', user: u });
       log('SF', 'Player deleted:', u);
@@ -206,6 +207,12 @@ async function saveSpacefightResult(result) {
   const loser  = sanitizeUsername(result.loser);
   if (!winner || !loser) return;
 
+  // Dedup: bei mehreren offenen Overlays rechnet jedes seinen eigenen Kampf
+  // und meldet ein eigenes spacefight_result. Der NX-Lock verhindert, dass
+  // dasselbe Matchup innerhalb von 12s mehrfach gezählt wird.
+  const fresh = await redis.set(`sf:dedup:${winner}:${loser}`, '1', 'EX', 12, 'NX');
+  if (!fresh) { log('SF', `Duplicate result ${winner} > ${loser} ignored (dedup)`); return; }
+
   const client = await pg.connect();
   try {
     await client.query('BEGIN');
@@ -213,21 +220,39 @@ async function saveSpacefightResult(result) {
       'INSERT INTO spacefight_results (winner, loser, ship_w, ship_l) VALUES ($1,$2,$3,$4)',
       [winner, loser, sanitizeStr(result.ship_w || '', 30), sanitizeStr(result.ship_l || '', 30)]
     );
-    await client.query(`
+    const winnerRow = await client.query(`
       INSERT INTO spacefight_stats (username, display, wins, losses, last_fight)
       VALUES ($1,$2,1,0,NOW())
       ON CONFLICT (username) DO UPDATE SET wins = spacefight_stats.wins + 1, last_fight = NOW()
+      RETURNING wins
     `, [winner, result.winner || winner]);
-    await client.query(`
+    const loserRow = await client.query(`
       INSERT INTO spacefight_stats (username, display, wins, losses, last_fight)
       VALUES ($1,$2,0,1,NOW())
       ON CONFLICT (username) DO UPDATE SET losses = spacefight_stats.losses + 1, last_fight = NOW()
+      RETURNING wins
     `, [loser, result.loser || loser]);
     await client.query('COMMIT');
 
-    const row = await pg.query('SELECT wins FROM spacefight_stats WHERE username=$1', [winner]);
-    await redis.zadd(SF_INDEX, row.rows[0]?.wins || 0, winner);
+    // Beide Seiten in den Index: sonst hat ein Spieler ohne Sieg nie einen Rang.
+    await redis.zadd(SF_INDEX, winnerRow.rows[0]?.wins || 0, winner);
+    await redis.zadd(SF_INDEX, loserRow.rows[0]?.wins  || 0, loser);
     log('SF', `${winner} defeated ${loser}`);
+
+    const w = result.winner || winner;
+    const l = result.loser  || loser;
+    const lines = [
+      `@${w} hat @${l} desintegriert. 💥`,
+      `@${w} hat @${l} ins All gepustet. 🛸`,
+      `@${w} hat @${l} pulverisiert. ☄️`,
+      `@${w} hat @${l} aus dem Orbit gefegt. 🚀`,
+      `@${w} hat @${l} in Sternenstaub verwandelt. ✨`,
+      `@${w} hat @${l} zerlegt. 🔧`,
+      `@${w} hat den Reaktor von @${l} überladen. ⚡`,
+      `@${w} hat @${l} ins schwarze Loch geschossen. 🕳️`,
+    ];
+    const reply = lines[Math.floor(Math.random() * lines.length)];
+    redisPub.publish('ch:chat_reply', JSON.stringify({ event: 'chat_reply', message: reply }));
   } catch(e) {
     await client.query('ROLLBACK');
     logErr('SF', 'Save error:', e.message);
@@ -282,13 +307,9 @@ function subscribeToSpacefight() {
         broadcastAll(msg);
         break;
       }
-      case 'spacefight_result': {
-        if (msg.winner && msg.loser) {
-          await saveSpacefightResult(msg);
-          broadcastAll({ event: 'sf_result', winner: msg.winner, loser: msg.loser, ship_w: msg.ship_w, ship_l: msg.ship_l });
-        }
-        break;
-      }
+      // Hinweis: spacefight_result kommt NUR vom Overlay über die WS-Verbindung
+      // (der Kampf wird clientseitig berechnet). Über den Bridge-Pub/Sub-Pfad
+      // trifft es nie ein — ein Handler hier war die Quelle doppelter Speicherung.
       case 'stream_online':
         await redis.set(SF_LIVE, 'true');
         broadcastAll({ event: 'sf_status', live: true });
@@ -341,7 +362,10 @@ app.get('/api/spacefight/history', async (req, res) => {
 app.get('/api/spacefight/player/:username', async (req, res) => {
   try {
     const u = sanitizeUsername(req.params.username);
-    const result = await pg.query('SELECT * FROM spacefight_stats WHERE username=$1', [u]);
+    const result = await pg.query(
+      `SELECT *, CASE WHEN wins+losses > 0 THEN ROUND(wins::numeric/(wins+losses)*100) ELSE 0 END AS ratio
+       FROM spacefight_stats WHERE username=$1`, [u]
+    );
     if (!result.rows.length) return res.status(404).json({ error: 'not found' });
     const rank = await redis.zrevrank(SF_INDEX, u);
     res.json({ ...result.rows[0], rank: rank !== null ? rank + 1 : null });

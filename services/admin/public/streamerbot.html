@@ -1,17 +1,20 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
-<title>Chaos Crew – Streamerbot Actions</title>
-<link rel="stylesheet" href="chaos-crew-admin.css">
+<title>RDOC – Streamerbot Actions</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="rdoc-brand.css">
+<link rel="stylesheet" href="rdoc-admin.css">
 </head>
 <body>
 <script src="admin-shared.js"></script>
 
 <div class="page-header">
-  <div class="page-title">CHAOS<span> //</span> <em>STREAMERBOT</em> ACTIONS</div>
+  <div class="page-title">RDOC<span> //</span> <em>Streamerbot</em> Actions</div>
   <div class="header-right">
-    <a href="/admin/" class="back-link">&#x2190; CONTROL CENTER</a>
+    <a href="/admin/" class="back-link">&#x2190; Control Center</a>
   </div>
 </div>
 
@@ -44,7 +47,7 @@
   var countEl   = document.getElementById('sb-count');
   if (!container) return;
   if (!window.SB_ACTIONS || !SB_ACTIONS.length) {
-    container.innerHTML = '<div style="color:#ff4444;font-family:\'Share Tech Mono\',monospace;padding:20px;font-size:12px;">Fehler: streamerbot-data.js nicht geladen</div>';
+    container.innerHTML = '<div class="load-error">Fehler: streamerbot-data.js nicht geladen</div>';
     return;
   }
 

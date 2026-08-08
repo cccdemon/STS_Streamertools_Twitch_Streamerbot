@@ -86,43 +86,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
 
-  # ── Giveaway ──────────────────────────────────────────────
-  # Watchtime engine, coin calculation, winner draw
-  giveaway:
-    build:
-      context: ./services/giveaway
-    container_name: cc-giveaway
-    restart: unless-stopped
-    environment:
-      PORT:       "3001"
-      REDIS_HOST: redis
-      REDIS_PORT: "6379"
-      REDIS_DB:   "0"
-      PG_HOST:    postgres
-      PG_PORT:    "5432"
-      PG_DB:      ${PG_DB:-chaoscrew}
-      PG_USER:    ${PG_USER:-chaoscrew}
-      PG_PASSWORD: ${PG_PASSWORD:-changeme}
-      TZ: Europe/Berlin
-    depends_on:
-      redis:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      bridge:
-        condition: service_started
-    networks:
-      - chaos-crew
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
-
   # ── Spacefight ────────────────────────────────────────────
   # Fight engine, battle results, leaderboard
   spacefight:
@@ -233,13 +196,11 @@ services:
     environment:
       PORT:           "3005"
       BRIDGE_URL:     "http://bridge:3000"
-      GIVEAWAY_URL:   "http://giveaway:3001"
       SPACEFIGHT_URL: "http://spacefight:3002"
       ALERTS_URL:     "http://alerts:3003"
       STATS_URL:      "http://stats:3004"
       TZ: Europe/Berlin
     depends_on:
-      - giveaway
       - spacefight
       - alerts
       - stats
@@ -273,7 +234,6 @@ services:
       - caddy_config:/config
       - ./caddy/${CADDY_CONFIG:-Caddyfile}:/etc/caddy/Caddyfile:ro
     depends_on:
-      - giveaway
       - spacefight
       - alerts
       - stats

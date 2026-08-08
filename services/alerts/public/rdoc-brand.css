@@ -1,0 +1,183 @@
+/* RDOC brand tokens v2.2. Generated - see scripts/build-tokens.js. */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;600&family=Michroma&display=swap');
+
+/* Only these four weights exist as real files: Michroma 400, IBM Plex Sans
+   400 and 600, IBM Plex Mono 400. Do not ask the browser for any other
+   weight - it will synthesise one, and a faked bold is visibly different
+   from the real cut. Michroma has no bold at all: emphasise a display line
+   with size or colour, never with font-weight. */
+
+:root {
+  color-scheme: dark light;
+
+  --rdoc-space: #121416;  /* Space */
+  --rdoc-graphite: #2B3135;  /* Graphite */
+  --rdoc-steel: #76828D;  /* Steel */
+  --rdoc-offwhite: #F2F2F0;  /* Off White */
+  --rdoc-copper: #C48A4A;  /* Copper */
+  --rdoc-patina: #4FB5B5;  /* Patina */
+
+  --rdoc-font-display: 'Michroma', 'IBM Plex Sans', system-ui, sans-serif;
+  --rdoc-font-text: 'IBM Plex Sans', system-ui, 'Segoe UI', Arial, sans-serif;
+  --rdoc-font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+
+  --rdoc-display-size: 3rem;
+  --rdoc-display-line: 1.1;
+  --rdoc-display-weight: 400;
+  --rdoc-display-tracking: 0em;
+  --rdoc-h1-size: 2.125rem;
+  --rdoc-h1-line: 1.15;
+  --rdoc-h1-weight: 400;
+  --rdoc-h1-tracking: 0em;
+  --rdoc-h2-size: 1.75rem;
+  --rdoc-h2-line: 1.2;
+  --rdoc-h2-weight: 400;
+  --rdoc-h2-tracking: 0em;
+  --rdoc-h3-size: 1.3125rem;
+  --rdoc-h3-line: 1.3;
+  --rdoc-h3-weight: 400;
+  --rdoc-h3-tracking: 0em;
+  --rdoc-bodyLarge-size: 1.125rem;
+  --rdoc-bodyLarge-line: 1.6;
+  --rdoc-bodyLarge-weight: 400;
+  --rdoc-bodyLarge-tracking: 0em;
+  --rdoc-body-size: 1rem;
+  --rdoc-body-line: 1.6;
+  --rdoc-body-weight: 400;
+  --rdoc-body-tracking: 0em;
+  --rdoc-bodySmall-size: 0.875rem;
+  --rdoc-bodySmall-line: 1.55;
+  --rdoc-bodySmall-weight: 400;
+  --rdoc-bodySmall-tracking: 0em;
+  --rdoc-label-size: 0.8125rem;
+  --rdoc-label-line: 1.3;
+  --rdoc-label-weight: 400;
+  --rdoc-label-tracking: 0.07em;
+  --rdoc-code-size: 0.875rem;
+  --rdoc-code-line: 1.55;
+  --rdoc-code-weight: 400;
+  --rdoc-code-tracking: 0em;
+  --rdoc-caption-size: 0.75rem;
+  --rdoc-caption-line: 1.4;
+  --rdoc-caption-weight: 400;
+  --rdoc-caption-tracking: 0.02em;
+
+  /* Clear space around the logo: half its cap height. */
+  --rdoc-logo-clear-space: 0.5em;
+
+  /* Dark is the default scheme. */
+  --rdoc-bg: var(--rdoc-space);
+  --rdoc-surface: var(--rdoc-graphite);
+  --rdoc-border: var(--rdoc-graphite);
+  --rdoc-text: var(--rdoc-offwhite);
+  --rdoc-text-muted: var(--rdoc-steel);
+  --rdoc-accent: var(--rdoc-copper);
+  --rdoc-accent-2: var(--rdoc-patina);
+  --rdoc-success: #63C271;
+  --rdoc-warning: #EBCF52;
+  --rdoc-error: #EE6E76;
+  --rdoc-info: #79AEDC;
+  --rdoc-focus: #E0A868;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --rdoc-bg: #F2F2F0;
+    --rdoc-surface: #E4E4E1;
+    --rdoc-border: #C7C9C6;
+    --rdoc-text: #121416;
+    --rdoc-text-muted: #4E5862;
+    /* Copper #C48A4A reaches only 2.64:1 on Off White, so light mode
+       uses Copper Deep for anything that carries meaning. */
+    --rdoc-accent: #8A5A22;
+    /* Patina behaves the same way: 2.17:1 on Off White is decorative only. */
+    --rdoc-accent-2: #175F63;
+    --rdoc-success: #14652A;
+    --rdoc-warning: #6E5406;
+    --rdoc-error: #A81F2B;
+    --rdoc-info: #14567F;
+    --rdoc-focus: #6E4517;
+  }
+}
+
+/* An explicit choice always wins over the media query. */
+[data-theme="light"] {
+  --rdoc-bg: #F2F2F0;
+  --rdoc-surface: #E4E4E1;
+  --rdoc-border: #C7C9C6;
+  --rdoc-text: #121416;
+  --rdoc-text-muted: #4E5862;
+  --rdoc-accent: #8A5A22;
+  --rdoc-accent-2: #175F63;
+  --rdoc-success: #14652A;
+  --rdoc-warning: #6E5406;
+  --rdoc-error: #A81F2B;
+  --rdoc-info: #14567F;
+  --rdoc-focus: #6E4517;
+}
+
+[data-theme="dark"] {
+  --rdoc-bg: #121416;
+  --rdoc-surface: #2B3135;
+  --rdoc-border: #2B3135;
+  --rdoc-text: #F2F2F0;
+  --rdoc-text-muted: #76828D;
+  --rdoc-accent: #C48A4A;
+  --rdoc-accent-2: #4FB5B5;
+  --rdoc-success: #63C271;
+  --rdoc-warning: #EBCF52;
+  --rdoc-error: #EE6E76;
+  --rdoc-info: #79AEDC;
+  --rdoc-focus: #E0A868;
+}
+
+body {
+  background: var(--rdoc-bg);
+  color: var(--rdoc-text);
+  font-family: var(--rdoc-font-text);
+  font-size: var(--rdoc-body-size);
+  line-height: var(--rdoc-body-line);
+}
+
+h1, h2, h3, .rdoc-display { font-family: var(--rdoc-font-display); }
+h1 { font-size: var(--rdoc-h1-size); line-height: var(--rdoc-h1-line); font-weight: 500; letter-spacing: var(--rdoc-h1-tracking); }
+h2 { font-size: var(--rdoc-h2-size); line-height: var(--rdoc-h2-line); font-weight: 500; letter-spacing: var(--rdoc-h2-tracking); }
+h3 { font-size: var(--rdoc-h3-size); line-height: var(--rdoc-h3-line); font-weight: 500; }
+
+/* Technical labels: the voice for anything a machine produced. Uppercase is
+   for short metadata only - never for a sentence. */
+.rdoc-label {
+  font-family: var(--rdoc-font-mono);
+  font-size: var(--rdoc-label-size);
+  letter-spacing: var(--rdoc-label-tracking);
+  text-transform: uppercase;
+  color: var(--rdoc-text-muted);
+}
+
+.rdoc-logo { display: inline-flex; color: var(--rdoc-text); }
+.rdoc-logo svg { display: block; height: auto; }
+
+/* Copper marks the primary action of a view. One per view. */
+.rdoc-accent { color: var(--rdoc-accent); }
+
+/* Patina carries structure: section markers, table heads, one data series.
+   Never the signet ring, and never a state - state is functional colour. */
+.rdoc-accent-2 { color: var(--rdoc-accent-2); }
+
+/* Focus is visible, and it is not only a colour change. */
+:where(a, button, [tabindex]):focus-visible {
+  outline: 2px solid var(--rdoc-focus);
+  outline-offset: 2px;
+}
+
+/* State is never colour alone: pair it with the label or an icon. */
+.rdoc-state { display: inline-flex; gap: 0.5em; align-items: baseline; }
+.rdoc-state--ok { color: var(--rdoc-success); }
+.rdoc-state--warn { color: var(--rdoc-warning); }
+.rdoc-state--error { color: var(--rdoc-error); }
+.rdoc-state--info { color: var(--rdoc-info); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
