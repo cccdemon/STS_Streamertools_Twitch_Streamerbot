@@ -10,15 +10,23 @@
   /* OBS source canvas for this overlay. Everything else lives in
      rdoc-overlay.css — see the HUD rules at the top of that file.
 
-     The page fills whatever source OBS gives it and #sf-stage floats
+     The page fills whatever source OBS gives it. #sf-root is a
+     1920x1080 design space scaled to that source, and #sf-stage floats
      the 640x200 arena in the middle of it. The page used to BE 640x200,
-     which pinned the duel to the top-left corner of any larger source. */
+     which pinned the duel to the top-left corner of any larger source.
+
+     Set the OBS browser source to 1920x1080 or 2560x1440 - the overlay
+     reads identically at both. */
   html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
 </style>
 </head>
 <body>
-<!-- The stage is centred in the source; the arena keeps its own fixed
-     640x200 coordinate system inside it. -->
+<!-- 1920x1080 design space, scaled to the real source. Everything the
+     overlay draws lives inside it, so 1080p and 1440p look the same. -->
+<div id="sf-root">
+
+<!-- The stage is centred in the design space; the arena keeps its own
+     fixed 640x200 coordinate system inside it. -->
 <div id="sf-stage">
 <div id="arena">
   <canvas id="sf-canvas" width="640" height="200"></canvas>
@@ -46,13 +54,31 @@
   <div class="wof-player-rank" id="wof-player-rank"></div>
 </div>
 
+</div>
+
 <script>
-  // Arena size in the source. ?scale=2 doubles the duel for a large
-  // OBS source; the arena's own 640x200 coordinate system is unchanged,
-  // so nothing in spacefight.js has to know about it.
   (function () {
-    var q = parseFloat(new URLSearchParams(location.search).get('scale'));
-    if (q > 0 && q <= 8) document.documentElement.style.setProperty('--sf-scale', q);
+    var q = new URLSearchParams(location.search);
+    var root = document.documentElement;
+
+    // Fit the 1920x1080 design space to the real source, so a 1440p
+    // source reads exactly like a 1080p one instead of 25% smaller.
+    function fit() {
+      root.style.setProperty('--sf-fit', window.innerWidth / 1920);
+    }
+    fit();
+    window.addEventListener('resize', fit);
+
+    // ?scale=2 doubles the duel. It scales the stage, not the arena's
+    // 640x200 coordinate system, so nothing in spacefight.js has to
+    // know about it - hit positions and separation are unaffected.
+    var s = parseFloat(q.get('scale'));
+    if (s > 0 && s <= 8) root.style.setProperty('--sf-scale', s);
+
+    // ?wof=left mounts the leaderboard on the opposite edge.
+    if ((q.get('wof') || '').toLowerCase() === 'left') {
+      document.getElementById('wof').classList.add('wof-left');
+    }
   })();
 </script>
 <script src="spacefight.js"></script>

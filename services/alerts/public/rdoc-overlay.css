@@ -305,6 +305,27 @@ body {
    chat.html and force it to fight back with !important.
    ════════════════════════════════════════════════════════════════ */
 
+/* ── Design space ─────────────────────────────────────────────
+   Everything in this overlay is laid out in a 1920x1080 design
+   space which is then scaled to the real OBS source, exactly like
+   overlay.html and haul.html. Without it the overlay is laid out
+   in raw viewport pixels, so the same page reads 25% smaller in a
+   1440p source than in a 1080p one - the arena, the leaderboard
+   and the ident would all shrink relative to the picture.
+
+   --sf-fit is written by the page from innerWidth / 1920. */
+#sf-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform: scale(var(--sf-fit, 1));
+  transform-origin: top left;
+  pointer-events: none;
+}
+#sf-root > * { pointer-events: auto; }
+
 /* ── The stage ────────────────────────────────────────────────
    The arena is a fixed 640x200 field: ARENA_W / ARENA_H in
    spacefight.js, the canvas backing store, the ship home
@@ -313,14 +334,13 @@ body {
 
    It used to be pinned to the document origin, which is correct
    only if the OBS source is exactly 640x200. At any larger source
-   the whole duel sat in the top-left corner. The stage now floats
-   in the middle of whatever source it is given, so the fight is
-   centred at 640x200, at 1920x1080 and at anything between, and
-   the JS coordinate system is untouched.
+   the whole duel sat in the top-left corner. The stage now sits in
+   the middle of the design space, so the fight is centred at any
+   source size and the JS coordinate system is untouched.
 
    --sf-scale is set from ?scale= by the page. Default 1. */
 #sf-stage {
-  position: fixed;
+  position: absolute;
   left: 50%;
   top: 50%;
   width: 640px;
@@ -476,16 +496,18 @@ body {
    A table. Its head is a section marker, so Patina — the header
    used to be Copper, which collided with rank 1 below it. Rank 1
    is the single Copper element in this panel. */
-/* Fixed to the SOURCE, not to the stage. The leaderboard is a panel
-   about the game, not a part of the duel field, so it belongs in the
-   corner of the picture. Inside #sf-stage it rode along with the
-   centred arena and ended up floating in the middle of a large source.
-   It also stays at native size when ?scale= enlarges the stage - a
-   table does not want to be blown up with the ships. */
+/* Anchored to the design space, not to the stage. The leaderboard is
+   a panel about the game, not a part of the duel field, so it belongs
+   in the corner of the picture. Inside #sf-stage it rode along with
+   the centred arena and ended up floating in the middle of a large
+   source. It also stays at its own size when ?scale= enlarges the
+   stage - a table does not want to be blown up with the ships.
+
+   ?wof=left moves it to the opposite edge. */
 #wof {
-  position: fixed;
-  right: 16px;
-  top: 16px;
+  position: absolute;
+  right: 32px;
+  top: 32px;
   width: 280px;
   overflow: hidden;
   transform: translateX(120%);
@@ -495,6 +517,19 @@ body {
 
 #wof.wof-in  { transform: translateX(0); opacity: 1; }
 #wof.wof-out { transform: translateX(120%); opacity: 0; }
+
+/* Left-hand mount. The slide-in has to come from the other side too,
+   and the leading Patina rule moves to the leading edge. */
+#wof.wof-left {
+  right: auto;
+  left: 32px;
+  border-left: 1px solid var(--ov-line);
+  border-right: 2px solid var(--ov-patina);
+  transform: translateX(-120%);
+}
+#wof.wof-left.wof-in  { transform: translateX(0); }
+#wof.wof-left.wof-out { transform: translateX(-120%); }
+#wof.wof-left .ov-tick--tr { right: auto; left: 0; border-right-width: 0; border-left-width: 1px; }
 
 .wof-header {
   display: flex;

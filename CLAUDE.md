@@ -294,7 +294,7 @@ Known roles: `spacefight-admin`, `spacefight-overlay`.
 | Alert overlay (fullscreen, **the** alert renderer) | `/alerts/overlay.html` (clean/live by default; `?demo=1` = demo panel) |
 | HUD Chat | `/alerts/chat.html?channel=DEIN_KANAL` |
 | Hauling | `/alerts/haul.html` |
-| Spacefight | `/spacefight/spacefight.html` (`?test=1` for local test fights, `?scale=N` to enlarge) |
+| Spacefight | `/spacefight/spacefight.html` — source **1920×1080 or 2560×1440** (`?test=1` local test fights, `?scale=N` bigger duel, `?wof=left` leaderboard on the left) |
 | Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
 
 ## REST API Endpoints
@@ -360,15 +360,34 @@ service.
 The OBS overlay (`/spacefight/spacefight.html`, transparent) is a
 pixel-ship arena, not a text fight card.
 
-**Source size vs arena size — they are not the same thing.** The arena is a
-fixed 640×200 field: `ARENA_W`/`ARENA_H`, the canvas backing store, the ship
-home positions and `SHIP_SEPARATION` all live in those coordinates, and nothing
-may resize it. `#sf-stage` floats that field in the middle of whatever source
-OBS gives the page, so the browser source can be any size — the duel stays
-centred. It used to be pinned to the document origin, which only looked right
-at a source of exactly 640×200 and put the whole fight in the top-left corner of
-anything larger. `?scale=N` (0–8) enlarges the stage via `--sf-scale` without
-touching the coordinate system.
+**Three nested coordinate systems — do not confuse them.**
+
+| Layer | Size | Owner |
+|---|---|---|
+| OBS source | 1920×1080 or 2560×1440 | the streamer |
+| `#sf-root` design space | 1920×1080, `transform: scale(--sf-fit)` | the page, `--sf-fit = innerWidth/1920` on load and resize |
+| `#sf-stage` | 640×200, centred in the design space, `scale(--sf-scale)` | `?scale=N` (0–8) |
+| The arena field | 640×200 | `ARENA_W`/`ARENA_H`, the canvas backing store, ship home positions, `SHIP_SEPARATION` — **never resized** |
+
+Consequences:
+
+- The overlay reads identically at 1080p and 1440p. Laying out in raw viewport
+  pixels made the same page 25 % smaller in a 1440p source — the same reason
+  `overlay.html` and `haul.html` build at 1920 and scale.
+- `?scale=` grows the stage, not the coordinate system, so hit positions and
+  separation are unaffected and `spacefight.js` never learns about it.
+  `spacefight.js` has **no** viewport dependency at all — keep it that way.
+- The arena was once the page itself (`html,body{width:640px;height:200px}`),
+  which pinned the duel to the document origin. Correct only at a source of
+  exactly 640×200; at anything larger the whole fight sat in the top-left
+  corner.
+- `#wof` is a sibling of the stage, anchored to the **design space** corner
+  (32 px), not to the arena — it is a panel about the game, not part of the duel
+  field, and it keeps its own size when `?scale=` grows the stage. `?wof=left`
+  mounts it on the opposite edge, which also flips the slide-in direction, the
+  Patina leading rule and the corner tick.
+- `#sf-ident` stays inside the stage: it labels the field, so it travels with
+  it.
 
 The ship box is a second value that must not be duplicated: `spacefight.js`
 publishes `SHIP_DISPLAY` (`SHIP_FRAME * SHIP_SCALE`) to the `--ov-ship` CSS
