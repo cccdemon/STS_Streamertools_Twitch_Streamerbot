@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Hauling Overlay</title>
+<title>RDOC – Hauling</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="rdoc-brand.css">
 <!--
   Hauling OBS-Overlay – grafische Untermalung des !haul Chatgames.
   Standalone: verbindet direkt zur Streamerbot-WS, sendet
@@ -15,15 +17,42 @@
   WS überschreiben:    ?sb=ws://host:port
 -->
 <style>
+  /* ──────────────────────────────────────────────────────────
+     RDOC – Hauling overlay
+
+     Brand layer: rdoc-brand.css, linked above; data-theme="dark"
+     stops an OBS light preference from flipping the tokens.
+
+     Strict brand pass. Gone: every gradient (card, lane, tag
+     fills), every box-shadow and text-shadow, every border-radius,
+     the backdrop blur, and the synthetic weights - only Plex Sans
+     400/600 exist as real files, so 800/900 are out. Michroma has
+     one cut and runs at tracking 0.
+
+     Copper carries the result and the payout; Patina is structure
+     (lane, streak). Win/loss and the difficulty tiers are states,
+     so they take the functional colours.
+
+     Local aliases only - rgba() cannot take a CSS variable, and
+     OBS ships an older CEF than a desktop browser, so no
+     color-mix() here either.
+     ────────────────────────────────────────────────────────── */
   :root{
-    --green:#37e08a; --red:#ff5a6e; --gold:#ffd23f; --cyan:#46d3ff;
-    --ink:#eaf4ff; --panel:rgba(10,16,28,.82); --line:rgba(90,170,255,.35);
+    --ink:#F2F2F0;
+    --panel:rgba(18,20,22,.92);
+    --line:rgba(43,49,53,1);
+    --copper:#C48A4A;
+    --patina:#4FB5B5;
+    --ok:#63C271;
+    --err:#EE6E76;
+    --warn:#EBCF52;
+    --steel:#76828D;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   /* Layout in 1080p-Koordinaten gebaut, per zoom auf 1440p (2560×1440) skaliert.
      OBS Browser-Source-Größe = 2560 × 1440 setzen. */
   html,body{width:2560px;height:1440px;overflow:hidden;background:transparent;
-    font-family:'Segoe UI',Roboto,system-ui,sans-serif;color:var(--ink)}
+    font-family:var(--rdoc-font-text);color:var(--ink)}
   /* Canvas füllt die echte Auflösung (innerWidth/innerHeight) – kein Scaling. */
   #fx{position:fixed;inset:0;z-index:1;pointer-events:none}
   /* UI in 1080p-Koordinaten gebaut, per transform:scale auf 1440p skaliert. */
@@ -34,54 +63,54 @@
   #card{
     position:absolute;left:50%;bottom:140px;transform:translate(-50%,160%);
     z-index:2;width:980px;min-height:150px;opacity:0;
-    background:linear-gradient(135deg,rgba(14,22,38,.92),rgba(8,14,26,.92));
-    border:1px solid var(--line);border-radius:18px;
-    box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.04) inset;
-    padding:22px 30px;backdrop-filter:blur(4px);
+    background:var(--panel);
+    border:1px solid var(--line);border-left:3px solid var(--copper);
+    padding:22px 30px;
     transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .4s ease;
   }
   #card.show{transform:translate(-50%,0);opacity:1}
-  #card.win{border-color:rgba(55,224,138,.6);box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 38px rgba(55,224,138,.28)}
-  #card.lose{border-color:rgba(255,90,110,.6);box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 38px rgba(255,90,110,.28)}
+  /* Outcome reads on the left rule plus the result word - never colour alone. */
+  #card.win{border-left-color:var(--ok)}
+  #card.lose{border-left-color:var(--err)}
 
   .top{display:flex;align-items:center;gap:16px}
-  .jobEmoji{font-size:56px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+  .jobEmoji{font-size:56px;line-height:1}
   .meta{flex:1;min-width:0}
-  .user{font-size:30px;font-weight:800;letter-spacing:.3px;
-    text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  .user{font-family:var(--rdoc-font-display);font-size:24px;letter-spacing:0}
   .user .badge{font-size:24px;margin-left:6px}
-  .job{font-size:20px;color:#9db8d8;margin-top:2px;white-space:nowrap;
+  .job{font-size:20px;color:var(--steel);margin-top:4px;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
-  .tier{display:inline-block;font-size:13px;font-weight:700;letter-spacing:1px;
-    padding:2px 9px;border-radius:999px;margin-left:8px;vertical-align:middle;
+  .tier{display:inline-block;font-family:var(--rdoc-font-mono);font-size:13px;
+    letter-spacing:.07em;text-transform:uppercase;
+    padding:3px 9px;margin-left:8px;vertical-align:middle;
     border:1px solid currentColor}
-  .tier.LEICHT{color:#7fe3a0} .tier.MITTEL{color:#ffd23f}
-  .tier.SCHWER{color:#ff9a4d} .tier.EXTREM{color:#ff5a6e}
+  /* Difficulty is a state: functional colours, and the word is always there. */
+  .tier.LEICHT{color:var(--ok)}   .tier.MITTEL{color:var(--warn)}
+  .tier.SCHWER{color:var(--copper)} .tier.EXTREM{color:var(--err)}
 
-  .result{font-size:54px;font-weight:900;text-align:right;line-height:1;
-    text-shadow:0 3px 14px rgba(0,0,0,.55);white-space:nowrap}
-  .result.win{color:var(--green)} .result.lose{color:var(--red)}
+  .result{font-family:var(--rdoc-font-display);font-size:40px;letter-spacing:0;
+    text-align:right;line-height:1.1;white-space:nowrap}
+  .result.win{color:var(--ok)} .result.lose{color:var(--err)}
 
   .bottom{display:flex;align-items:center;justify-content:space-between;
-    margin-top:16px;padding-top:14px;border-top:1px solid rgba(120,170,240,.18);
-    font-size:19px;color:#bcd2ee}
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:19px;color:var(--ink)}
   .tags{display:flex;gap:10px}
-  .tag{font-weight:800;padding:4px 12px;border-radius:999px;font-size:16px;
-    letter-spacing:.5px;animation:pop .5s cubic-bezier(.2,1.6,.4,1) both}
-  .tag.crit{background:rgba(255,210,63,.16);color:var(--gold);border:1px solid rgba(255,210,63,.5)}
-  .tag.jackpot{background:rgba(255,210,63,.22);color:#fff;border:1px solid var(--gold);
-    text-shadow:0 0 10px var(--gold)}
-  .tag.ambush{background:rgba(255,90,110,.16);color:var(--red);border:1px solid rgba(255,90,110,.5)}
-  .tag.streak{background:rgba(70,211,255,.14);color:var(--cyan);border:1px solid rgba(70,211,255,.45)}
-  .bal{font-weight:800;color:#eaf4ff}
-  .bal small{color:#8aa6c8;font-weight:600}
+  .tag{font-family:var(--rdoc-font-mono);font-size:15px;letter-spacing:.07em;
+    text-transform:uppercase;padding:4px 12px;border:1px solid currentColor;
+    animation:pop .5s cubic-bezier(.2,1.6,.4,1) both}
+  .tag.crit{color:var(--copper)}
+  .tag.jackpot{color:var(--copper);background:rgba(196,138,74,.16)}
+  .tag.ambush{color:var(--err)}
+  .tag.streak{color:var(--patina)}
+  .bal{font-family:var(--rdoc-font-mono);font-weight:400;color:var(--ink)}
+  .bal small{font-family:var(--rdoc-font-mono);color:var(--steel);text-transform:uppercase;letter-spacing:.07em}
 
   /* ── Quantum-Lane + Frachtschiff (im #stage, 1080p-Koordinaten) ── */
-  #road{position:absolute;left:0;right:0;bottom:120px;height:4px;opacity:0;
-    background:linear-gradient(90deg,transparent,rgba(70,211,255,.7) 30%,rgba(70,211,255,.9) 50%,rgba(70,211,255,.7) 70%,transparent);
-    box-shadow:0 0 24px 4px rgba(70,211,255,.5);transition:opacity .3s}
-  #truck{position:absolute;bottom:104px;left:-180px;font-size:78px;
-    filter:drop-shadow(0 0 16px rgba(70,211,255,.6))}
+  /* Flat 2px Patina rule - the lane was a five-stop gradient with a glow. */
+  #road{position:absolute;left:0;right:0;bottom:120px;height:2px;opacity:0;
+    background:var(--patina);transition:opacity .3s}
+  #truck{position:absolute;bottom:104px;left:-180px;font-size:78px}
 
   @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes shake{10%,90%{transform:translate(-51%,2px)}30%,70%{transform:translate(-49%,-3px)}
@@ -165,7 +194,8 @@
     busy = true; play(d).then(()=>setTimeout(next, 350));
   }
 
-  const C = { green:'#37e08a', red:'#ff5a6e', gold:'#ffd23f', cyan:'#46d3ff' };
+  // Particle palette: brand values only, same roles as the CSS above.
+  const C = { green:'#63C271', red:'#EE6E76', gold:'#C48A4A', cyan:'#4FB5B5' };
 
   function play(d){
     return new Promise(res => {
@@ -222,7 +252,7 @@
   }
 
   function confetti(){
-    const cols=[C.gold,C.cyan,C.green,'#ff8ad4','#fff'];
+    const cols=[C.gold,C.cyan,C.green,'#F2F2F0','#76828D'];
     for(let k=0;k<3;k++) setTimeout(()=>{
       for(let i=0;i<60;i++)
         spawn(Math.random()*innerWidth, -20, 1,

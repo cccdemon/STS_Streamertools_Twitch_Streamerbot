@@ -1,11 +1,42 @@
 <!DOCTYPE html>
-<html>
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chaos Crew – Alert Overlay</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Orbitron:wght@700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<title>RDOC – Alert Overlay</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="rdoc-brand.css">
 <style>
+  /* ────────────────────────────────────────────────────────────
+     RDOC – Alert overlay (the single alert renderer)
+
+     Brand layer: rdoc-brand.css above. data-theme="dark" stops an
+     OBS source reporting prefers-color-scheme: light from flipping
+     the tokens mid-stream.
+
+     Strict brand pass:
+     - Every gradient is gone - the hairlines are flat rules, the
+       energy sweeps and panel fills are flat colour.
+     - Every box-shadow / text-shadow glow is gone. The frame pulse
+       animations now pulse border-colour and opacity instead, so
+       the emphasis survives without the bloom.
+     - border-radius is 0 throughout.
+     - Fonts: Michroma for display (one cut, tracking 0, so the
+       sizes came down ~25%), Plex Sans for prose, Plex Mono for
+       technical labels.
+     - Copper marks the event, Patina carries structure, states use
+       the functional colours.
+
+     Motion filters (blur/brightness inside keyframes) are kept:
+     they are transition mechanics, not a surface treatment.
+
+     Colour literals are written out because most of this page's
+     styling is inline strings in the JS below, and rgba() cannot
+     take a CSS variable. Values come from the kit's tokens.js:
+       Space #121416  Graphite #2B3135  Off White #F2F2F0
+       Steel #76828D  Copper #C48A4A    Patina  #4FB5B5
+       Success #63C271 Warning #EBCF52  Error #EE6E76
+     ──────────────────────────────────────────────────────────── */
   *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
   /* 1080p-Layout per transform:scale auf 1440p (2560×1440) skaliert (#cc-ov).
      OBS Browser-Source-Größe = 2560 × 1440 setzen. */
@@ -39,21 +70,23 @@
     62%  { filter:blur(2.5px) brightness(1.15) contrast(0.9); transform:scale(1.005); }
     100% { filter:none; transform:scale(1); }
   }
+  /* Frame emphasis is a border pulse. It used to be a box-shadow
+     bloom, which the brand rules out. */
   @keyframes ccBorderCyan {
-    0%,100% { box-shadow:0 0 12px rgba(0,212,255,0.08); }
-    50%     { box-shadow:0 0 32px rgba(0,212,255,0.28), 0 0 64px rgba(0,212,255,0.08); }
+    0%,100% { border-color:rgba(79,181,181,0.45); }
+    50%     { border-color:rgba(79,181,181,1); }
   }
   @keyframes ccBorderRaid {
-    0%,100% { border-color:rgba(255,68,68,0.5); box-shadow:0 0 14px rgba(255,68,68,0.12); }
-    50%     { border-color:rgba(255,68,68,1); box-shadow:0 0 50px rgba(255,68,68,0.5), 0 0 100px rgba(255,68,68,0.18), inset 0 0 18px rgba(255,68,68,0.07); }
+    0%,100% { border-color:rgba(238,110,118,0.5); }
+    50%     { border-color:rgba(238,110,118,1); }
   }
   @keyframes ccBorderGold {
-    0%,100% { border-color:rgba(240,165,0,0.5); box-shadow:0 0 12px rgba(240,165,0,0.1); }
-    50%     { border-color:rgba(240,165,0,1); box-shadow:0 0 44px rgba(240,165,0,0.42), 0 0 88px rgba(240,165,0,0.13); }
+    0%,100% { border-color:rgba(196,138,74,0.5); }
+    50%     { border-color:rgba(196,138,74,1); }
   }
   @keyframes ccBorderGreen {
-    0%,100% { border-color:rgba(0,255,136,0.5); box-shadow:0 0 12px rgba(0,255,136,0.1); }
-    50%     { border-color:rgba(0,255,136,1); box-shadow:0 0 44px rgba(0,255,136,0.38); }
+    0%,100% { border-color:rgba(99,194,113,0.5); }
+    50%     { border-color:rgba(99,194,113,1); }
   }
   @keyframes ccHypeShake {
     0%,100% { transform:translate(0,0) rotate(0); }
@@ -76,7 +109,7 @@
   @keyframes ccSoRing   { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
   @keyframes ccEnergy   { 0% { transform:translateY(-100%); } 50% { transform:translateY(100%); } 100% { transform:translateY(-100%); } }
   @keyframes ccBlink    { 0%,100% { opacity:1; } 50% { opacity:0; } }
-  @keyframes ccDiamond  { 0%,100% { transform:rotate(45deg) scale(1); box-shadow:0 0 8px rgba(240,165,0,1); } 50% { transform:rotate(45deg) scale(1.25); box-shadow:0 0 16px rgba(240,165,0,1); } }
+  @keyframes ccDiamond  { 0%,100% { transform:rotate(45deg) scale(1); } 50% { transform:rotate(45deg) scale(1.25); } }
   @keyframes ccRiseFade { 0% { opacity:0; transform:translateY(8px); } 100% { opacity:1; transform:translateY(0); } }
   @keyframes ccLetterIn {
     0%   { opacity:0; transform:translate(var(--lx,0),var(--ly,18px)) rotate(var(--lr,0)) scale(1.5); filter:blur(3px); }
@@ -113,48 +146,49 @@
   .cc-glitch  { animation:ccGlitch 0.55s ease-out forwards; }
 
   .cc-frame-cyan  { animation:ccBorderCyan 2.4s ease-in-out infinite; }
-  .cc-frame-raid  { border-color:rgba(255,68,68,0.5) !important; animation:ccBorderRaid 0.75s ease-in-out infinite; }
-  .cc-frame-gold  { border-color:rgba(240,165,0,0.5) !important; animation:ccBorderGold 1.3s ease-in-out infinite; }
-  .cc-frame-green { border-color:rgba(0,255,136,0.5) !important; animation:ccBorderGreen 1.3s ease-in-out infinite; }
+  .cc-frame-raid  { border-color:rgba(238,110,118,0.5) !important; animation:ccBorderRaid 0.75s ease-in-out infinite; }
+  .cc-frame-gold  { border-color:rgba(196,138,74,0.5) !important; animation:ccBorderGold 1.3s ease-in-out infinite; }
+  .cc-frame-green { border-color:rgba(99,194,113,0.5) !important; animation:ccBorderGreen 1.3s ease-in-out infinite; }
 
   .cc-anim-hype { animation:ccHypeShake 0.28s ease-in-out infinite; }
 
   /* corner ticks (draw-in via width/height transition) */
-  .cc-corner { position:absolute; width:0; height:0; border-color:#f0a500; border-style:solid; transition:width 0.2s ease-out, height 0.2s ease-out; }
+  .cc-corner { position:absolute; width:0; height:0; border-color:#C48A4A; border-style:solid; transition:width 0.2s ease-out, height 0.2s ease-out; }
   .cc-corner.drawn { width:26px; height:26px; }
   .cc-corner-tl { top:-2px; left:-2px; border-width:2.5px 0 0 2.5px; }
   .cc-corner-tr { top:-2px; right:-2px; border-width:2.5px 2.5px 0 0; }
   .cc-corner-bl { bottom:-2px; left:-2px; border-width:0 0 2.5px 2.5px; }
   .cc-corner-br { bottom:-2px; right:-2px; border-width:0 2.5px 2.5px 0; }
 
-  /* gradient lines (extend via scaleX transition) */
+  /* Hairlines extend via scaleX. Flat colour - they were four-stop
+     gradients. Top rule is Copper (the event), bottom Patina. */
   .cc-line { position:absolute; height:1px; transform:scaleX(0); transform-origin:center; transition:transform 0.3s ease-out, opacity 0.1s; opacity:0; }
   .cc-line.drawn { transform:scaleX(1); opacity:1; }
-  .cc-line-top { top:0; left:40px; right:40px; background:linear-gradient(90deg,transparent,#f0a500,#00d4ff,#f0a500,transparent); }
-  .cc-line-bot { bottom:0; left:40px; right:40px; background:linear-gradient(90deg,transparent,#00d4ff,#f0a500,#00d4ff,transparent); }
+  .cc-line-top { top:0; left:40px; right:40px; background:#C48A4A; }
+  .cc-line-bot { bottom:0; left:40px; right:40px; background:#4FB5B5; }
 
   .cc-demo-btn {
-    font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1.5px;
-    text-transform:uppercase; background:transparent; border:1px solid rgba(0,212,255,0.38);
-    color:#00d4ff; padding:6px 10px; cursor:pointer; transition:background 0.12s; text-align:left;
+    font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:0.07em;
+    text-transform:uppercase; background:transparent; border:1px solid rgba(79,181,181,0.5);
+    color:#4FB5B5; padding:6px 10px; cursor:pointer; transition:background 0.12s; text-align:left;
   }
-  .cc-demo-btn:hover { background:rgba(0,212,255,0.1); }
-  .cc-demo-btn.gold  { border-color:rgba(240,165,0,0.5); color:#f0a500; }
-  .cc-demo-btn.gold:hover { background:rgba(240,165,0,0.1); }
-  .cc-demo-btn.red   { border-color:rgba(255,68,68,0.5); color:#ff6b6b; }
-  .cc-demo-btn.red:hover { background:rgba(255,68,68,0.12); }
-  .cc-demo-btn.green { border-color:rgba(0,255,136,0.5); color:#00ff88; }
-  .cc-demo-btn.green:hover { background:rgba(0,255,136,0.1); }
+  .cc-demo-btn:hover { background:rgba(79,181,181,0.12); }
+  .cc-demo-btn.gold  { border-color:rgba(196,138,74,0.55); color:#C48A4A; }
+  .cc-demo-btn.gold:hover { background:rgba(196,138,74,0.14); }
+  .cc-demo-btn.red   { border-color:rgba(238,110,118,0.5); color:#EE6E76; }
+  .cc-demo-btn.red:hover { background:rgba(238,110,118,0.12); }
+  .cc-demo-btn.green { border-color:rgba(99,194,113,0.5); color:#63C271; }
+  .cc-demo-btn.green:hover { background:rgba(99,194,113,0.12); }
 </style>
 </head>
 <body>
 
-<div id="cc-ov" style="position:relative; width:1920px; height:1080px; overflow:hidden; font-family:'Share Tech Mono',monospace; transform:scale(1.3333); transform-origin:top left;">
+<div id="cc-ov" style="position:relative; width:1920px; height:1080px; overflow:hidden; font-family:var(--rdoc-font-mono); transform:scale(1.3333); transform-origin:top left;">
 
   <!-- Demo backdrop (only visible in demo mode; transparent in OBS) -->
-  <div id="cc-demo-bg" style="position:absolute; inset:0; z-index:0; display:none; background:radial-gradient(ellipse at 50% 40%, #0c1622 0%, #060a10 60%, #03050a 100%);">
-    <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(0,212,255,0.025) 38px,rgba(0,212,255,0.025) 39px),repeating-linear-gradient(90deg,transparent,transparent 38px,rgba(0,212,255,0.025) 38px,rgba(0,212,255,0.025) 39px);"></div>
-    <div style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:6px; color:rgba(0,212,255,0.25); text-transform:uppercase;">// OBS BROWSER SOURCE — VORSCHAU MIT HINTERGRUND (LIVE TRANSPARENT)</div>
+  <div id="cc-demo-bg" style="position:absolute; inset:0; z-index:0; display:none; background:#2B3135;">
+    <!-- grid texture removed: repeating gradient -->
+    <div style="position:absolute; bottom:40px; left:50%; transform:translateX(-50%); font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:6px; color:rgba(79,181,181,0.25); text-transform:uppercase;">// OBS BROWSER SOURCE — VORSCHAU MIT HINTERGRUND (LIVE TRANSPARENT)</div>
   </div>
 
   <!-- Canvas particle layer -->
@@ -166,188 +200,189 @@
   <!-- ──── ALERT ──── -->
   <div id="cc-alert" style="position:absolute; bottom:84px; left:50%; transform:translateX(-50%); pointer-events:none; z-index:150; width:920px;">
     <div id="cc-alert-anim" style="position:relative; opacity:0;">
-      <div id="cc-frame" style="position:relative; background:rgba(0,0,0,0.88); border:1.5px solid rgba(0,212,255,0.45); padding:28px 40px 24px;">
+      <div id="cc-frame" style="position:relative; background:rgba(18,20,22,0.88); border:1.5px solid rgba(79,181,181,0.45); padding:28px 40px 24px;">
         <div class="cc-corner cc-corner-tl" id="cc-ctl"></div>
         <div class="cc-corner cc-corner-tr" id="cc-ctr"></div>
         <div class="cc-corner cc-corner-bl" id="cc-cbl"></div>
         <div class="cc-corner cc-corner-br" id="cc-cbr"></div>
         <div class="cc-line cc-line-top" id="cc-ltop"></div>
         <div class="cc-line cc-line-bot" id="cc-lbot"></div>
-        <div style="position:absolute; inset:0; pointer-events:none; z-index:2; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.010) 3px,rgba(0,212,255,0.010) 4px);"></div>
+        <!-- scanline texture removed: repeating gradient -->
 
         <div style="position:relative; z-index:10; display:flex; align-items:center; gap:28px;">
           <div id="cc-avwrap" style="display:none; flex-shrink:0; position:relative;">
-            <img id="cc-avimg" alt="" style="display:block; width:96px; height:96px; object-fit:cover; border:1.5px solid #00d4ff; filter:drop-shadow(0 0 10px rgba(0,212,255,0.5));">
-            <div style="position:absolute; top:-2px; left:-2px; width:14px; height:14px; border-top:2px solid #f0a500; border-left:2px solid #f0a500;"></div>
-            <div style="position:absolute; bottom:-2px; right:-2px; width:14px; height:14px; border-bottom:2px solid #f0a500; border-right:2px solid #f0a500;"></div>
+            <img id="cc-avimg" alt="" style="display:block; width:96px; height:96px; object-fit:cover; border:1.5px solid #4FB5B5; filter:drop-shadow(0 0 10px rgba(79,181,181,0.5));">
+            <div style="position:absolute; top:-2px; left:-2px; width:14px; height:14px; border-top:2px solid #C48A4A; border-left:2px solid #C48A4A;"></div>
+            <div style="position:absolute; bottom:-2px; right:-2px; width:14px; height:14px; border-bottom:2px solid #C48A4A; border-right:2px solid #C48A4A;"></div>
           </div>
 
           <div style="flex:1; min-width:0; overflow:hidden;">
-            <div id="cc-lblrow" style="font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:7px; color:#f0a500; text-shadow:0 0 10px rgba(240,165,0,0.8); text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:11px;">
-              <span id="cc-diamond" style="display:inline-block; width:8px; height:8px; background:#f0a500; transform:rotate(45deg); flex-shrink:0; animation:ccDiamond 1.4s ease-in-out infinite;"></span>
+            <div id="cc-lblrow" style="font-family:var(--rdoc-font-mono); font-size:12px; letter-spacing:7px; color:#C48A4A; text-transform:uppercase; margin-bottom:8px; display:flex; align-items:center; gap:11px;">
+              <span id="cc-diamond" style="display:inline-block; width:8px; height:8px; background:#C48A4A; transform:rotate(45deg); flex-shrink:0; animation:ccDiamond 1.4s ease-in-out infinite;"></span>
               <span id="cc-lbl"></span>
             </div>
-            <div id="cc-user" style="font-family:'Bebas Neue',sans-serif; font-size:56px; letter-spacing:3px; color:#00d4ff; text-shadow:0 0 15px rgba(0,212,255,0.9),0 0 40px rgba(0,212,255,0.3); line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-            <div id="cc-msg" style="font-family:'Share Tech Mono',monospace; font-size:15px; letter-spacing:1.5px; color:#cce8f0; margin-top:9px; line-height:1.5; text-transform:uppercase;"></div>
+            <div id="cc-user" style="font-family:var(--rdoc-font-display); font-size:56px; letter-spacing:3px; color:#4FB5B5; line-height:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+            <div id="cc-msg" style="font-family:var(--rdoc-font-mono); font-size:15px; letter-spacing:1.5px; color:#F2F2F0; margin-top:9px; line-height:1.5; text-transform:uppercase;"></div>
           </div>
 
-          <div id="cc-stat" style="display:none; flex-shrink:0; border:1.5px solid #f0a500; padding:11px 20px; text-align:center; opacity:0; transform:translateX(22px); transition:opacity 0.3s, transform 0.3s;">
-            <div id="cc-stat-num" style="font-family:'Orbitron',monospace; font-size:38px; font-weight:900; color:#f0a500; text-shadow:0 0 15px rgba(240,165,0,0.9); line-height:1;"></div>
-            <div id="cc-stat-lbl" style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:4px; color:#6aabb8; text-transform:uppercase; margin-top:5px;"></div>
+          <div id="cc-stat" style="display:none; flex-shrink:0; border:1.5px solid #C48A4A; padding:11px 20px; text-align:center; opacity:0; transform:translateX(22px); transition:opacity 0.3s, transform 0.3s;">
+            <div id="cc-stat-num" style="font-family:var(--rdoc-font-display); font-size:38px; font-weight:600; color:#C48A4A; line-height:1;"></div>
+            <div id="cc-stat-lbl" style="font-family:var(--rdoc-font-mono); font-size:10px; letter-spacing:4px; color:#76828D; text-transform:uppercase; margin-top:5px;"></div>
           </div>
         </div>
       </div>
-      <div id="cc-glow" style="position:absolute; bottom:-30px; left:50%; transform:translateX(-50%); width:520px; height:60px; background:radial-gradient(ellipse,rgba(0,212,255,0.18),transparent 70%); filter:blur(8px); z-index:-1; opacity:0; transition:opacity 0.5s;"></div>
+      <!-- cc-glow kept for the script, never painted: glow is out -->
+      <div id="cc-glow" style="display:none;"></div>
     </div>
   </div>
 
   <!-- ──── SHOUTOUT (cinematic split) ──── -->
   <div id="cc-so" style="position:absolute; inset:0; z-index:200; pointer-events:none; opacity:0;">
-    <div id="cc-so-bg" style="position:absolute; inset:0; background:rgba(0,0,0,0); transition:background 0.5s ease;"></div>
-    <div id="cc-so-beam" style="position:absolute; top:0; bottom:0; right:101%; width:4px; background:linear-gradient(to bottom,transparent,rgba(0,212,255,0.95) 50%,transparent); box-shadow:0 0 40px 18px rgba(0,212,255,0.5); opacity:0; pointer-events:none;"></div>
+    <div id="cc-so-bg" style="position:absolute; inset:0; background:rgba(18,20,22,0); transition:background 0.5s ease;"></div>
+    <div id="cc-so-beam" style="position:absolute; top:0; bottom:0; right:101%; width:4px; background:#2B3135; opacity:0; pointer-events:none;"></div>
 
     <!-- left: ambient stage -->
     <div style="position:absolute; left:0; top:0; bottom:0; right:600px; display:flex; align-items:center; justify-content:center; padding:80px 70px; overflow:hidden;">
-      <div id="cc-so-ambient" style="position:absolute; font-family:'Bebas Neue',sans-serif; font-size:210px; color:rgba(0,212,255,0.035); letter-spacing:16px; text-transform:uppercase; white-space:nowrap; user-select:none; transform:rotate(-10deg);"></div>
+      <div id="cc-so-ambient" style="position:absolute; font-family:var(--rdoc-font-display); font-size:210px; color:rgba(79,181,181,0.035); letter-spacing:16px; text-transform:uppercase; white-space:nowrap; user-select:none; transform:rotate(-10deg);"></div>
       <div style="position:relative; text-align:center;">
-        <div id="cc-so-hdr" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:11px; color:#00d4ff; text-shadow:0 0 12px rgba(0,212,255,0.8); text-transform:uppercase; margin-bottom:30px; opacity:0; transition:opacity 0.45s;">// CHAOS CREW // SHOUTOUT</div>
-        <div style="font-family:'Bebas Neue',sans-serif; font-size:118px; color:rgba(255,255,255,0.9); letter-spacing:11px; line-height:0.95;">SCHAUT<br>VORBEI</div>
-        <div id="cc-so-bigname" style="font-family:'Orbitron',monospace; font-size:54px; font-weight:900; color:#f0a500; text-shadow:0 0 30px rgba(240,165,0,0.7),0 0 80px rgba(240,165,0,0.2); letter-spacing:4px; line-height:1.1; margin-top:18px; opacity:0; transition:opacity 0.45s;"></div>
-        <div id="cc-so-bigurl" style="font-family:'Share Tech Mono',monospace; font-size:14px; letter-spacing:7px; color:rgba(0,212,255,0.5); margin-top:18px; opacity:0; transition:opacity 0.45s;"></div>
+        <div id="cc-so-hdr" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:11px; color:#4FB5B5; text-transform:uppercase; margin-bottom:30px; opacity:0; transition:opacity 0.45s;">// CHAOS CREW // SHOUTOUT</div>
+        <div style="font-family:var(--rdoc-font-display); font-size:118px; color:rgba(242,242,240,0.9); letter-spacing:11px; line-height:0.95;">SCHAUT<br>VORBEI</div>
+        <div id="cc-so-bigname" style="font-family:var(--rdoc-font-display); font-size:54px; font-weight:600; color:#C48A4A; letter-spacing:4px; line-height:1.1; margin-top:18px; opacity:0; transition:opacity 0.45s;"></div>
+        <div id="cc-so-bigurl" style="font-family:var(--rdoc-font-mono); font-size:14px; letter-spacing:7px; color:rgba(79,181,181,0.5); margin-top:18px; opacity:0; transition:opacity 0.45s;"></div>
       </div>
     </div>
 
     <!-- right: detail panel -->
-    <div id="cc-so-panel" style="position:absolute; right:0; top:0; bottom:0; width:600px; background:rgba(4,6,10,0.97); border-left:2px solid rgba(240,165,0,0.4); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 46px; transform:translateX(104%); overflow:hidden;">
-      <div style="position:absolute; top:-2px; left:-2px; width:38px; height:38px; border-top:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:-2px; right:-2px; width:38px; height:38px; border-top:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; left:-2px; width:38px; height:38px; border-bottom:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; right:-2px; width:38px; height:38px; border-bottom:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:0; left:38px; right:38px; height:1px; background:linear-gradient(90deg,transparent,#f0a500,#00d4ff,#f0a500,transparent); opacity:0.7;"></div>
-      <div style="position:absolute; bottom:0; left:38px; right:38px; height:1px; background:linear-gradient(90deg,transparent,#00d4ff,#f0a500,#00d4ff,transparent); opacity:0.5;"></div>
+    <div id="cc-so-panel" style="position:absolute; right:0; top:0; bottom:0; width:600px; background:rgba(18,20,22,0.97); border-left:2px solid rgba(196,138,74,0.4); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 46px; transform:translateX(104%); overflow:hidden;">
+      <div style="position:absolute; top:-2px; left:-2px; width:38px; height:38px; border-top:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:-2px; right:-2px; width:38px; height:38px; border-top:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; left:-2px; width:38px; height:38px; border-bottom:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; right:-2px; width:38px; height:38px; border-bottom:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:0; left:38px; right:38px; height:1px; background:#2B3135; opacity:0.7;"></div>
+      <div style="position:absolute; bottom:0; left:38px; right:38px; height:1px; background:#2B3135; opacity:0.5;"></div>
       <div style="position:absolute; left:0; top:60px; bottom:60px; width:3px; overflow:hidden;">
-        <div style="width:100%; height:100%; background:linear-gradient(to bottom,transparent,#f0a500 30%,#00d4ff 50%,#f0a500 70%,transparent); animation:ccEnergy 3s ease-in-out infinite;"></div>
+        <div style="width:100%; height:100%; background:#2B3135; animation:ccEnergy 3s ease-in-out infinite;"></div>
       </div>
-      <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(240,165,0,0.005) 3px,rgba(240,165,0,0.005) 4px);"></div>
+      <!-- scanline texture removed: repeating gradient -->
 
-      <div style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:10px; color:#f0a500; text-shadow:0 0 12px rgba(240,165,0,0.8); text-transform:uppercase; margin-bottom:30px;">// SHOUTOUT //</div>
+      <div style="font-family:var(--rdoc-font-mono); font-size:10px; letter-spacing:10px; color:#C48A4A; text-transform:uppercase; margin-bottom:30px;">// SHOUTOUT //</div>
 
       <div id="cc-so-avwrap" style="position:relative; width:186px; height:186px; margin-bottom:28px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
-        <div style="position:absolute; inset:-12px; border:1px dashed rgba(0,212,255,0.32); border-radius:50%; animation:ccSoRing 9s linear infinite;"></div>
-        <div style="position:absolute; inset:-22px; border:1px dashed rgba(240,165,0,0.16); border-radius:50%; animation:ccSoRing 14s linear infinite reverse;"></div>
-        <img id="cc-so-av" alt="" style="width:186px; height:186px; object-fit:cover; display:block; border:2px solid rgba(240,165,0,0.7); filter:drop-shadow(0 0 20px rgba(240,165,0,0.45));">
-        <div style="position:absolute; top:-3px; left:-3px; width:17px; height:17px; border-top:2px solid #00d4ff; border-left:2px solid #00d4ff;"></div>
-        <div style="position:absolute; top:-3px; right:-3px; width:17px; height:17px; border-top:2px solid #00d4ff; border-right:2px solid #00d4ff;"></div>
-        <div style="position:absolute; bottom:-3px; left:-3px; width:17px; height:17px; border-bottom:2px solid #00d4ff; border-left:2px solid #00d4ff;"></div>
-        <div style="position:absolute; bottom:-3px; right:-3px; width:17px; height:17px; border-bottom:2px solid #00d4ff; border-right:2px solid #00d4ff;"></div>
+        <div style="position:absolute; inset:-12px; border:1px dashed rgba(79,181,181,0.32); animation:ccSoRing 9s linear infinite;"></div>
+        <div style="position:absolute; inset:-22px; border:1px dashed rgba(196,138,74,0.16); animation:ccSoRing 14s linear infinite reverse;"></div>
+        <img id="cc-so-av" alt="" style="width:186px; height:186px; object-fit:cover; display:block; border:2px solid rgba(196,138,74,0.7); filter:drop-shadow(0 0 20px rgba(196,138,74,0.45));">
+        <div style="position:absolute; top:-3px; left:-3px; width:17px; height:17px; border-top:2px solid #4FB5B5; border-left:2px solid #4FB5B5;"></div>
+        <div style="position:absolute; top:-3px; right:-3px; width:17px; height:17px; border-top:2px solid #4FB5B5; border-right:2px solid #4FB5B5;"></div>
+        <div style="position:absolute; bottom:-3px; left:-3px; width:17px; height:17px; border-bottom:2px solid #4FB5B5; border-left:2px solid #4FB5B5;"></div>
+        <div style="position:absolute; bottom:-3px; right:-3px; width:17px; height:17px; border-bottom:2px solid #4FB5B5; border-right:2px solid #4FB5B5;"></div>
       </div>
 
       <div style="display:flex; align-items:center; justify-content:center; width:100%; margin-bottom:10px; min-height:38px;">
-        <div id="cc-so-name" style="font-family:'Orbitron',monospace; font-size:34px; font-weight:900; color:#f0a500; text-shadow:0 0 20px rgba(240,165,0,0.9),0 0 50px rgba(240,165,0,0.3); letter-spacing:3px; text-transform:uppercase; text-align:center; line-height:1.1; word-break:break-all;"></div>
-        <div id="cc-so-cursor" style="display:inline-block; width:3px; height:32px; background:#f0a500; margin-left:3px; animation:ccBlink 0.55s step-end infinite; flex-shrink:0;"></div>
+        <div id="cc-so-name" style="font-family:var(--rdoc-font-display); font-size:34px; font-weight:600; color:#C48A4A; letter-spacing:3px; text-transform:uppercase; text-align:center; line-height:1.1; word-break:break-all;"></div>
+        <div id="cc-so-cursor" style="display:inline-block; width:3px; height:32px; background:#C48A4A; margin-left:3px; animation:ccBlink 0.55s step-end infinite; flex-shrink:0;"></div>
       </div>
 
-      <div id="cc-so-game" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:5px; color:rgba(0,212,255,0.7); text-transform:uppercase; margin-bottom:20px; text-align:center; min-height:14px;"></div>
-      <div style="width:100%; height:1px; background:linear-gradient(90deg,transparent,rgba(240,165,0,0.4),transparent); margin-bottom:20px;"></div>
-      <div id="cc-so-msg" style="font-family:'Share Tech Mono',monospace; font-size:13px; letter-spacing:1.5px; color:#cce8f0; line-height:1.65; text-transform:uppercase; text-align:center;"></div>
-      <div id="cc-so-url" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:5px; color:rgba(240,165,0,0.5); margin-top:20px; text-align:center;"></div>
+      <div id="cc-so-game" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:5px; color:rgba(79,181,181,0.7); text-transform:uppercase; margin-bottom:20px; text-align:center; min-height:14px;"></div>
+      <div style="width:100%; height:1px; background:#2B3135; margin-bottom:20px;"></div>
+      <div id="cc-so-msg" style="font-family:var(--rdoc-font-mono); font-size:13px; letter-spacing:1.5px; color:#F2F2F0; line-height:1.65; text-transform:uppercase; text-align:center;"></div>
+      <div id="cc-so-url" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:5px; color:rgba(196,138,74,0.5); margin-top:20px; text-align:center;"></div>
     </div>
   </div>
 
   <!-- ──── RESUB FULLSCREEN ──── -->
-  <div id="cc-rfs" style="position:absolute; inset:0; z-index:190; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0); pointer-events:none; opacity:0; transition:opacity 0.6s ease;">
-    <div id="cc-rfs-frame" style="position:relative; width:920px; padding:60px 70px; background:rgba(0,0,0,0.9); border:1.5px solid rgba(0,212,255,0.4); text-align:center;">
-      <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:-2px; right:-2px; width:42px; height:42px; border-top:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; left:-2px; width:42px; height:42px; border-bottom:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; right:-2px; width:42px; height:42px; border-bottom:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:0; left:60px; right:60px; height:1px; background:linear-gradient(90deg,transparent,#f0a500,#00d4ff,#f0a500,transparent); opacity:0.7;"></div>
-      <div style="position:absolute; bottom:0; left:60px; right:60px; height:1px; background:linear-gradient(90deg,transparent,#00d4ff,#f0a500,#00d4ff,transparent); opacity:0.5;"></div>
-      <div style="position:absolute; top:60px; bottom:60px; left:-10px; width:2px; background:linear-gradient(to bottom,transparent,rgba(0,212,255,0.6) 30%,rgba(240,165,0,0.8) 50%,rgba(0,212,255,0.6) 70%,transparent); opacity:0.7;"></div>
-      <div style="position:absolute; top:60px; bottom:60px; right:-10px; width:2px; background:linear-gradient(to bottom,transparent,rgba(0,212,255,0.6) 30%,rgba(240,165,0,0.8) 50%,rgba(0,212,255,0.6) 70%,transparent); opacity:0.7;"></div>
-      <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.008) 3px,rgba(0,212,255,0.008) 4px);"></div>
+  <div id="cc-rfs" style="position:absolute; inset:0; z-index:190; display:flex; align-items:center; justify-content:center; background:rgba(18,20,22,0); pointer-events:none; opacity:0; transition:opacity 0.6s ease;">
+    <div id="cc-rfs-frame" style="position:relative; width:920px; padding:60px 70px; background:rgba(18,20,22,0.9); border:1.5px solid rgba(79,181,181,0.4); text-align:center;">
+      <div style="position:absolute; top:-2px; left:-2px; width:42px; height:42px; border-top:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:-2px; right:-2px; width:42px; height:42px; border-top:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; left:-2px; width:42px; height:42px; border-bottom:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; right:-2px; width:42px; height:42px; border-bottom:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:0; left:60px; right:60px; height:1px; background:#2B3135; opacity:0.7;"></div>
+      <div style="position:absolute; bottom:0; left:60px; right:60px; height:1px; background:#2B3135; opacity:0.5;"></div>
+      <div style="position:absolute; top:60px; bottom:60px; left:-10px; width:2px; background:#2B3135; opacity:0.7;"></div>
+      <div style="position:absolute; top:60px; bottom:60px; right:-10px; width:2px; background:#2B3135; opacity:0.7;"></div>
+      <!-- scanline texture removed: repeating gradient -->
 
-      <div id="cc-rfs-lbl" style="font-family:'Share Tech Mono',monospace; font-size:12px; letter-spacing:10px; color:#f0a500; text-shadow:0 0 12px rgba(240,165,0,0.8); text-transform:uppercase; margin-bottom:32px;"></div>
+      <div id="cc-rfs-lbl" style="font-family:var(--rdoc-font-mono); font-size:12px; letter-spacing:10px; color:#C48A4A; text-transform:uppercase; margin-bottom:32px;"></div>
       <div style="display:flex; justify-content:center; margin-bottom:30px;">
         <div style="position:relative; display:inline-block;">
-          <img id="cc-rfs-av" alt="" style="width:204px; height:204px; object-fit:cover; display:block; border:2px solid #00d4ff; filter:drop-shadow(0 0 25px rgba(0,212,255,0.5));">
-          <div style="position:absolute; top:-3px; left:-3px; width:22px; height:22px; border-top:2px solid #f0a500; border-left:2px solid #f0a500;"></div>
-          <div style="position:absolute; bottom:-3px; right:-3px; width:22px; height:22px; border-bottom:2px solid #f0a500; border-right:2px solid #f0a500;"></div>
+          <img id="cc-rfs-av" alt="" style="width:204px; height:204px; object-fit:cover; display:block; border:2px solid #4FB5B5; filter:drop-shadow(0 0 25px rgba(79,181,181,0.5));">
+          <div style="position:absolute; top:-3px; left:-3px; width:22px; height:22px; border-top:2px solid #C48A4A; border-left:2px solid #C48A4A;"></div>
+          <div style="position:absolute; bottom:-3px; right:-3px; width:22px; height:22px; border-bottom:2px solid #C48A4A; border-right:2px solid #C48A4A;"></div>
         </div>
       </div>
-      <div id="cc-rfs-name" style="font-family:'Orbitron',monospace; font-size:62px; font-weight:900; color:#00d4ff; text-shadow:0 0 20px rgba(0,212,255,0.9),0 0 60px rgba(0,212,255,0.3); letter-spacing:4px; text-transform:uppercase; line-height:1; margin-bottom:16px;"></div>
-      <div id="cc-rfs-badge" style="font-family:'Share Tech Mono',monospace; font-size:28px; letter-spacing:6px; color:#f0a500; text-shadow:0 0 12px rgba(240,165,0,0.8); margin-bottom:20px;"></div>
-      <div id="cc-rfs-msg" style="font-family:'Share Tech Mono',monospace; font-size:16px; letter-spacing:2px; color:#cce8f0; line-height:1.6; text-transform:uppercase;"></div>
+      <div id="cc-rfs-name" style="font-family:var(--rdoc-font-display); font-size:62px; font-weight:600; color:#4FB5B5; letter-spacing:4px; text-transform:uppercase; line-height:1; margin-bottom:16px;"></div>
+      <div id="cc-rfs-badge" style="font-family:var(--rdoc-font-mono); font-size:28px; letter-spacing:6px; color:#C48A4A; margin-bottom:20px;"></div>
+      <div id="cc-rfs-msg" style="font-family:var(--rdoc-font-mono); font-size:16px; letter-spacing:2px; color:#F2F2F0; line-height:1.6; text-transform:uppercase;"></div>
     </div>
   </div>
 
   <!-- ──── PROFIL / STECKBRIEF (!id) – rechte Bildschirmkante ──── -->
   <style>
     #cc-pf-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px 22px; margin:16px 0 18px; }
-    .pf-field { border-bottom:1px solid rgba(0,212,255,0.12); padding-bottom:5px; }
-    .pf-flabel { font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:2px; color:rgba(0,212,255,0.55); text-transform:uppercase; }
-    .pf-fval { font-family:'Orbitron',monospace; font-size:16px; font-weight:700; color:#eaf6ff; text-shadow:0 0 8px rgba(0,212,255,0.25); margin-top:2px; }
+    .pf-field { border-bottom:1px solid rgba(79,181,181,0.12); padding-bottom:5px; }
+    .pf-flabel { font-family:var(--rdoc-font-mono); font-size:9px; letter-spacing:2px; color:rgba(79,181,181,0.55); text-transform:uppercase; }
+    .pf-fval { font-family:var(--rdoc-font-display); font-size:16px; font-weight:600; color:#F2F2F0; margin-top:2px; }
     #cc-pf-ach { display:flex; flex-wrap:wrap; gap:6px; }
-    .pf-badge { font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:0.5px; color:#ffd060; background:rgba(240,165,0,0.1); border:1px solid rgba(240,165,0,0.45); border-radius:999px; padding:3px 9px; white-space:nowrap; }
-    .pf-badge.dim { color:rgba(200,220,232,0.4); background:transparent; border-color:rgba(200,220,232,0.18); }
-    .pf-seclbl { font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:3px; color:#f0a500; text-transform:uppercase; margin-bottom:8px; }
+    .pf-badge { font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:0.5px; color:#EBCF52; background:rgba(196,138,74,0.1); border:1px solid rgba(196,138,74,0.45); padding:3px 9px; white-space:nowrap; }
+    .pf-badge.dim { color:rgba(118,130,141,0.4); background:transparent; border-color:rgba(118,130,141,0.18); }
+    .pf-seclbl { font-family:var(--rdoc-font-mono); font-size:10px; letter-spacing:3px; color:#C48A4A; text-transform:uppercase; margin-bottom:8px; }
   </style>
   <div id="cc-pf" style="position:absolute; inset:0; z-index:195; pointer-events:none; opacity:0; transition:opacity 0.4s ease;">
-    <div id="cc-pf-frame" style="position:absolute; right:48px; top:50%; width:560px; padding:28px 32px; background:rgba(2,5,10,0.96); border:1.5px solid rgba(0,212,255,0.45); box-shadow:0 24px 70px rgba(0,0,0,0.6),0 0 40px rgba(0,212,255,0.12); transform:translate(680px,-50%); transition:transform 0.6s cubic-bezier(0.22,1,0.36,1);">
-      <div style="position:absolute; top:-2px; left:-2px; width:34px; height:34px; border-top:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:-2px; right:-2px; width:34px; height:34px; border-top:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; left:-2px; width:34px; height:34px; border-bottom:3px solid #f0a500; border-left:3px solid #f0a500;"></div>
-      <div style="position:absolute; bottom:-2px; right:-2px; width:34px; height:34px; border-bottom:3px solid #f0a500; border-right:3px solid #f0a500;"></div>
-      <div style="position:absolute; top:0; left:34px; right:34px; height:1px; background:linear-gradient(90deg,transparent,#f0a500,#00d4ff,#f0a500,transparent); opacity:0.7;"></div>
+    <div id="cc-pf-frame" style="position:absolute; right:48px; top:50%; width:560px; padding:28px 32px; background:rgba(18,20,22,0.96); border:1.5px solid rgba(79,181,181,0.45); transform:translate(680px,-50%); transition:transform 0.6s cubic-bezier(0.22,1,0.36,1);">
+      <div style="position:absolute; top:-2px; left:-2px; width:34px; height:34px; border-top:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:-2px; right:-2px; width:34px; height:34px; border-top:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; left:-2px; width:34px; height:34px; border-bottom:3px solid #C48A4A; border-left:3px solid #C48A4A;"></div>
+      <div style="position:absolute; bottom:-2px; right:-2px; width:34px; height:34px; border-bottom:3px solid #C48A4A; border-right:3px solid #C48A4A;"></div>
+      <div style="position:absolute; top:0; left:34px; right:34px; height:1px; background:#2B3135; opacity:0.7;"></div>
       <div style="position:absolute; left:0; top:28px; bottom:28px; width:3px; overflow:hidden;">
-        <div style="width:100%; height:100%; background:linear-gradient(to bottom,transparent,#f0a500 30%,#00d4ff 50%,#f0a500 70%,transparent); animation:ccEnergy 3s ease-in-out infinite;"></div>
+        <div style="width:100%; height:100%; background:#2B3135; animation:ccEnergy 3s ease-in-out infinite;"></div>
       </div>
-      <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.008) 3px,rgba(0,212,255,0.008) 4px);"></div>
+      <!-- scanline texture removed: repeating gradient -->
 
-      <div id="cc-pf-lbl" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:6px; color:#f0a500; text-shadow:0 0 12px rgba(240,165,0,0.8); text-transform:uppercase; margin-bottom:20px;">RDOC · GEHEIMDIENSTINFORMATIONEN · CONFIDENTIAL</div>
+      <div id="cc-pf-lbl" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:6px; color:#C48A4A; text-transform:uppercase; margin-bottom:20px;">RDOC · GEHEIMDIENSTINFORMATIONEN · CONFIDENTIAL</div>
 
       <!-- Kopf: Avatar + Name -->
       <div style="display:flex; gap:20px; align-items:center; margin-bottom:8px;">
         <div style="position:relative; flex:0 0 112px;">
-          <img id="cc-pf-av" alt="" style="width:112px; height:112px; object-fit:cover; display:block; border:2px solid #00d4ff; filter:drop-shadow(0 0 18px rgba(0,212,255,0.5));">
-          <div style="position:absolute; top:-3px; left:-3px; width:18px; height:18px; border-top:2px solid #f0a500; border-left:2px solid #f0a500;"></div>
-          <div style="position:absolute; bottom:-3px; right:-3px; width:18px; height:18px; border-bottom:2px solid #f0a500; border-right:2px solid #f0a500;"></div>
+          <img id="cc-pf-av" alt="" style="width:112px; height:112px; object-fit:cover; display:block; border:2px solid #4FB5B5; filter:drop-shadow(0 0 18px rgba(79,181,181,0.5));">
+          <div style="position:absolute; top:-3px; left:-3px; width:18px; height:18px; border-top:2px solid #C48A4A; border-left:2px solid #C48A4A;"></div>
+          <div style="position:absolute; bottom:-3px; right:-3px; width:18px; height:18px; border-bottom:2px solid #C48A4A; border-right:2px solid #C48A4A;"></div>
         </div>
         <div style="min-width:0; flex:1;">
-          <div id="cc-pf-name" style="font-family:'Orbitron',monospace; font-size:32px; font-weight:900; color:#00d4ff; text-shadow:0 0 16px rgba(0,212,255,0.9),0 0 44px rgba(0,212,255,0.3); letter-spacing:2px; text-transform:uppercase; line-height:1; word-break:break-word;"></div>
-          <div id="cc-pf-handle" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:2px; color:rgba(0,212,255,0.6); margin-top:8px; word-break:break-all;"></div>
+          <div id="cc-pf-name" style="font-family:var(--rdoc-font-display); font-size:32px; font-weight:600; color:#4FB5B5; letter-spacing:2px; text-transform:uppercase; line-height:1; word-break:break-word;"></div>
+          <div id="cc-pf-handle" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:2px; color:rgba(79,181,181,0.6); margin-top:8px; word-break:break-all;"></div>
         </div>
       </div>
 
       <div id="cc-pf-grid"></div>
       <div class="pf-seclbl">Errungenschaften</div>
       <div id="cc-pf-ach"></div>
-      <div style="margin-top:18px; border-left:3px solid #f0a500; padding:6px 0 6px 14px; background:linear-gradient(90deg,rgba(240,165,0,0.08),transparent);">
-        <span style="font-family:'Orbitron',monospace; font-weight:900; font-size:13px; letter-spacing:2px; color:#f0a500; text-shadow:0 0 10px rgba(240,165,0,0.7);">STATUS:</span>
-        <span id="cc-pf-statustxt" style="font-family:'Share Tech Mono',monospace; font-size:15px; letter-spacing:0.5px; color:#eaf6ff;"></span>
+      <div style="margin-top:18px; border-left:3px solid #C48A4A; padding:6px 0 6px 14px; background:#2B3135;">
+        <span style="font-family:var(--rdoc-font-display); font-weight:600; font-size:13px; letter-spacing:2px; color:#C48A4A;">STATUS:</span>
+        <span id="cc-pf-statustxt" style="font-family:var(--rdoc-font-mono); font-size:15px; letter-spacing:0.5px; color:#F2F2F0;"></span>
       </div>
     </div>
   </div>
 
   <!-- ──── DEBUG ──── -->
-  <div id="cc-dbg" style="position:absolute; bottom:16px; right:16px; z-index:9000; font-family:'Orbitron',monospace; font-size:10px; line-height:1.7; color:rgba(0,212,255,0.85); text-shadow:0 0 8px rgba(0,212,255,0.5); pointer-events:none; width:420px; text-align:right; word-break:break-all; overflow:hidden;">
-    <div style="font-size:10px; letter-spacing:0.3em; color:rgba(240,165,0,0.5); margin-bottom:4px; text-transform:uppercase;">// Alert Debug</div>
+  <div id="cc-dbg" style="position:absolute; bottom:16px; right:16px; z-index:9000; font-family:var(--rdoc-font-display); font-size:10px; line-height:1.7; color:rgba(79,181,181,0.85); pointer-events:none; width:420px; text-align:right; word-break:break-all; overflow:hidden;">
+    <div style="font-size:10px; letter-spacing:0.3em; color:rgba(196,138,74,0.5); margin-bottom:4px; text-transform:uppercase;">// Alert Debug</div>
     <div id="cc-dbg-lines"></div>
   </div>
 
   <!-- ──── LATEST WIDGET (top-left, persistent, cycling) ──── -->
-  <div id="cc-latest" style="position:absolute; top:26px; right:26px; z-index:159; width:354px; background:rgba(4,6,10,0.94); border:1px solid rgba(0,212,255,0.18); border-left:2px solid #00d4ff; padding:13px 16px 14px; pointer-events:none; opacity:0;">
-    <div id="cc-latest-tick" style="position:absolute; top:0; right:0; width:11px; height:11px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
-    <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.012) 3px,rgba(0,212,255,0.012) 4px);"></div>
+  <div id="cc-latest" style="position:absolute; top:26px; right:26px; z-index:159; width:354px; background:rgba(18,20,22,0.94); border:1px solid rgba(79,181,181,0.18); border-left:2px solid #4FB5B5; padding:13px 16px 14px; pointer-events:none; opacity:0;">
+    <div id="cc-latest-tick" style="position:absolute; top:0; right:0; width:11px; height:11px; border-top:1px solid rgba(79,181,181,0.5); border-right:1px solid rgba(79,181,181,0.5);"></div>
+    <!-- scanline texture removed: repeating gradient -->
     <div style="display:flex; align-items:center; gap:14px; position:relative;">
       <div id="cc-latest-avwrap" style="position:relative; width:48px; height:48px; flex-shrink:0;">
-        <img id="cc-latest-av" alt="" style="width:48px; height:48px; object-fit:cover; display:block; border:1px solid rgba(0,212,255,0.6);">
-        <div id="cc-latest-glyph" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:22px; color:#00d4ff; background:#0c1520;">&#10022;</div>
+        <img id="cc-latest-av" alt="" style="width:48px; height:48px; object-fit:cover; display:block; border:1px solid rgba(79,181,181,0.6);">
+        <div id="cc-latest-glyph" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:22px; color:#4FB5B5; background:#2B3135;">&#10022;</div>
       </div>
       <div style="flex:1; min-width:0;">
-        <div id="cc-latest-lbl" style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(0,212,255,0.6); text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:6px;"><span style="opacity:0.5;">//</span><span id="cc-latest-lbltxt">LETZTER FOLLOWER</span></div>
-        <div id="cc-latest-name" style="font-family:'Rajdhani',sans-serif; font-weight:700; font-size:23px; line-height:1; letter-spacing:1px; color:#00d4ff; text-shadow:0 0 10px rgba(0,212,255,0.4); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
-        <div id="cc-latest-sub" style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:1.5px; color:rgba(200,220,232,0.45); margin-top:3px; min-height:13px;"></div>
+        <div id="cc-latest-lbl" style="font-family:var(--rdoc-font-mono); font-size:9px; letter-spacing:3px; color:rgba(79,181,181,0.6); text-transform:uppercase; margin-bottom:4px; display:flex; align-items:center; gap:6px;"><span style="opacity:0.5;">//</span><span id="cc-latest-lbltxt">LETZTER FOLLOWER</span></div>
+        <div id="cc-latest-name" style="font-family:var(--rdoc-font-text); font-weight:600; font-size:23px; line-height:1; letter-spacing:1px; color:#4FB5B5; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">—</div>
+        <div id="cc-latest-sub" style="font-family:var(--rdoc-font-mono); font-size:10px; letter-spacing:1.5px; color:rgba(118,130,141,0.45); margin-top:3px; min-height:13px;"></div>
       </div>
     </div>
     <div id="cc-latest-dots" style="display:flex; gap:5px; margin-top:11px; position:relative;"></div>
@@ -355,34 +390,34 @@
 
   <!-- ──── COMPACT ALERTS (top-right, minor events) ──── -->
   <div id="cc-compact" style="position:absolute; top:26px; right:26px; z-index:160; width:440px; pointer-events:none; opacity:0;">
-    <div id="cc-compact-card" style="position:relative; background:rgba(0,0,0,0.9); border:1px solid rgba(0,212,255,0.4); border-left:3px solid #00d4ff; padding:15px 18px 16px;">
-      <div id="cc-compact-ctr" style="position:absolute; top:0; right:0; width:12px; height:12px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
-      <div style="position:absolute; inset:0; pointer-events:none; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,0.012) 3px,rgba(0,212,255,0.012) 4px);"></div>
+    <div id="cc-compact-card" style="position:relative; background:rgba(18,20,22,0.9); border:1px solid rgba(79,181,181,0.4); border-left:3px solid #4FB5B5; padding:15px 18px 16px;">
+      <div id="cc-compact-ctr" style="position:absolute; top:0; right:0; width:12px; height:12px; border-top:1px solid rgba(79,181,181,0.5); border-right:1px solid rgba(79,181,181,0.5);"></div>
+      <!-- scanline texture removed: repeating gradient -->
       <!-- scan sweep on reveal -->
-      <div id="cc-compact-sweep" style="position:absolute; left:0; right:0; top:0; height:40%; background:linear-gradient(to bottom,rgba(0,212,255,0.14),transparent); pointer-events:none; opacity:0;"></div>
+      <div id="cc-compact-sweep" style="position:absolute; left:0; right:0; top:0; height:40%; background:#2B3135; pointer-events:none; opacity:0;"></div>
       <div style="display:flex; align-items:center; gap:15px; position:relative;">
         <div id="cc-compact-avwrap" style="position:relative; width:54px; height:54px; flex-shrink:0; display:none;">
-          <img id="cc-compact-av" alt="" style="width:54px; height:54px; object-fit:cover; display:block; border:1px solid #00d4ff;">
+          <img id="cc-compact-av" alt="" style="width:54px; height:54px; object-fit:cover; display:block; border:1px solid #4FB5B5;">
         </div>
         <div style="flex:1; min-width:0;">
-          <div id="cc-compact-lbl" style="font-family:'Share Tech Mono',monospace; font-size:10px; letter-spacing:4px; color:#f0a500; text-shadow:0 0 8px rgba(240,165,0,0.7); text-transform:uppercase; margin-bottom:5px; display:flex; align-items:center; gap:8px;"><span id="cc-compact-diamond" style="display:inline-block; width:6px; height:6px; background:#f0a500; transform:rotate(45deg); flex-shrink:0;"></span><span id="cc-compact-lbltxt"></span></div>
-          <div id="cc-compact-name" style="font-family:'Orbitron',monospace; font-weight:900; font-size:24px; line-height:1; letter-spacing:1px; color:#00d4ff; text-shadow:0 0 12px rgba(0,212,255,0.7); text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
-          <div id="cc-compact-msg" style="font-family:'Share Tech Mono',monospace; font-size:11px; letter-spacing:1px; color:#cce8f0; line-height:1.4; text-transform:uppercase; margin-top:6px;"></div>
+          <div id="cc-compact-lbl" style="font-family:var(--rdoc-font-mono); font-size:10px; letter-spacing:4px; color:#C48A4A; text-transform:uppercase; margin-bottom:5px; display:flex; align-items:center; gap:8px;"><span id="cc-compact-diamond" style="display:inline-block; width:6px; height:6px; background:#C48A4A; transform:rotate(45deg); flex-shrink:0;"></span><span id="cc-compact-lbltxt"></span></div>
+          <div id="cc-compact-name" style="font-family:var(--rdoc-font-display); font-weight:600; font-size:24px; line-height:1; letter-spacing:1px; color:#4FB5B5; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"></div>
+          <div id="cc-compact-msg" style="font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:1px; color:#F2F2F0; line-height:1.4; text-transform:uppercase; margin-top:6px;"></div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- ──── GW JOIN ──── -->
-  <div id="cc-gwjoin" style="position:absolute; bottom:16px; left:16px; z-index:9000; font-family:'Orbitron',monospace; font-size:11px; line-height:1.7; color:rgba(0,212,255,0.9); text-shadow:0 0 8px rgba(0,212,255,0.5); pointer-events:none; width:420px; text-align:left; word-break:break-all; overflow:hidden; opacity:0; transition:opacity 0.4s;">
-    <div style="font-size:10px; letter-spacing:0.3em; color:rgba(240,165,0,0.6); margin-bottom:4px; text-transform:uppercase;">// Giveaway Joins</div>
+  <div id="cc-gwjoin" style="position:absolute; bottom:16px; left:16px; z-index:9000; font-family:var(--rdoc-font-display); font-size:11px; line-height:1.7; color:rgba(79,181,181,0.9); pointer-events:none; width:420px; text-align:left; word-break:break-all; overflow:hidden; opacity:0; transition:opacity 0.4s;">
+    <div style="font-size:10px; letter-spacing:0.3em; color:rgba(196,138,74,0.6); margin-bottom:4px; text-transform:uppercase;">// Giveaway Joins</div>
     <div id="cc-gwjoin-lines"></div>
   </div>
 
   <!-- ──── DEMO PANEL ──── -->
-  <div id="cc-demo" style="position:absolute; top:50%; left:20px; transform:translateY(-50%); z-index:8000; background:rgba(4,6,10,0.96); border:1px solid rgba(0,212,255,0.3); padding:14px; display:flex; flex-direction:column; gap:10px; width:236px; opacity:0; pointer-events:none; transition:opacity 0.3s;">
-    <div style="position:absolute; top:0; right:0; width:10px; height:10px; border-top:1px solid rgba(0,212,255,0.5); border-right:1px solid rgba(0,212,255,0.5);"></div>
-    <div style="font-family:'Share Tech Mono',monospace; font-size:9px; letter-spacing:3px; color:rgba(0,212,255,0.55); text-transform:uppercase; border-bottom:1px solid rgba(0,212,255,0.15); padding-bottom:9px;">// DEMO – EVENTS TESTEN</div>
+  <div id="cc-demo" style="position:absolute; top:50%; left:20px; transform:translateY(-50%); z-index:8000; background:rgba(18,20,22,0.96); border:1px solid rgba(79,181,181,0.3); padding:14px; display:flex; flex-direction:column; gap:10px; width:236px; opacity:0; pointer-events:none; transition:opacity 0.3s;">
+    <div style="position:absolute; top:0; right:0; width:10px; height:10px; border-top:1px solid rgba(79,181,181,0.5); border-right:1px solid rgba(79,181,181,0.5);"></div>
+    <div style="font-family:var(--rdoc-font-mono); font-size:9px; letter-spacing:3px; color:rgba(79,181,181,0.55); text-transform:uppercase; border-bottom:1px solid rgba(79,181,181,0.15); padding-bottom:9px;">// DEMO – EVENTS TESTEN</div>
     <div id="cc-demo-btns" style="display:grid; grid-template-columns:1fr 1fr; gap:6px;"></div>
   </div>
 
@@ -595,7 +630,7 @@ class CCOverlay {
 
   fireworks(color) {
     // multiple bursts across upper area
-    const cols = Array.isArray(color) ? color : [color, '#f0a500', '#00d4ff'];
+    const cols = Array.isArray(color) ? color : [color, '#C48A4A', '#4FB5B5'];
     let n = 0;
     const launch = () => {
       if (n >= 6) return;
@@ -611,7 +646,7 @@ class CCOverlay {
   // ──────────────── INCOMING FLEET (raid) ────────────────
   launchFleet(opts = {}) {
     const cx = 960, cy = 470;
-    const color = opts.color || '#ff4444';
+    const color = opts.color || '#EE6E76';
     const count = opts.count || 6;
     this.fleet = { t0: performance.now(), dur: opts.dur || 9000, color, cx, cy };
     // warp streak field rushing outward from a vanishing point
@@ -685,7 +720,7 @@ class CCOverlay {
         ctx.globalAlpha = a * 0.5 * p;
         const grd = ctx.createRadialGradient(x, y, 0, x, y, h * 0.6);
         grd.addColorStop(0, this.hexGlow(f.color, 0.5));
-        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        grd.addColorStop(1, 'rgba(18,20,22,0)');
         ctx.fillStyle = grd;
         ctx.beginPath(); ctx.arc(x, y, h * 0.6, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
@@ -720,7 +755,7 @@ class CCOverlay {
     ctx.lineTo(-15, -34);
     ctx.bezierCurveTo(-11, -64, -7, -96, 0, -128);
     ctx.closePath();
-    ctx.fillStyle = '#05080d';
+    ctx.fillStyle = '#121416';
     ctx.shadowBlur = 28; ctx.shadowColor = color;
     ctx.fill();
     ctx.lineWidth = 1.4; ctx.strokeStyle = color; ctx.shadowBlur = 15;
@@ -743,7 +778,7 @@ class CCOverlay {
       ctx.lineTo(dir * 44, 22);
       ctx.lineTo(dir * 20, 14);
       ctx.closePath();
-      ctx.fillStyle = '#05080d'; ctx.fill();
+      ctx.fillStyle = '#121416'; ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = rim; ctx.stroke();
     });
 
@@ -760,7 +795,7 @@ class CCOverlay {
       ctx.moveTo(baseX, 44);
       ctx.bezierCurveTo(baseX * 1.4, 84, kneeX, 120, tipX + wob, 196 + Math.abs(f) * 26);
       ctx.lineWidth = 6.5 - Math.abs(f) * 5;
-      ctx.strokeStyle = '#05080d'; ctx.stroke();      // dark body
+      ctx.strokeStyle = '#121416'; ctx.stroke();      // dark body
       ctx.lineWidth = 1; ctx.strokeStyle = rim; ctx.stroke(); // rim glow
     }
 
@@ -802,11 +837,11 @@ class CCOverlay {
 
   // ──────────────── DEBUG ────────────────
   dbg(msg, type = 'info') {
-    const colors = { info: 'rgba(0,212,255,0.85)', ok: '#4ade80', warn: '#f5c518', err: '#f87171' };
+    const colors = { info: 'rgba(79,181,181,0.85)', ok: '#63C271', warn: '#EBCF52', err: '#EE6E76' };
     const prefix = { info: '●', ok: '✓', warn: '⚠', err: '✗' };
     const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const line = document.createElement('div');
-    line.style.cssText = `color:${colors[type]};text-shadow:0 0 6px ${colors[type]}40;`;
+    line.style.cssText = `color:${colors[type]};}40;`;
     line.textContent = `${time}  ${prefix[type]}  ${msg}`;
     this.els.dbgLines.appendChild(line);
     while (this.els.dbgLines.children.length > 10) this.els.dbgLines.removeChild(this.els.dbgLines.firstChild);
@@ -832,19 +867,19 @@ class CCOverlay {
     const reward = (data.reward || data.rewardName || '').toLowerCase().trim();
     const level = parseInt(data.level || 1, 10);
     const recipient = data.recipient || data.recipientDisplayName || data.recipientUserName || '';
-    const H = (s) => `<span style="color:#f0a500;text-shadow:0 0 8px rgba(240,165,0,0.7);">${s}</span>`;
+    const H = (s) => `<span style="color:#C48A4A;">${s}</span>`;
 
     switch (type) {
       case 'follow':
-        return { label: 'NEUES CREWMITGLIED', user, userFont: 'bebas', userColor: '#00d4ff',
+        return { label: 'NEUES CREWMITGLIED', user, userFont: 'bebas', userColor: '#4FB5B5',
           msg: `${H(user)} ist der Chaos Crew beigetreten.<br>Willkommen im Team der Chaoten!`,
           avatar, sound: 'snd-follow', frame: 'cyan', glow: '0,212,255',
-          fx: 'burst', fxColor: ['#00d4ff', '#7fe9ff'], duration: 6500 };
+          fx: 'burst', fxColor: ['#4FB5B5', '#4FB5B5'], duration: 6500 };
 
       case 'sub': {
         const high = (tier === '2000' || tier === '3000');
         return { label: high ? 'TIER ' + (tier === '2000' ? '2' : '3') + ' ABO' : 'NEUES ABONNEMENT',
-          user, userFont: 'orbitron', userColor: '#f0a500',
+          user, userFont: 'orbitron', userColor: '#C48A4A',
           msg: high ? `Danke ${H(user)}!<br>Scheiß aufs Tanken – wir kaufen ein neues Schiff.`
             : `${H(user)} sichert die Nachschublinien.<br>Wir können wieder tanken!`,
           avatar, sound: 'snd-sub', frame: 'gold', glow: '240,165,0', glitch: true, duration: 7000 };
@@ -855,15 +890,15 @@ class CCOverlay {
         const badge = this.monthsBadge(months);
         const isMs = this.MILESTONES.includes(months);
         return { label: isMs ? '⭐ MEILENSTEIN' : '⟳ TREUER CREWMANN',
-          user, userFont: 'orbitron', userColor: '#f0a500',
+          user, userFont: 'orbitron', userColor: '#C48A4A',
           msg: high ? `${H(user)} bleibt dabei – Tier ${tier === '2000' ? '2' : '3'}!`
             : `${H(user)} ist weiterhin an Bord.${months >= 2 ? '<br>' + H(months + ' Monate') + ' Dienst für die Crew.' : ''}`,
           avatar, stat: badge, sound: isMs ? 'snd-bomb' : 'snd-sub', frame: 'gold', glow: '240,165,0',
-          glitch: isMs, fx: isMs ? 'fireworks' : null, fxColor: ['#f0a500', '#00d4ff', '#fff'], duration: 7500 };
+          glitch: isMs, fx: isMs ? 'fireworks' : null, fxColor: ['#C48A4A', '#4FB5B5', '#F2F2F0'], duration: 7500 };
       }
 
       case 'bits': case 'cheer':
-        return { label: 'BITS EINGETROFFEN', user, userFont: 'orbitron', userColor: '#f0a500',
+        return { label: 'BITS EINGETROFFEN', user, userFont: 'orbitron', userColor: '#C48A4A',
           msg: `${H(user)} lässt ${H(amount + ' Bits')} in der Kaffeekasse.<br>Das hält die Crew wach.`,
           avatar, stat: { num: amount, lbl: 'BITS', count: true }, sound: 'snd-bits',
           frame: 'gold', glow: '240,165,0', duration: 7000 };
@@ -871,26 +906,26 @@ class CCOverlay {
       case 'subgift':
         // Einzelnes Gift-Sub: Schenker → Empfänger. amount>1 wäre eine Bombe → fällt unten durch.
         if (amount <= 1 && recipient) {
-          return { label: '🎁 ABO VERSCHENKT', user, userFont: 'orbitron', userColor: '#f0a500',
+          return { label: '🎁 ABO VERSCHENKT', user, userFont: 'orbitron', userColor: '#C48A4A',
             msg: `${H(user)} schenkt ${H(recipient)} ein Abo.<br>Willkommen an Bord, Crewmann!`,
             avatar, sound: 'snd-sub', frame: 'gold', glow: '240,165,0', duration: 7000 };
         }
         // fällt durch zu Bombe (Mehrfach-Gift ohne Empfänger)
       case 'subbomb': case 'giftbomb':
-        return { label: '⚡ SUBBOMBE EINGESCHLAGEN', user, userFont: 'orbitron', userColor: '#f0a500',
+        return { label: '⚡ SUBBOMBE EINGESCHLAGEN', user, userFont: 'orbitron', userColor: '#C48A4A',
           msg: `${H(user)} versorgt die Flotte mit<br>${H('+' + amount + ' Subs')} — Stärke gesteigert!`,
           avatar, avatarLarge: true, stat: { num: '+' + amount, lbl: 'SUBS' }, sound: 'snd-bomb',
-          frame: 'gold', glow: '240,165,0', entrance: 'pop', fx: 'fireworks', fxColor: ['#f0a500', '#ffd060', '#fff'], duration: 9000 };
+          frame: 'gold', glow: '240,165,0', entrance: 'pop', fx: 'fireworks', fxColor: ['#C48A4A', '#EBCF52', '#F2F2F0'], duration: 9000 };
 
       case 'raid':
-        return { label: '\u{1F6A8} ALARM — EINGEHENDER RAID', user, userFont: 'orbitron', userColor: '#ff6b6b',
+        return { label: '\u{1F6A8} ALARM — EINGEHENDER RAID', user, userFont: 'orbitron', userColor: '#EE6E76',
           msg: `${H(user)} führt ${H(amount + ' Piloten')} in den Angriff!<br>SHIELDS HOCH. ALLE MANN AN DIE GESCHÜTZE!`,
           avatar, avatarLarge: true, stat: { num: amount, lbl: 'RAIDER', count: true }, sound: 'snd-raid',
-          frame: 'raid', glow: '255,68,68', entrance: 'slam', fleet: true, flash: 'rgba(200,0,0,0.42)', flashCount: 6, flashOn: 80, flashOff: 100,
-          fx: 'burst', fxColor: ['#ff4444', '#ff8888'], duration: 10000 };
+          frame: 'raid', glow: '255,68,68', entrance: 'slam', fleet: true, flash: 'rgba(238,110,118,0.42)', flashCount: 6, flashOn: 80, flashOff: 100,
+          fx: 'burst', fxColor: ['#EE6E76', '#EE6E76'], duration: 10000 };
 
       case 'outraid':
-        return { label: '\u{1F680} RAID GESTARTET', user, userFont: 'orbitron', userColor: '#00d4ff',
+        return { label: '\u{1F680} RAID GESTARTET', user, userFont: 'orbitron', userColor: '#4FB5B5',
           msg: `Die Chaos Crew verlässt die Station.<br>Kurs: ${H(user)} — ${H('Quantum Jump')} initiiert.`,
           avatar, stat: { num: amount, lbl: 'PILOTEN', count: true }, sound: 'snd-outraid',
           frame: 'cyan', glow: '0,212,255', duration: 7000 };
@@ -900,23 +935,23 @@ class CCOverlay {
         const msgs = ['', 'Die Triebwerke werden warm.', 'Wir beschleunigen — Vollgas!', 'Quantenantrieb aktiv!',
           'Wir brechen die Schallmauer!', 'MAXIMALE ENERGIE — CHAOS PUR!'];
         const lv = Math.min(Math.max(level, 1), 5);
-        return { label: labels[lv], user: '— CHAOS CREW —', userFont: 'orbitron', userColor: '#00ff88',
+        return { label: labels[lv], user: '— CHAOS CREW —', userFont: 'orbitron', userColor: '#63C271',
           msg: `${H('Level ' + lv)} erreicht!<br>${msgs[lv]}`,
           stat: { num: 'LVL ' + lv, lbl: 'HYPE' }, sound: 'snd-hype', frame: 'green', glow: '0,255,136',
-          shake: lv >= 3, glitch: lv >= 4, fx: lv === 5 ? 'fireworks' : null, fxColor: ['#00ff88', '#00d4ff'],
+          shake: lv >= 3, glitch: lv >= 4, fx: lv === 5 ? 'fireworks' : null, fxColor: ['#63C271', '#4FB5B5'],
           duration: lv === 5 ? 9500 : 7000 };
       }
 
       case 'streamstart':
-        return { label: 'MISSION GESTARTET', user: 'CHAOS CREW', userFont: 'orbitron', userColor: '#00d4ff',
+        return { label: 'MISSION GESTARTET', user: 'CHAOS CREW', userFont: 'orbitron', userColor: '#4FB5B5',
           msg: `Alle Systeme online. Besatzung – ${H('Stationen einnehmen.')}<br>Der Stream ist heiß. Let's fly.`,
           sound: 'snd-follow', frame: 'cyan', glow: '0,212,255', duration: 8000 };
 
       case 'alert':
-        return { label: '\u{1F6A8} RED ALERT — SIRENE', user, userFont: 'orbitron', userColor: '#ff6b6b',
+        return { label: '\u{1F6A8} RED ALERT — SIRENE', user, userFont: 'orbitron', userColor: '#EE6E76',
           msg: `${H(user)} hat Alarmstufe Rot ausgelöst.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
           avatar, sound: 'snd-alert', frame: 'raid', glow: '255,68,68', glitch: true,
-          flash: 'rgba(200,0,0,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#ff4444'], duration: 6000 };
+          flash: 'rgba(238,110,118,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#EE6E76'], duration: 6000 };
 
       case 'redeem': return this.buildRedeem(reward, data, user, avatar, H);
 
@@ -929,35 +964,35 @@ class CCOverlay {
       'erschreck den streamer. alarm!': { label: '\u{1F6A8} RED ALERT — SIRENE',
         msg: `${H(user)} hat Alarmstufe Rot ausgelöst.<br>${H('Alle Mann auf Gefechtsstationen!')}`,
         sound: 'snd-alert', frame: 'raid', glow: '255,68,68', glitch: true,
-        flash: 'rgba(200,0,0,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#ff4444', '#ff8888'] },
-      'mach ein selfie und poste es sofort': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
+        flash: 'rgba(238,110,118,0.42)', flashCount: 5, fx: 'burst', fxColor: ['#EE6E76', '#EE6E76'] },
+      'mach ein selfie und poste es sofort': { label: 'CREW-BEFEHL', userColor: '#4FB5B5',
         msg: `${H(user)} hat gesprochen.<br>Kamera drauf, Selfie raus – ${H('sofort.')}`,
         sound: 'snd-selfie', frame: 'cyan', glow: '0,212,255',
-        flash: 'rgba(255,255,255,0.55)', flashCount: 2, flashOn: 60, flashOff: 90, fx: 'burst', fxColor: ['#ffffff', '#cce8f0'] },
-      'mach kamera aus!': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
+        flash: 'rgba(242,242,240,0.55)', flashCount: 2, flashOn: 60, flashOff: 90, fx: 'burst', fxColor: ['#F2F2F0', '#F2F2F0'] },
+      'mach kamera aus!': { label: 'CREW-BEFEHL', userColor: '#4FB5B5',
         msg: `${H(user)} möchte Privatsphäre.<br>Kamera aus. ${H('Befehl ausgeführt.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
-      'paulcontent': { label: 'ANFORDERUNG', userColor: '#f0a500',
+      'paulcontent': { label: 'ANFORDERUNG', userColor: '#C48A4A',
         msg: `${H(user)} fordert ${H('PAULCONTENT')}.<br>Die Crew wartet. Paul – dein Einsatz.`,
         sound: 'snd-redeem', frame: 'gold', glow: '240,165,0', glitch: true,
-        flash: 'rgba(240,165,0,0.3)', flashCount: 3, fx: 'burst', fxColor: ['#f0a500', '#ffd060'] },
-      'rip': { label: 'VERLUSTE GEMELDET', userColor: '#ff6b6b',
+        flash: 'rgba(196,138,74,0.3)', flashCount: 3, fx: 'burst', fxColor: ['#C48A4A', '#EBCF52'] },
+      'rip': { label: 'VERLUSTE GEMELDET', userColor: '#EE6E76',
         msg: `${H(user)} hat RIP gedrückt.<br>Möge der Respawn gnädig sein. ${H('o7')}`,
         sound: 'snd-rip', frame: 'raid', glow: '255,68,68',
-        flash: 'rgba(120,0,0,0.5)', flashCount: 3, flashOn: 200, flashOff: 120 },
-      'trink was bitte': { label: 'VERSORGUNGSBEFEHL', userColor: '#00d4ff',
+        flash: 'rgba(238,110,118,0.5)', flashCount: 3, flashOn: 200, flashOff: 120 },
+      'trink was bitte': { label: 'VERSORGUNGSBEFEHL', userColor: '#4FB5B5',
         msg: `${H(user)} befiehlt Flüssigkeitszufuhr.<br>${H('Trinken. Jetzt. Das ist ein Befehl.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
-      'was macht antje': { label: 'CREW-NACHFRAGE', userColor: '#00d4ff',
+      'was macht antje': { label: 'CREW-NACHFRAGE', userColor: '#4FB5B5',
         msg: `${H(user)} fragt nach Antje.<br>Navigationsoffizierin – ${H('bitte melden!')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
-      'zieh mütze aus': { label: 'CREW-BEFEHL', userColor: '#00d4ff',
+      'zieh mütze aus': { label: 'CREW-BEFEHL', userColor: '#4FB5B5',
         msg: `${H(user)} besteht auf Kopffreiheit.<br>${H('Mütze ab. Respekt zeigen.')}`,
         sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255' },
     };
     const cfg = REWARDS[reward];
     if (!cfg) {
-      return { label: 'CHANNEL REWARD', user, userFont: 'orbitron', userColor: '#00d4ff',
+      return { label: 'CHANNEL REWARD', user, userFont: 'orbitron', userColor: '#4FB5B5',
         msg: `${H(user)} hat einen Reward eingelöst:<br>${H(data.reward || data.rewardName || '???')}`,
         avatar, sound: 'snd-redeem', frame: 'cyan', glow: '0,212,255', duration: 6000 };
     }
@@ -1019,15 +1054,15 @@ class CCOverlay {
     E.lbl.textContent = cfg.label;
     const orb = cfg.userFont === 'orbitron';
     E.user.textContent = '';
-    E.user.style.fontFamily = orb ? "'Orbitron',monospace" : "'Bebas Neue',sans-serif";
+    E.user.style.fontFamily = 'var(--rdoc-font-display)';
     E.user.style.fontSize = orb ? '48px' : '66px';
     E.user.style.fontWeight = orb ? '900' : '400';
-    E.user.style.color = cfg.userColor || '#00d4ff';
-    E.user.style.textShadow = `0 0 15px ${this.hexGlow(cfg.userColor)},0 0 40px ${this.hexGlow(cfg.userColor, 0.3)}`;
-    E.diamond.style.background = cfg.userColor === '#ff6b6b' ? '#ff4444' : (cfg.frame === 'green' ? '#00ff88' : '#f0a500');
+    E.user.style.color = cfg.userColor || '#4FB5B5';
+    E.diamond.style.background = cfg.userColor === '#EE6E76' ? '#EE6E76' : (cfg.frame === 'green' ? '#63C271' : '#C48A4A');
     E.msg.innerHTML = cfg.msg || '';
     E.msg.style.animation = 'none';
-    E.glow.style.background = `radial-gradient(ellipse,rgba(${cfg.glow || '0,212,255'},0.2),transparent 70%)`;
+    // Glow is out of the identity; cfg.glow is still read by the
+    // fleet canvas below, so the field itself stays.
 
     // avatar
     if (cfg.avatar) {
@@ -1102,7 +1137,7 @@ class CCOverlay {
         }, 220);
       }
       // incoming fleet (raid)
-      if (cfg.fleet) this.launchFleet({ color: '#ff4444', count: 6, dur: (cfg.duration || 10000) - 1200 });
+      if (cfg.fleet) this.launchFleet({ color: '#EE6E76', count: 6, dur: (cfg.duration || 10000) - 1200 });
 
       // exit
       setTimeout(() => this.hideAlert(), cfg.duration || this.SHOW_MS);
@@ -1141,12 +1176,12 @@ class CCOverlay {
   }
 
   hexGlow(color, a = 0.9) {
-    if (!color) return `rgba(0,212,255,${a})`;
-    if (color === '#00d4ff') return `rgba(0,212,255,${a})`;
-    if (color === '#f0a500') return `rgba(240,165,0,${a})`;
-    if (color === '#ff6b6b') return `rgba(255,68,68,${a})`;
-    if (color === '#00ff88') return `rgba(0,255,136,${a})`;
-    return `rgba(0,212,255,${a})`;
+    if (!color) return `rgba(79,181,181,${a})`;
+    if (color === '#4FB5B5') return `rgba(79,181,181,${a})`;
+    if (color === '#C48A4A') return `rgba(196,138,74,${a})`;
+    if (color === '#EE6E76') return `rgba(238,110,118,${a})`;
+    if (color === '#63C271') return `rgba(99,194,113,${a})`;
+    return `rgba(79,181,181,${a})`;
   }
 
   // ──────────────── SHOUTOUT ────────────────
@@ -1179,7 +1214,7 @@ class CCOverlay {
 
     // Shoutout spielt bewusst KEINEN Ton.
     // backdrop
-    E.soBg.style.background = 'rgba(0,0,0,0.84)';
+    E.soBg.style.background = 'rgba(18,20,22,0.84)';
     // scan beam right -> left
     E.soBeam.style.transition = 'none'; E.soBeam.style.right = '-4px'; E.soBeam.style.opacity = '1';
     void E.soBeam.offsetWidth;
@@ -1209,7 +1244,7 @@ class CCOverlay {
     E.soPanel.style.animation = 'ccSoPanelOut 0.5s ease-in forwards';
     E.soHdr.style.opacity = '0'; E.soBigName.style.opacity = '0'; E.soBigUrl.style.opacity = '0';
     setTimeout(() => {
-      E.soBg.style.background = 'rgba(0,0,0,0)';
+      E.soBg.style.background = 'rgba(18,20,22,0)';
       setTimeout(() => {
         E.so.style.opacity = '0';
         E.soPanel.style.animation = 'none';
@@ -1373,7 +1408,7 @@ class CCOverlay {
 
   showResubFs(data, isMs) {
     const E = this.els;
-    const H = (s) => `<span style="color:#f0a500;text-shadow:0 0 10px rgba(240,165,0,0.7);">${s}</span>`;
+    const H = (s) => `<span style="color:#C48A4A;">${s}</span>`;
     const user = (data.user || data.userName || data.displayName || '???');
     const avatar = data.avatar || data.profileImageUrl || '';
     const m = parseInt(data.months || data.cumulativeMonths || 0, 10);
@@ -1385,17 +1420,17 @@ class CCOverlay {
     E.rfsMsg.innerHTML = isMs ? this.msMsg(user, m, H) : this.resubMsg(user, m, H);
     if (avatar) { E.rfsAv.src = avatar; E.rfsAv.style.visibility = 'visible'; } else { E.rfsAv.style.visibility = 'hidden'; }
 
-    this.flash(isMs ? 'rgba(240,165,0,0.3)' : 'rgba(0,180,255,0.32)', isMs ? 5 : 3, () => {
-      E.rfs.style.background = 'rgba(0,0,0,0.82)';
+    this.flash(isMs ? 'rgba(196,138,74,0.3)' : 'rgba(79,181,181,0.32)', isMs ? 5 : 3, () => {
+      E.rfs.style.background = 'rgba(18,20,22,0.82)';
       E.rfs.style.opacity = '1';
-      if (isMs) setTimeout(() => this.fireworks(['#f0a500', '#00d4ff', '#fff']), 200);
+      if (isMs) setTimeout(() => this.fireworks(['#C48A4A', '#4FB5B5', '#F2F2F0']), 200);
     });
 
     if (this.rfsTimer) clearTimeout(this.rfsTimer);
     this.rfsTimer = setTimeout(() => {
       E.rfs.style.transition = 'opacity 0.8s ease';
       E.rfs.style.opacity = '0';
-      setTimeout(() => { E.rfs.style.background = 'rgba(0,0,0,0)'; E.rfs.style.transition = 'opacity 0.6s ease'; }, 850);
+      setTimeout(() => { E.rfs.style.background = 'rgba(18,20,22,0)'; E.rfs.style.transition = 'opacity 0.6s ease'; }, 850);
     }, dur);
   }
 
@@ -1428,18 +1463,17 @@ class CCOverlay {
   showCompact(cfg) {
     const E = this.els;
     if (this.latestRunning) this.hideLatestSession();
-    const accent = cfg.userColor || '#00d4ff';
+    const accent = cfg.userColor || '#4FB5B5';
     const glow = this.hexGlow(accent);
     E.compactCard.style.borderLeftColor = accent;
     E.compactCard.style.borderColor = this.hexGlow(accent, 0.4);
     E.compactCtr.style.borderTopColor = this.hexGlow(accent, 0.5);
     E.compactCtr.style.borderRightColor = this.hexGlow(accent, 0.5);
-    E.compactDiamond.style.background = cfg.frame === 'raid' ? '#ff4444' : '#f0a500';
+    E.compactDiamond.style.background = cfg.frame === 'raid' ? '#EE6E76' : '#C48A4A';
     E.compactLbl.textContent = cfg.label;
     E.compactName.style.color = accent;
-    E.compactName.style.textShadow = `0 0 12px ${glow}`;
     E.compactMsg.innerHTML = cfg.msg || '';
-    E.compactSweep.style.background = `linear-gradient(to bottom,${this.hexGlow(accent, 0.16)},transparent)`;
+    E.compactSweep.style.background = this.hexGlow(accent, 0.12);
 
     if (cfg.avatar) {
       E.compactAv.src = cfg.avatar;
@@ -1491,10 +1525,10 @@ class CCOverlay {
     this.latest = { follower: null, sub: null, resub: null, giftsub: null };
     this.latestOrder = ['follower', 'sub', 'resub', 'giftsub'];
     this.latestMeta = {
-      follower: { label: 'LETZTER FOLLOWER', accent: '#00d4ff', glyph: '✦' },
-      sub: { label: 'LETZTES ABO', accent: '#f0a500', glyph: '★' },
-      resub: { label: 'LETZTER RESUB', accent: '#f0a500', glyph: '⟳' },
-      giftsub: { label: 'LETZTER GIFT-SUB', accent: '#f0a500', glyph: '♦' },
+      follower: { label: 'LETZTER FOLLOWER', accent: '#4FB5B5', glyph: '✦' },
+      sub: { label: 'LETZTES ABO', accent: '#C48A4A', glyph: '★' },
+      resub: { label: 'LETZTER RESUB', accent: '#C48A4A', glyph: '⟳' },
+      giftsub: { label: 'LETZTER GIFT-SUB', accent: '#C48A4A', glyph: '♦' },
     };
     // seed demo defaults so a session has content
     this.latest.follower = { name: 'NOVA_PILOT', avatar: '' };
@@ -1581,7 +1615,7 @@ class CCOverlay {
     avail.forEach((k, i) => {
       const dot = document.createElement('div');
       const active = k === key;
-      dot.style.cssText = `height:3px; width:${active ? 22 : 9}px; background:${active ? meta.accent : 'rgba(0,212,255,0.2)'}; transition:width 0.3s, background 0.3s; box-shadow:${active ? '0 0 8px ' + this.hexGlow(meta.accent, 0.6) : 'none'};`;
+      dot.style.cssText = `height:3px; width:${active ? 22 : 9}px; background:${active ? meta.accent : 'rgba(79,181,181,0.2)'}; transition:width 0.3s, background 0.3s;'0 0 8px ' + this.hexGlow(meta.accent, 0.6) : 'none'};`;
       E.latestDots.appendChild(dot);
     });
   }
@@ -1595,7 +1629,7 @@ class CCOverlay {
     this.gwSeen.add(u);
     const time = new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const line = document.createElement('div');
-    line.innerHTML = `${time}  <span style="color:#4ade80;">✓</span>  <span style="color:#f0a500;text-shadow:0 0 6px rgba(240,165,0,0.5)">${user}</span> ist eingetragen`;
+    line.innerHTML = `${time}  <span style="color:#63C271;">✓</span>  <span style="color:#C48A4A;">${user}</span> ist eingetragen`;
     this.els.gwjoinLines.insertBefore(line, this.els.gwjoinLines.firstChild);
     while (this.els.gwjoinLines.children.length > 12) this.els.gwjoinLines.removeChild(this.els.gwjoinLines.lastChild);
     this.els.gwjoin.style.opacity = '1';

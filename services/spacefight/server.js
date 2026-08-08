@@ -99,6 +99,13 @@ function broadcastAll(obj) {
   }
 }
 
+function hasOverlay() {
+  for (const [, c] of clients) {
+    if (c.role === 'spacefight-overlay' && c.ws.readyState === WebSocket.OPEN) return true;
+  }
+  return false;
+}
+
 function broadcastClients() {
   const list = [...clients.entries()].map(([id, c]) => ({
     id, role: c.role || 'unbekannt', ip: c.ip, connectedAt: c.connectedAt, msgCount: c.msgCount,
@@ -278,6 +285,22 @@ function subscribeToSpacefight() {
       case 'fight_cmd': {
         const gameActive = await redis.get(SF_GAME_ACTIVE) === 'true';
         if (!gameActive) break;
+        // The overlay is the only thing that runs the fight and the only
+        // producer of spacefight_result. With no overlay connected a
+        // fight_cmd used to vanish silently: chat had already announced
+        // the challenge, then nothing happened and nothing was saved.
+        // Say so instead of going quiet.
+        if (!hasOverlay()) {
+          const a = msg.attacker || '';
+          logErr('SF', 'fight_cmd dropped: no spacefight-overlay connected');
+          if (a) {
+            redisPub.publish('ch:chat_reply', JSON.stringify({
+              event: 'chat_reply',
+              message: `@${a} Hangar offline \u2014 die Kampfanzeige ist nicht verbunden. Der Kampf f\u00e4llt aus. \ud83d\udee0`,
+            }));
+          }
+          break;
+        }
         broadcastAll(msg);
         break;
       }

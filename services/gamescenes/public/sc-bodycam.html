@@ -1,14 +1,34 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SC Bodycam Overlay</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+<title>RDOC – SC Bodycam</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="rdoc-brand.css">
 <style>
-:root { --cyan:#00d4ff; --text:#c8dce8; }
+/* ────────────────────────────────────────────────────────────
+   RDOC – Bodycam scene transition (gamescenes)
+
+   Brand layer: rdoc-brand.css above; data-theme="dark" keeps an
+   OBS light preference from flipping the tokens.
+
+   Strict brand pass: the scanline layer and the vignette were a
+   repeating-linear-gradient and a radial-gradient, so both are
+   gone. The elements stay in the DOM as no-ops because the
+   script toggles them by id and would throw on null.
+
+   The greyscale noise canvas stays: it is the substance of the
+   transition, procedurally drawn, and not one of the forbidden
+   treatments (no gradient, glow, shadow, bevel, metal texture).
+
+   Michroma has one cut and runs at tracking 0. It is ~1.35x
+   wider than the old Bebas Neue, so the display sizes came down.
+   Technical HUD labels are Plex Mono - that is the voice for
+   anything a machine produced.
+   ──────────────────────────────────────────────────────────── */
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-family:'Bebas Neue',sans-serif;}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden;font-family:var(--rdoc-font-mono);}
 
 #scale-root{
 position:absolute;top:50%;left:50%;
@@ -19,16 +39,18 @@ transform:translate(-50%,-50%) scale(var(--s,1));
 #noise-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:1;transition:opacity .3s}
 #noise-canvas.hidden{opacity:0}
 
-#scanlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(0,0,0,.25) 2px,rgba(0,0,0,.25) 4px);z-index:2;transition:opacity .3s}
-#scanlines.hidden{opacity:0}
+/* Removed: repeating gradient. Kept as a no-op for the script. */
+#scanlines{display:none}
+#scanlines.hidden{display:none}
 
-#vignette{position:absolute;inset:0;background:radial-gradient(ellipse,transparent 30%,rgba(0,0,0,.85));z-index:3;opacity:1;transition:.3s}
-#vignette.hidden{opacity:0}
+/* Removed: radial gradient. Kept as a no-op for the script. */
+#vignette{display:none}
+#vignette.hidden{display:none}
 
 #hud{position:absolute;inset:0;z-index:10}
 
 .corner{position:absolute;width:48px;height:48px;opacity:0;animation:cIn .25s .2s forwards}
-.corner::before,.corner::after{content:'';position:absolute;background:var(--cyan)}
+.corner::before,.corner::after{content:'';position:absolute;background:var(--rdoc-accent-2)}
 .corner::before{width:100%;height:2px}
 .corner::after{width:2px;height:100%}
 .corner.tl{top:40px;left:40px}
@@ -38,26 +60,26 @@ transform:translate(-50%,-50%) scale(var(--s,1));
 @keyframes cIn{to{opacity:1}}
 
 #signal{position:absolute;top:48px;left:100px;display:flex;gap:3px;opacity:0;animation:fade .3s .3s forwards}
-.bar{width:5px;background:var(--cyan)}
+.bar{width:5px;background:var(--rdoc-accent-2)}
 .bar:nth-child(1){height:8px}
 .bar:nth-child(2){height:14px}
 .bar:nth-child(3){height:20px}
 .bar:nth-child(4){height:26px}
-.bar.static{background:#f0a500}
-#signal-label{font-size:13px;margin-left:7px;color:var(--cyan)}
-#signal-label.static{color:#f0a500}
+.bar.static{background:var(--rdoc-accent)}
+#signal-label{font-family:var(--rdoc-font-mono);font-size:13px;letter-spacing:.07em;margin-left:7px;color:var(--rdoc-accent-2)}
+#signal-label.static{color:var(--rdoc-accent)}
 
 #bodycam-label{
 position:absolute;top:44px;left:50%;
 transform:translateX(-50%);
-font-size:14px;letter-spacing:6px;
-color:var(--cyan);
+font-family:var(--rdoc-font-mono);font-size:14px;letter-spacing:.3em;
+color:var(--rdoc-accent);
 opacity:0;animation:fade .3s .3s forwards
 }
 
 #hud-data{position:absolute;bottom:48px;right:60px;opacity:0;animation:fade .3s .4s forwards}
-.hud-row{font-size:13px;color:rgba(200,220,232,.4)}
-.hud-row span{color:var(--cyan)}
+.hud-row{font-family:var(--rdoc-font-mono);font-size:13px;letter-spacing:.07em;color:var(--rdoc-text-muted)}
+.hud-row span{color:var(--rdoc-accent-2)}
 
 #conn-wrap{
 position:absolute;top:50%;left:50%;
@@ -66,9 +88,9 @@ opacity:0;
 animation:fade .3s .2s forwards,fadeOut .3s 1.7s forwards
 }
 
-#conn-text{font-size:60px;color:var(--cyan)}
-#progress-track{width:400px;height:2px;background:rgba(0,212,255,.1)}
-#progress-fill{height:100%;width:0;background:var(--cyan);animation:progress 1.4s .2s forwards}
+#conn-text{font-family:var(--rdoc-font-display);font-size:44px;letter-spacing:0;color:var(--rdoc-text)}
+#progress-track{width:400px;height:2px;background:var(--rdoc-graphite)}
+#progress-fill{height:100%;width:0;background:var(--rdoc-accent-2);animation:progress 1.4s .2s forwards}
 
 @keyframes progress{to{width:100%}}
 @keyframes fade{to{opacity:1}}
@@ -79,17 +101,17 @@ position:absolute;bottom:90px;left:60px;
 opacity:0;animation:fade .3s .5s forwards
 }
 
-#player-name{font-size:72px;color:var(--text)}
-#player-name span{color:var(--cyan)}
+#player-name{font-family:var(--rdoc-font-display);font-size:52px;letter-spacing:0;color:var(--rdoc-text)}
+#player-name span{color:var(--rdoc-accent)}
 
 #accent-line{
-height:2px;width:0;background:var(--cyan);
+height:2px;width:0;background:var(--rdoc-accent);
 animation:line .4s .6s forwards
 }
 
 @keyframes line{to{width:300px}}
 
-#switching-to{font-size:14px;color:rgba(200,220,232,.5)}
+#switching-to{font-family:var(--rdoc-font-mono);font-size:14px;letter-spacing:.3em;text-transform:uppercase;color:var(--rdoc-text-muted)}
 
 </style>
 </head>
