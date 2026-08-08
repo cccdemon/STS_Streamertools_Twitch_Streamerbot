@@ -1,5 +1,5 @@
 /*
- * RDOC – OBS Overlay CSS (HUD chat + spacefight)
+ * RDOC – OBS Overlay CSS (HUD chat + spacefight arena)
  * Copyright (C) 2026 justcallmedeimos / RDOC
  *
  * This program is free software: you can redistribute it and/or modify
@@ -15,34 +15,171 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  *
- * ────────────────────────────────────────────────────────────────
- * Brand layer: rdoc-brand.css, linked by the overlay HTML before
- * this file. The pages carry data-theme="dark" so an OBS source
- * that reports prefers-color-scheme: light cannot flip the tokens.
+ * ════════════════════════════════════════════════════════════════
+ * RDOC OVERLAY HUD — the shared design layer for every OBS source.
  *
- * Palette hex appears literally inside rgba() only - CSS variables
- * cannot be used as rgba() components, and OBS ships an older CEF
- * than the admin pages, so color-mix() is deliberately avoided
- * here. Every literal is a value from tokens.js:
- *   Space #121416  Graphite #2B3135  Off White #F2F2F0
- *   Steel #76828D  Copper #C48A4A    Patina  #4FB5B5
+ * Brand layer: rdoc-brand.css, linked by the overlay HTML BEFORE
+ * this file. Pages carry data-theme="dark" so an OBS source that
+ * reports prefers-color-scheme: light cannot flip the tokens
+ * mid-stream.
  *
- * Copper carries the attacker / highlight, Patina the defender and
- * all structure. Outcomes use the functional colours. No gradient,
- * glow or text-shadow anywhere.
- * ────────────────────────────────────────────────────────────────
+ * ── The five rules this file encodes ──────────────────────────
+ * 1. COPPER IS SPENT ONCE PER VIEW. It marks the event, the signet
+ *    and rank 1 — never a border, never a second thing on screen.
+ * 2. PATINA IS STRUCTURE. Panel edges, corner ticks, rules, table
+ *    heads, section markers, the defender data series. Never a
+ *    state, never the signet ring.
+ * 3. STATE IS FUNCTIONAL COLOUR PLUS A WORD. `LINK: OFFLINE`, not
+ *    an orange dot. Grey is not a state.
+ * 4. NO EFFECT. No gradient, glow, shadow, bevel, metal. Motion is
+ *    allowed (it is transition mechanics, not a surface treatment)
+ *    and is disabled under prefers-reduced-motion.
+ * 5. MICHROMA HAS ONE CUT (400) AT TRACKING 0. Emphasis is size or
+ *    colour, never font-weight. A username is body voice — Plex
+ *    Sans — because Michroma runs 1.35x wide and blows the box.
+ *
+ * ── Deviations, all deliberate ────────────────────────────────
+ * · Overlay eyebrow labels use 0.3em tracking, not the token
+ *   0.07em. They are read across a room at 1920px. This is the
+ *   only intentional type deviation in the stack.
+ * · Palette hex appears literally inside rgba(): CSS variables
+ *   cannot be rgba() components, and OBS ships an older CEF than
+ *   a desktop browser, so color-mix() is avoided here too. Every
+ *   literal below is a value from the kit's tokens.js:
+ *     Space #121416   Graphite #2B3135  Off White #F2F2F0
+ *     Steel #76828D   Copper   #C48A4A  Patina    #4FB5B5
+ *     Success #63C271 Warning  #EBCF52  Error     #EE6E76
+ * · The ship sprite carries a neutral dark drop-shadow. That is
+ *   an edge so 32px pixel art reads on live video — contrast, not
+ *   the coloured bloom the brand rules out.
+ * ════════════════════════════════════════════════════════════════
  */
 
 :root {
+  /* Surfaces */
   --ov-panel:  rgba(18, 20, 22, 0.94);
   --ov-msg:    rgba(18, 20, 22, 0.86);
   --ov-line:   rgba(43, 49, 53, 0.9);
+
+  /* The two accents. Copper = the one action. Patina = structure. */
   --ov-copper: #C48A4A;
   --ov-patina: #4FB5B5;
+
+  /* Neutrals, spelled out for rgba() neighbours. */
+  --ov-ink:    #F2F2F0;
+  --ov-steel:  #76828D;
+
+  /* The overlay eyebrow tracking. See "Deviations" above. */
+  --ov-track:  0.3em;
+
+  /* Ship box edge, in px. THE RENDERER OWNS THIS VALUE: spacefight.js
+     writes it from SHIP_DISPLAY (SHIP_FRAME * SHIP_SCALE) on boot. The
+     number below is only the value before the script runs.
+     It used to be hardcoded at 64px in this file and separately at
+     SHIP_SCALE = 2 in the renderer. When the roster moved to 3.5x
+     high-resolution cutouts the CSS was not moved with it, so every
+     ship drew in a 64px box while the renderer positioned it for a
+     112px one - a 24px offset on every ship, label and HP bar. */
+  --ov-ship:   112px;
 }
 
-/* ── chat.css ──────────────────────────────────────────── */
-* { margin:0; padding:0; box-sizing:border-box; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ════════════════════════════════════════════════════════════════
+   HUD PRIMITIVES — shared by every overlay
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── The signet ───────────────────────────────────────────────
+   The dock ring appears EXACTLY ONCE per view. It is the RDOC
+   mark, not decoration: it is never recoloured off-palette, never
+   animated, never rebuilt. The <svg> is a verbatim copy of the
+   kit's digital/icon/rdoc_signet_copper.svg with fill switched to
+   currentColor — re-copy it from the kit rather than retyping the
+   coordinates.
+
+   Minimum size is 32px for the standard cut. Below that the mark
+   loses its radial cuts; use the micro cut (24–32px) instead. */
+.ov-signet {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--ov-copper);
+}
+.ov-signet svg { display: block; width: 100%; height: 100%; }
+.ov-signet--sm { width: 32px; height: 32px; }
+
+/* ── Panel ────────────────────────────────────────────────────
+   Flat Space over the stream, a Graphite hairline, and one Patina
+   rule on the leading edge. No radius, no blur, no shadow. */
+.ov-panel {
+  position: relative;
+  background: var(--ov-panel);
+  border: 1px solid var(--ov-line);
+  border-left: 2px solid var(--ov-patina);
+}
+
+/* ── Corner tick ──────────────────────────────────────────────
+   Structure, so Patina. Ticks used to be Copper on all four
+   corners, which spent the one accent four times per panel. */
+.ov-tick {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  border-color: rgba(79, 181, 181, 0.55);
+  border-style: solid;
+  border-width: 0;
+}
+.ov-tick--tl { top: 0; left: 0;  border-top-width: 1px; border-left-width: 1px; }
+.ov-tick--tr { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; }
+.ov-tick--bl { bottom: 0; left: 0;  border-bottom-width: 1px; border-left-width: 1px; }
+.ov-tick--br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; }
+
+/* ── Eyebrow ──────────────────────────────────────────────────
+   The voice for anything a machine produced: Plex Mono, versal,
+   wide. Copper when it names the event, Patina when it names a
+   section. Uppercase is for short metadata only — never a
+   sentence, because a screen reader spells long versal runs. */
+.ov-eyebrow {
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: var(--ov-track);
+  text-transform: uppercase;
+  color: var(--ov-copper);
+}
+.ov-eyebrow--struct { color: var(--ov-patina); }
+.ov-eyebrow--dim    { color: var(--ov-steel); letter-spacing: 0.07em; }
+
+/* ── State ────────────────────────────────────────────────────
+   Never colour alone: every one of these carries its word. */
+.ov-state       { font-family: var(--rdoc-font-mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; }
+.ov-state--ok   { color: var(--rdoc-success); }
+.ov-state--warn { color: var(--rdoc-warning); }
+.ov-state--err  { color: var(--rdoc-error); }
+
+/* ── Rule ─────────────────────────────────────────────────────
+   A flat Graphite hairline. Never a multi-stop gradient. */
+.ov-rule { height: 1px; background: var(--ov-line); border: 0; }
+
+/* ── Station ident ────────────────────────────────────────────
+   Signet + wordless eyebrow + link state. This is where the
+   signet is spent on the chat and arena overlays. */
+.ov-ident {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--ov-panel);
+  border-top: 1px solid var(--ov-line);
+}
+.ov-ident-name { font-family: var(--rdoc-font-mono); font-size: 11px; letter-spacing: var(--ov-track); text-transform: uppercase; color: var(--ov-ink); }
+.ov-ident-sep  { flex: 1 1 auto; height: 1px; background: var(--ov-line); }
+
+/* ════════════════════════════════════════════════════════════════
+   HUD CHAT  (chat.html + chat.js)
+   ════════════════════════════════════════════════════════════════ */
 
 body {
   background: transparent;
@@ -62,82 +199,114 @@ body {
   gap: 5px;
   flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100vh - 16px);
+  max-height: calc(100vh - 48px);
   overflow-y: auto;
   padding-bottom: 2px;
-  /* Neue Nachrichten unten, älteste oben werden abgeschnitten */
+  /* Newest at the bottom; the oldest scroll off the top. */
   justify-content: flex-end;
 }
 
+/* A message card. The leading rule is Patina because it is
+   structure — a chatter's own Twitch colour must not drive the
+   frame of the HUD. That colour lives on the name alone. */
 .msg {
   display: flex;
   flex-direction: column;
+  position: relative;
   background: var(--ov-msg);
-  border-left: 2px solid var(--user-color, var(--ov-patina));
+  border-left: 2px solid var(--ov-patina);
   border-bottom: 1px solid var(--ov-line);
   padding: 5px 10px 6px 10px;
-  position: relative;
-  animation: slideIn 0.25s ease-out;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  animation: ovSlideIn 0.25s ease-out;
 }
 
 .msg::before {
-  content:''; position:absolute; top:0; right:0; width:12px; height:12px;
-  border-top:1px solid rgba(79,181,181,0.45); border-right:1px solid rgba(79,181,181,0.45);
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 12px; height: 12px;
+  border-top: 1px solid rgba(79, 181, 181, 0.45);
+  border-right: 1px solid rgba(79, 181, 181, 0.45);
 }
 
+/* The highlighted message IS the one action in this view, so it —
+   and nothing else on the chat overlay — carries Copper. */
 .msg.highlight {
   border-left-color: var(--ov-copper);
-  border-bottom-color: rgba(196,138,74,0.35);
+  border-bottom-color: rgba(196, 138, 74, 0.35);
 }
-.msg.highlight::before { border-color: rgba(196,138,74,0.5); }
+.msg.highlight::before { border-color: rgba(196, 138, 74, 0.5); }
 
-.msg-header { display:flex; align-items:center; gap:5px; margin-bottom:2px; }
-.badges     { display:flex; gap:2px; align-items:center; }
+.msg-header { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+.badges     { display: flex; gap: 2px; align-items: center; }
 
-.badge { font-size:10px; font-family:var(--rdoc-font-mono); padding:1px 4px; border:1px solid; letter-spacing:0.07em; line-height:1.4; text-transform:uppercase; }
-.badge.broadcaster { color:var(--ov-copper); border-color:rgba(196,138,74,0.6); }
-.badge.moderator   { color:var(--ov-patina); border-color:rgba(79,181,181,0.6); }
-.badge.subscriber  { color:#F2F2F0;          border-color:rgba(242,242,240,0.4); }
-.badge.vip         { color:#76828D;          border-color:rgba(118,130,141,0.55); }
+/* Badges are technical labels: Mono, versal, hairline box, no fill. */
+.badge {
+  font-family: var(--rdoc-font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid;
+}
+.badge.broadcaster { color: var(--ov-copper); border-color: rgba(196, 138, 74, 0.6); }
+.badge.moderator   { color: var(--ov-patina); border-color: rgba(79, 181, 181, 0.6); }
+.badge.subscriber  { color: var(--ov-ink);    border-color: rgba(242, 242, 240, 0.4); }
+.badge.vip         { color: var(--ov-steel);  border-color: rgba(118, 130, 141, 0.55); }
 
-.username { font-family:var(--rdoc-font-text); font-weight:600; font-size:14px; letter-spacing:0.02em; color:var(--user-color, var(--ov-patina)); }
+/* A username is body voice — Plex Sans, not Michroma. */
+.username {
+  font-family: var(--rdoc-font-text);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: var(--user-color, var(--ov-patina));
+}
 
-.msg-text { font-family:var(--rdoc-font-text); font-size:14px; font-weight:400; color:#F2F2F0; line-height:1.5; word-break:break-word; }
-.msg-text img.emote { height:20px; vertical-align:middle; margin:0 1px; }
+.msg-text {
+  font-family: var(--rdoc-font-text);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ov-ink);
+  word-break: break-word;
+}
+.msg-text img.emote { height: 20px; vertical-align: middle; margin: 0 1px; }
 
-@keyframes slideIn { from{opacity:0;transform:translateX(-12px);} to{opacity:1;transform:translateX(0);} }
-@keyframes fadeOut { from{opacity:1;max-height:80px;} to{opacity:0;max-height:0;padding:0;margin:0;} }
-.msg.removing { animation:fadeOut 0.4s ease-in forwards; }
+@keyframes ovSlideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ovFadeOut { from { opacity: 1; max-height: 80px; } to { opacity: 0; max-height: 0; padding: 0; margin: 0; } }
+.msg.removing { animation: ovFadeOut 0.4s ease-in forwards; }
 
-#status { position:fixed; top:8px; right:10px; font-family:var(--rdoc-font-mono); font-size:11px; letter-spacing:0.07em; text-transform:uppercase; opacity:0.6; transition:opacity 0.5s; }
-#status.connected    { color:var(--rdoc-success); }
-#status.disconnected { color:var(--rdoc-warning); }
-#status.hidden       { opacity:0; }
+/* ── Chat station ident (bottom bar) ──────────────────────────
+   Carries the signet for this overlay and states the link with a
+   word, not a coloured dot. */
+#chat-ident { flex: 0 0 auto; margin-top: 6px; }
+#status { margin-left: auto; }
+#status.connected    { color: var(--rdoc-success); }
+#status.disconnected { color: var(--rdoc-warning); }
+#status.hidden       { opacity: 0; }
 
-/* ── spacefight arena ─────────────────────────────────────────
+/* ════════════════════════════════════════════════════════════════
+   SPACEFIGHT ARENA  (spacefight.html + spacefight.js)
+
    The overlay is a pixel-ship arena: a canvas starfield with
-   projectiles and explosions, plus GPU-translated DOM ships.
-   Renderer contract lives in spacefight.js.
+   projectiles and explosions, plus GPU-translated DOM ships. The
+   renderer contract lives in spacefight.js.
 
-   Source size is NOT set here. The old file ended with a global
-   html,body{width:640px;height:200px} for the spacefight source,
-   which also hit chat.html and forced it to override with
-   !important. Each overlay now declares its own canvas locally.
+   ATTACKER = COPPER, DEFENDER = PATINA. Two data series, the two
+   brand accents, 180 degrees apart — the only pairing in the
+   palette that separates cleanly at 640x200 over live video.
+   Outcomes (wins/losses in the Wall of Fame) and low HP are
+   states, so they take the functional colours.
 
-   Attacker = Copper, defender = Patina: two data series, the only
-   two brand accents, 180 deg apart. Outcomes (wins/losses in the
-   Wall of Fame) use the functional colours.
-   ──────────────────────────────────────────────────────────── */
+   Source size is NOT set here. Each overlay declares its own
+   canvas locally; a global html,body rule here would also hit
+   chat.html and force it to fight back with !important.
+   ════════════════════════════════════════════════════════════════ */
 
-#arena {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
+#arena { position: absolute; inset: 0; overflow: hidden; }
 
-/* ── Arena canvas (starfield + projectiles + explosions) ── */
 #sf-canvas {
   position: absolute;
   inset: 0;
@@ -158,11 +327,26 @@ body {
 }
 .sf-arena-fade.exit { background: rgba(18, 20, 22, 0.95); }
 
-/* ── Ship (DOM, GPU-translated) ──────────────────────────── */
+/* ── Arena station ident ──────────────────────────────────────
+   Where the arena spends its signet. Bottom-left, clear of the
+   two ships and of the Wall of Fame at top-right. */
+#sf-ident {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+  opacity: 0.9;
+}
+#sf-ident .ov-eyebrow { font-size: 9px; }
+
+/* ── Ship (DOM, GPU-translated) ───────────────────────────── */
 .ship {
   position: absolute;
-  width: 64px;
-  height: 64px;
+  width: var(--ov-ship);
+  height: var(--ov-ship);
   left: 0;
   top: 0;
   transform: translate3d(0, 0, 0);
@@ -172,36 +356,42 @@ body {
 
 .ship.dead { opacity: 0; transition: opacity 0.4s ease-out; }
 
-/* The sprite carries a neutral dark drop-shadow, not a coloured
-   halo: 32px pixel art sits on live video and needs an edge to
-   read against it. That is contrast, not the glow the brand rules
-   out - no coloured bloom, no bevel. */
+/* Neutral dark edge so pixel art reads on video — see the header
+   note. Not a coloured halo, not a bevel. */
 .ship-sprite {
   position: absolute;
   left: 0; top: 0;
-  width: 64px;
-  height: 64px;
+  width: var(--ov-ship);
+  height: var(--ov-ship);
   background-repeat: no-repeat;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   filter: drop-shadow(0 1px 2px rgba(18, 20, 22, 0.9));
 }
 
+/* A high-resolution cutout, not a 32px sprite sheet. loadSpriteSheet()
+   sets isCutout when the source is not a wide horizontal strip
+   (aspect < 4) and the renderer adds this class. Nearest-neighbour on
+   a downscaled 800 KB PNG is exactly the wrong filter. */
+.ship-sprite.ship-cutout {
+  image-rendering: auto;
+  image-rendering: high-quality;
+}
+
 .ship.attacker .ship-sprite { transform: scaleX(1); }
 /* Ship the right-facing sheet only; the defender is mirrored here. */
 .ship.defender .ship-sprite { transform: scaleX(-1); }
 
-/* Hit flash is a state, so it is a brightness pulse rather than a
-   colour: the sprite palette must stay readable. */
+/* A hit is a state, so it is a brightness pulse rather than a
+   colour wash: the sprite palette has to stay readable. */
 .ship.hit .ship-sprite { filter: brightness(2.4) saturate(0.4) drop-shadow(0 1px 2px rgba(18, 20, 22, 0.9)); }
 
-/* ── Ship label (name + class) ───────────────────────────── */
-/* A username is body voice, not a display line - Plex Sans, not
-   Michroma. Michroma runs 1.35x wide and would not fit 64px. */
+/* ── Ship label (name + class) ────────────────────────────── */
 .ship-label {
   position: absolute;
   left: 50%;
-  top: -22px;
+  /* Clear of the box, whatever --ov-ship is. */
+  top: -20px;
   transform: translateX(-50%);
   font-family: var(--rdoc-font-text);
   font-weight: 600;
@@ -210,8 +400,8 @@ body {
   white-space: nowrap;
   text-align: center;
   line-height: 1;
-  /* The ships sit SHIP_SEPARATION apart (200px centre to centre), so a
-     label may not grow past that or the two names collide mid-arena. */
+  /* Ships sit SHIP_SEPARATION apart (200px centre to centre), so a
+     label may not grow past that or the two names collide. */
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -229,14 +419,14 @@ body {
   font-size: 9px;
   letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #76828D;
+  color: var(--ov-steel);
 }
 
-/* ── Ship HP bar (under sprite) ──────────────────────────── */
+/* ── Ship HP bar ──────────────────────────────────────────── */
 .ship-hp-wrap {
   position: absolute;
   left: 50%;
-  bottom: -10px;
+  bottom: -8px;
   width: 60px;
   height: 4px;
   transform: translateX(-50%);
@@ -244,7 +434,7 @@ body {
   border: 1px solid rgba(43, 49, 53, 1);
 }
 
-/* Flat fill - the old bars were gradients. */
+/* Flat fill — the old bars were gradients. */
 .ship-hp {
   height: 100%;
   width: 100%;
@@ -258,45 +448,44 @@ body {
 /* Low HP is a state: functional colour, not a filtered accent. */
 .ship-hp.low { background: var(--rdoc-error); }
 
-/* ── Wall of Fame ────────────────────────────────────────── */
+/* ── Wall of Fame ─────────────────────────────────────────────
+   A table. Its head is a section marker, so Patina — the header
+   used to be Copper, which collided with rank 1 below it. Rank 1
+   is the single Copper element in this panel. */
 #wof {
   position: absolute;
   right: 8px;
   top: 8px;
   width: 280px;
-  background: var(--ov-panel);
-  border: 1px solid var(--ov-line);
-  border-left: 2px solid var(--ov-copper);
   overflow: hidden;
   transform: translateX(120%);
   opacity: 0;
-  transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), opacity 0.3s;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s;
 }
 
 #wof.wof-in  { transform: translateX(0); opacity: 1; }
 #wof.wof-out { transform: translateX(120%); opacity: 0; }
 
 .wof-header {
-  font-family: var(--rdoc-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--ov-copper);
-  padding: 7px 12px 5px;
-  border-bottom: 1px solid rgba(196,138,74,0.25);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 7px 12px 5px;
+  border-bottom: 1px solid rgba(79, 181, 181, 0.25);
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  letter-spacing: var(--ov-track);
+  text-transform: uppercase;
+  color: var(--ov-patina);
 }
-
-.wof-header-icon { font-size: 13px; }
 
 .wof-close {
   margin-left: auto;
   cursor: pointer;
   opacity: 0.5;
   font-size: 12px;
-  color: #76828D;
+  color: var(--ov-steel);
+  letter-spacing: 0;
   transition: opacity 0.15s;
 }
 .wof-close:hover { opacity: 1; }
@@ -306,39 +495,46 @@ body {
   align-items: center;
   gap: 8px;
   padding: 4px 10px;
-  border-bottom: 1px solid rgba(43,49,53,0.8);
+  border-bottom: 1px solid rgba(43, 49, 53, 0.8);
   font-family: var(--rdoc-font-mono);
 }
 
-.wof-row.wof-highlight {
-  background: rgba(196,138,74,0.1);
-  border-left: 2px solid var(--ov-copper);
-}
+/* Rank 1 — the one Copper element of the panel. */
+.wof-row.wof-first .wof-rank,
+.wof-row.wof-first .wof-name { color: var(--ov-copper); }
+.wof-row.wof-first { border-left: 2px solid var(--ov-copper); padding-left: 8px; }
 
-.wof-rank   { font-size: 11px; min-width: 22px; color: #76828D; }
-.wof-name   { font-size: 11px; flex: 1; color: #F2F2F0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The viewer's own row: structure, so Patina, and it carries the
+   rank number as its label anyway. */
+.wof-row.wof-highlight { border-left: 2px solid var(--ov-patina); padding-left: 8px; }
+
+.wof-rank   { font-size: 11px; min-width: 22px; color: var(--ov-steel); }
+.wof-name   { font-size: 11px; flex: 1; color: var(--ov-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wof-wins   { font-size: 11px; color: var(--rdoc-success); min-width: 32px; text-align: right; }
 .wof-losses { font-size: 11px; color: var(--rdoc-error);   min-width: 28px; text-align: right; }
-.wof-ratio  { font-size: 11px; color: #76828D; min-width: 36px; text-align: right; }
+.wof-ratio  { font-size: 11px; color: var(--ov-steel);     min-width: 36px; text-align: right; }
 
 .wof-player-rank {
+  display: none;
+  padding: 5px 10px;
+  border-top: 1px solid rgba(79, 181, 181, 0.25);
   font-family: var(--rdoc-font-mono);
   font-size: 11px;
-  color: var(--ov-copper);
-  padding: 5px 10px;
-  border-top: 1px solid rgba(196,138,74,0.25);
-  display: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.07em;
+  color: var(--ov-patina);
 }
 
 .wof-empty {
-  font-family: var(--rdoc-font-mono);
-  font-size: 11px;
-  color: #76828D;
   padding: 10px;
   text-align: center;
+  font-family: var(--rdoc-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  color: var(--ov-steel);
 }
 
+/* Accessibility: motion is a preference, not a decision the
+   overlay gets to make. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }

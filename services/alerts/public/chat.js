@@ -79,6 +79,16 @@ function escHtml(s) {
 var container = document.getElementById('chat-container');
 var statusEl  = document.getElementById('status');
 
+// The link state lives in the station ident bar and is ALWAYS a word
+// plus a functional colour - never a colour alone, and never hidden,
+// because an ident with a blank state reads as a broken overlay.
+// 'DRADIS' was a science-fiction term borrowed from elsewhere; the
+// brand voice names what the thing actually is.
+function setStatus(word, kind) {
+  statusEl.className   = 'ov-state ov-state--' + kind;
+  statusEl.textContent = word;
+}
+
 function addMessage(opts) {
   var el = document.createElement('div');
   el.className = 'msg' + (opts.highlight ? ' highlight' : '');
@@ -118,8 +128,7 @@ var ws, pingTimer, reconnectTimer;
 var reconnectDelay = 1000;
 
 function connect() {
-  statusEl.className   = 'disconnected';
-  statusEl.textContent = 'DRADIS: CONNECTING...';
+  setStatus('LINK: VERBINDE', 'warn');
 
   ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
 
@@ -138,8 +147,7 @@ function connect() {
   };
 
   ws.onclose = ws.onerror = function() {
-    statusEl.className   = 'disconnected';
-    statusEl.textContent = 'DRADIS: OFFLINE';
+    setStatus('LINK: OFFLINE', 'err');
     clearInterval(pingTimer);
     reconnectTimer = setTimeout(connect, reconnectDelay);
     reconnectDelay = Math.min(reconnectDelay * 2, 15000);
@@ -177,12 +185,9 @@ function handleLine(line) {
     var text        = parseEmotes(rawText, tags['emotes']);
     var highlight   = tags['msg-id'] === 'highlighted-message';
     addMessage({ user:displayName, color:color, badges:badges, text:text, highlight:highlight });
-    statusEl.className = 'connected hidden';
 
   } else if (rest.includes('366')) {
-    statusEl.className   = 'connected';
-    statusEl.textContent = 'DRADIS: #' + CONFIG.channel.toUpperCase();
-    setTimeout(function(){ statusEl.classList.add('hidden'); }, 3000);
+    setStatus('#' + CONFIG.channel.toUpperCase(), 'ok');
     pingTimer = setInterval(function() {
       if (ws && ws.readyState === 1) ws.send('PING :tmi.twitch.tv');
     }, 60000);
@@ -192,8 +197,7 @@ function handleLine(line) {
 if (CONFIG.channel && CONFIG.channel !== 'DEIN_KANAL') {
   connect();
 } else {
-  statusEl.textContent = 'DRADIS: ?channel= fehlt';
-  statusEl.className   = 'disconnected';
+  setStatus('LINK: ?CHANNEL= FEHLT', 'err');
 
   var DEMO = [
     { user:'JerichoRamirez', color:'#C48A4A', badges:[{cls:'broadcaster',label:'CMD'}], text:'Chaos is a Plan. o7',              highlight:false },

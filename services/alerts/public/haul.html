@@ -23,15 +23,36 @@
      Brand layer: rdoc-brand.css, linked above; data-theme="dark"
      stops an OBS light preference from flipping the tokens.
 
-     Strict brand pass. Gone: every gradient (card, lane, tag
-     fills), every box-shadow and text-shadow, every border-radius,
-     the backdrop blur, and the synthetic weights - only Plex Sans
-     400/600 exist as real files, so 800/900 are out. Michroma has
-     one cut and runs at tracking 0.
+     How colour is spent on ONE haul
+     -------------------------------
+       - Signet    Copper, once, in the station ident. With the
+                   jackpot tag this is the only Copper on screen.
+       - Jackpot   Copper. It IS the primary event of the view, and
+                   it is the one case where a Copper fill is allowed
+                   (a surface made entirely of the primary action).
+       - Lane, streak tag, card rule
+                   Patina. Structure.
+       - Win / loss / difficulty tier
+                   Functional colours, each next to its own word:
+                   LEICHT Success, MITTEL Info, SCHWER Warning,
+                   EXTREM Error. The tier used to run
+                   Success/Warning/COPPER/Error, which made a
+                   difficulty read as the brand accent, and Copper
+                   is not a state.
+       - Everything else
+                   Off White on Space, Steel for secondary.
 
-     Copper carries the result and the payout; Patina is structure
-     (lane, streak). Win/loss and the difficulty tiers are states,
-     so they take the functional colours.
+     Gone already: every gradient (card, lane, tag fills), every
+     box-shadow and text-shadow, every border-radius, the backdrop
+     blur, and the synthetic weights - only Plex Sans 400/600 exist
+     as real files, so 800/900 are out. Michroma has one cut and
+     runs at tracking 0. Gone now: the 12px canvas shadowBlur that
+     put a coloured bloom on every particle.
+
+     The emoji are game DATA, not brand chrome: the job glyph, the
+     rank badge and the tags arrive in the Streamerbot payload. The
+     icon rules in chapter 15 govern the UI's own icons, and this
+     overlay draws none.
 
      Local aliases only - rgba() cannot take a CSS variable, and
      OBS ships an older CEF than a desktop browser, so no
@@ -46,6 +67,7 @@
     --ok:#63C271;
     --err:#EE6E76;
     --warn:#EBCF52;
+    --info:#79AEDC;
     --steel:#76828D;
   }
   *{margin:0;padding:0;box-sizing:border-box}
@@ -76,7 +98,9 @@
   .top{display:flex;align-items:center;gap:16px}
   .jobEmoji{font-size:56px;line-height:1}
   .meta{flex:1;min-width:0}
-  .user{font-family:var(--rdoc-font-display);font-size:24px;letter-spacing:0}
+  /* A name is body voice. Plex Sans Semibold is a real cut and is
+     how the kit emphasises inside body copy; Michroma has no bold. */
+  .user{font-family:var(--rdoc-font-text);font-weight:600;font-size:24px;letter-spacing:0.02em}
   .user .badge{font-size:24px;margin-left:6px}
   .job{font-size:20px;color:var(--steel);margin-top:4px;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
@@ -84,9 +108,11 @@
     letter-spacing:.07em;text-transform:uppercase;
     padding:3px 9px;margin-left:8px;vertical-align:middle;
     border:1px solid currentColor}
-  /* Difficulty is a state: functional colours, and the word is always there. */
-  .tier.LEICHT{color:var(--ok)}   .tier.MITTEL{color:var(--warn)}
-  .tier.SCHWER{color:var(--copper)} .tier.EXTREM{color:var(--err)}
+  /* Difficulty is a state, so it takes functional colour and always
+     carries its own word. SCHWER used to be Copper - a difficulty
+     is not the primary action of the view. */
+  .tier.LEICHT{color:var(--ok)}    .tier.MITTEL{color:var(--info)}
+  .tier.SCHWER{color:var(--warn)}  .tier.EXTREM{color:var(--err)}
 
   .result{font-family:var(--rdoc-font-display);font-size:40px;letter-spacing:0;
     text-align:right;line-height:1.1;white-space:nowrap}
@@ -99,7 +125,10 @@
   .tag{font-family:var(--rdoc-font-mono);font-size:15px;letter-spacing:.07em;
     text-transform:uppercase;padding:4px 12px;border:1px solid currentColor;
     animation:pop .5s cubic-bezier(.2,1.6,.4,1) both}
-  .tag.crit{color:var(--copper)}
+  /* JACKPOT is the primary event of the view and takes the only
+     Copper fill on the card. CRIT used to be Copper too, which put
+     two accents side by side in the same tag row. */
+  .tag.crit{color:var(--ink)}
   .tag.jackpot{color:var(--copper);background:rgba(196,138,74,.16)}
   .tag.ambush{color:var(--err)}
   .tag.streak{color:var(--patina)}
@@ -112,10 +141,24 @@
     background:var(--patina);transition:opacity .3s}
   #truck{position:absolute;bottom:104px;left:-180px;font-size:78px}
 
+  /* Station ident. Where this overlay spends its signet: bottom
+     left, under the lane, clear of the lower-third card. Standard
+     cut at 34px - the mark is never rendered below 32px. */
+  #ident{position:absolute;left:40px;bottom:36px;display:flex;align-items:center;gap:12px;opacity:.92}
+  #ident .signet{display:block;width:34px;height:34px;flex-shrink:0;color:var(--copper)}
+  #ident .signet svg{display:block;width:100%;height:100%}
+  #ident .label{font-family:var(--rdoc-font-mono);font-size:12px;line-height:1.3;
+    letter-spacing:.3em;text-transform:uppercase;color:var(--patina)}
+
   @keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
   @keyframes shake{10%,90%{transform:translate(-51%,2px)}30%,70%{transform:translate(-49%,-3px)}
     50%{transform:translate(-50%,3px)}}
   #card.crash{animation:shake .5s linear}
+
+  /* Motion is a preference, not a decision the overlay makes. */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  }
 </style>
 </head>
 <body>
@@ -123,6 +166,11 @@
   <div id="stage">
     <div id="road"></div>
     <div id="truck">🚀</div>
+
+    <div id="ident">
+      <span class="signet" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" role="img" aria-label="RDOC"><title>RDOC</title><g transform="translate(-60 -60) scale(0.3125)"><path fill="currentColor" d="M523.168,192.195 A320 320 0 0 1 784.845,344.8 L682.528,407.5 A200 200 0 0 0 518.98,312.122 Z M795.843,364.24 A320 320 0 0 1 799.614,652.279 L691.759,599.674 A200 200 0 0 0 689.402,419.65 Z M789.128,672 A320 320 0 0 1 657.277,797.122 L602.798,690.201 A200 200 0 0 0 685.205,612 Z M444.124,680 L579.876,680 L631.874,808.699 A320 320 0 0 1 586.703,823.158 L575.497,776.485 A272 272 0 0 0 589.252,772.799 L573.612,720 L450.388,720 L434.748,772.799 A272 272 0 0 0 448.503,776.485 L437.297,823.158 A320 320 0 0 1 392.126,808.699 Z M366.723,797.122 A320 320 0 0 1 234.872,672 L338.795,612 A200 200 0 0 0 421.202,690.201 Z M224.386,652.279 A320 320 0 0 1 228.157,364.24 L334.598,419.65 A200 200 0 0 0 332.241,599.674 Z M239.155,344.8 A320 320 0 0 1 500.832,192.195 L505.02,312.122 A200 200 0 0 0 341.472,407.5 Z"/></g></svg></span>
+      <span class="label">RDOC // Hauling</span>
+    </div>
 
     <div id="card">
       <div class="top">
@@ -177,7 +225,9 @@
       ctx.translate(p.x,p.y); ctx.rotate(p.rot);
       if (p.text){ ctx.font = `${p.size}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(p.text,0,0); }
-      else { ctx.fillStyle = p.color; ctx.shadowColor=p.color; ctx.shadowBlur=12;
+      // Flat particle. shadowBlur is a canvas glow, and glow is out of
+      // the identity - the particle reads on its own colour.
+      else { ctx.fillStyle = p.color;
         ctx.beginPath(); ctx.arc(0,0,p.size,0,Math.PI*2); ctx.fill(); }
       ctx.restore();
     }
@@ -195,7 +245,7 @@
   }
 
   // Particle palette: brand values only, same roles as the CSS above.
-  const C = { green:'#63C271', red:'#EE6E76', gold:'#C48A4A', cyan:'#4FB5B5' };
+  const C = { green:'#63C271', red:'#EE6E76', gold:'#C48A4A', cyan:'#4FB5B5', ink:'#F2F2F0', steel:'#76828D' };
 
   function play(d){
     return new Promise(res => {
@@ -252,7 +302,7 @@
   }
 
   function confetti(){
-    const cols=[C.gold,C.cyan,C.green,'#F2F2F0','#76828D'];
+    const cols=[C.gold,C.cyan,C.green,C.ink,C.steel];
     for(let k=0;k<3;k++) setTimeout(()=>{
       for(let i=0;i<60;i++)
         spawn(Math.random()*innerWidth, -20, 1,

@@ -28,16 +28,10 @@ var wofTimer     = null;
 
 // ── Schiffsklassen ────────────────────────────────────────
 var SHIPS = [
-  { name: 'PERSEUS',       power: 3 },
-  { name: 'HAMMERHEAD',    power: 3 },
-  { name: 'VANGUARD',      power: 3 },
-  { name: 'CONSTELLATION', power: 2 },
-  { name: 'GLADIUS',       power: 2 },
-  { name: 'SABRE',         power: 2 },
-  { name: 'ORIGIN 300I',   power: 2 },
-  { name: 'ARROW',         power: 2 },
-  { name: 'HORNET',        power: 2 },
-  { name: 'AURORA',        power: 1 },
+  { name: 'VALKYRIE', power: 3 },
+  { name: 'BASTION',  power: 3 },
+  { name: 'WRAITH',   power: 2 },
+  { name: 'RAPTOR',   power: 2 },
 ];
 
 // ── WebSocket ─────────────────────────────────────────────
@@ -192,8 +186,11 @@ function showWoF(highlightUser) {
     var rows = '';
     (data || []).forEach(function(p, i) {
       var isHL = highlightUser && p.username.toLowerCase() === highlightUser.toLowerCase();
+      // Rank 1 carries Copper; the viewer's own row carries the Patina
+      // structure rule. Both are also labelled, so neither is colour alone.
+      var cls = (i === 0 ? ' wof-first' : '') + (isHL ? ' wof-highlight' : '');
       rows +=
-        '<div class="wof-row' + (isHL ? ' wof-highlight' : '') + '">' +
+        '<div class="wof-row' + cls + '">' +
           '<span class="wof-rank">' + (i===0?'1':(i===1?'2':'#'+(i+1))) + '</span>' +
           '<span class="wof-name">' + esc(p.display || p.username) + '</span>' +
           '<span class="wof-wins">' + (p.wins||0) + 'W</span>' +
@@ -238,12 +235,20 @@ function toggleWoF() {
 // Layered scene drawn each frame in a single RAF loop:
 //   Canvas: starfield (3 parallax layers) + projectiles + explosion sparks + screen shake
 //   DOM:    ship sprites (GPU-translated <img>), name labels, HP bars
-// Ship sprites loaded from public/assets/ships/<slug>.png as a horizontal
-// 12-frame sheet (32x32 per frame). Missing sheets fall back to a procedural
-// placeholder so the overlay never breaks.
+// Ship art is loaded from public/assets/ships/<slug>.png. High-resolution
+// cutouts are rendered as a single smooth frame; legacy 12-frame sheets are
+// still supported as a fallback so the overlay never breaks.
 
 var ARENA_W = 640, ARENA_H = 200;
-var SHIP_FRAME = 32, SHIP_SCALE = 2, SHIP_DISPLAY = SHIP_FRAME * SHIP_SCALE; // 64
+var SHIP_FRAME = 32, SHIP_SCALE = 3.5, SHIP_DISPLAY = SHIP_FRAME * SHIP_SCALE; // 112
+
+// The ship box lives in TWO places - the transform here and the .ship /
+// .ship-sprite box in rdoc-overlay.css - and they must agree, because the
+// renderer positions by centre (drawX - SHIP_DISPLAY/2). They drifted once
+// already: SHIP_SCALE went 2 -> 3.5 for the high-resolution roster and the
+// stylesheet stayed at 64px, which put every ship, label and HP bar 24px
+// off. Publishing the constant to CSS makes this file the single owner.
+document.documentElement.style.setProperty('--ov-ship', SHIP_DISPLAY + 'px');
 // Centre-to-centre distance between the two combatants. Their home
 // positions are derived from the arena centre below, so the fight stays
 // centred by construction - tune the duel's width here, nothing else.
@@ -254,6 +259,32 @@ var FRAME_HIT     = 7;
 var FRAMES_DEAD   = [8,9,10,11];
 var FRAME_IDLE_MS = 120, FRAME_DEAD_MS = 80;
 
+// ── Arena palette ────────────────────────────────────────────
+// Every colour the canvas paints, from the kit's tokens.js. The
+// arena used to run on an off-brand cyan/orange pair (#00d4ff /
+// #f0a500) plus a fire ramp of its own.
+//
+//   Attacker = Copper, defender = Patina. Two data series, the two
+//   brand accents, 180 degrees apart - the only pairing that
+//   separates at 640x200 over live video.
+//   An explosion is a STATE, so it takes the functional colours:
+//   Warning at the core, Error at the edge.
+//   Stars are Steel: structure that must never compete with a ship.
+var PAL = {
+  copper:    '#C48A4A',
+  patina:    '#4FB5B5',
+  ink:       '#F2F2F0',
+  steel:     '#76828D',
+  graphite:  '#2B3135',
+  space:     '#121416',
+  warning:   '#EBCF52',
+  error:     '#EE6E76',
+  success:   '#63C271'
+};
+// Side -> series colour. One lookup, so the two series can never
+// drift apart between the projectile, the spark and the sprite.
+function sideColor(side) { return side === 'attacker' ? PAL.copper : PAL.patina; }
+
 var spriteCache = {}; // shipName(lower) -> { ready, image, frames, isPlaceholder }
 
 function shipSlug(name) {
@@ -263,12 +294,13 @@ function shipSlug(name) {
 function loadSpriteSheet(shipName) {
   var key = shipSlug(shipName);
   if (spriteCache[key]) return spriteCache[key];
-  var entry = { ready: false, image: null, frames: 12, isPlaceholder: false };
+  var entry = { ready: false, image: null, frames: 12, isPlaceholder: false, isCutout: false };
   spriteCache[key] = entry;
   var img = new Image();
   img.onload = function() {
     entry.image = img;
-    entry.frames = Math.max(1, Math.floor(img.width / SHIP_FRAME));
+    entry.isCutout = (img.width / img.height) < 4;
+    entry.frames = entry.isCutout ? 1 : Math.max(1, Math.floor(img.width / SHIP_FRAME));
     entry.ready = true;
   };
   img.onerror = function() {
@@ -282,15 +314,19 @@ function loadSpriteSheet(shipName) {
 }
 
 function makePlaceholderSheet(shipName) {
-  // Procedural pixel-ship: deterministic chevron silhouette colored from a
-  // hash of the ship name so each class is visually distinct on day 1.
+  // Procedural pixel-ship: a deterministic chevron silhouette for a
+  // class whose sprite sheet is missing. The name hash used to pick a
+  // free HUE, which put every colour of the wheel on screen. It now
+  // picks a HULL from the palette neutrals and keeps the accent
+  // fixed, so an unshipped class can never introduce an off-brand
+  // colour - it just reads as a grey ship with a brand cockpit.
   var h = 0, s = String(shipName);
   for (var i = 0; i < s.length; i++) { h = ((h<<5)-h + s.charCodeAt(i))|0; }
-  var hue = (h >>> 0) % 360;
-  var hull   = 'hsl(' + hue + ',70%,55%)';
-  var hullDk = 'hsl(' + hue + ',60%,32%)';
-  var glow   = 'hsl(' + ((hue+30)%360) + ',95%,68%)';
-  var thrust = 'hsl(' + ((hue+180)%360) + ',95%,60%)';
+  var HULLS = [PAL.steel, PAL.graphite, PAL.ink];
+  var hull   = HULLS[(h >>> 0) % HULLS.length];
+  var hullDk = PAL.graphite;
+  var glow   = PAL.patina;   // cockpit
+  var thrust = PAL.copper;   // engine
 
   var c = document.createElement('canvas');
   c.width = SHIP_FRAME * 12; c.height = SHIP_FRAME;
@@ -303,7 +339,9 @@ function makePlaceholderSheet(shipName) {
       // explosion frames: expanding ring of pixels
       var cx = ox + 16, cy = 16;
       var rings = deadStage; // 1..4
-      ctx.fillStyle = 'hsl(' + (40 - rings*8) + ',95%,' + (62 - rings*8) + '%)';
+      // Warning ring, Error at the outermost stage - the same state
+      // pair the canvas explosion uses. No hsl() fire ramp.
+      ctx.fillStyle = rings >= 3 ? PAL.error : PAL.warning;
       for (var a = 0; a < 24; a++) {
         var ang = (a/24) * Math.PI * 2;
         var rad = rings * 3 + (a % 2);
@@ -314,7 +352,7 @@ function makePlaceholderSheet(shipName) {
         }
       }
       if (rings <= 2) {
-        ctx.fillStyle = 'hsl(50,95%,80%)';
+        ctx.fillStyle = PAL.warning;
         ctx.fillRect(cx-2, cy-2, 4, 4);
       }
       return;
@@ -339,14 +377,14 @@ function makePlaceholderSheet(shipName) {
     if (thrustOn) {
       ctx.fillStyle = thrust;
       ctx.fillRect(ox+2, 14+jitter, 5, 4);
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillStyle = 'rgba(242,242,240,0.85)';   /* Off White */
       ctx.fillRect(ox+4, 15+jitter, 2, 2);
     } else {
       ctx.fillStyle = thrust;
       ctx.fillRect(ox+5, 15+jitter, 2, 2);
     }
     if (hitFlash) {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillStyle = 'rgba(242,242,240,0.85)';   /* Off White */
       ctx.fillRect(ox+6, 12+jitter, 18, 8);
     }
   }
@@ -423,11 +461,12 @@ function spawnProjectile(state, fromShip, toShip, willHit) {
     x: startX, y: startY,
     vx: (endX - startX) / travelMs,
     vy: (endY - startY) / travelMs,
-    color: fromShip.side === 'attacker' ? '#00d4ff' : '#f0a500',
+    color: sideColor(fromShip.side),
     life: travelMs + 200, age: 0, trail: []
   });
-  // muzzle flash
-  state.flashes.push({ x: startX, y: startY, color: fromShip.side==='attacker'?'#9af3ff':'#ffd680', life: 110, age: 0 });
+  // Muzzle flash: same series colour, not a lightened variant of it.
+  // A tint ladder is the start of a gradient.
+  state.flashes.push({ x: startX, y: startY, color: sideColor(fromShip.side), life: 110, age: 0 });
 }
 
 function spawnImpact(state, ship, dmg) {
@@ -440,7 +479,7 @@ function spawnImpact(state, ship, dmg) {
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd,
       life: 380 + Math.random()*220, age: 0,
-      color: ship.side === 'attacker' ? '#9af3ff' : '#ffd680'
+      color: sideColor(ship.side)
     });
   }
   state.shake = Math.min(6, state.shake + 1.2 + dmg * 0.06);
@@ -455,7 +494,8 @@ function spawnExplosion(state, ship) {
       vx: Math.cos(ang) * spd,
       vy: Math.sin(ang) * spd - 0.02,
       life: 600 + Math.random()*400, age: 0,
-      color: i < 12 ? '#fff8c0' : (i < 24 ? '#ffae3a' : '#ff5530')
+      // A kill is a state: Warning core, Error edge. No fire ramp.
+      color: i < 18 ? PAL.warning : PAL.error
     });
   }
   state.shake = 6;
@@ -560,7 +600,9 @@ function arenaDraw(state) {
   // stars
   var s = state.stars;
   for (var i = 0; i < s.length; i++) {
-    ctx.fillStyle = 'rgba(200,220,232,' + s[i].alpha + ')';
+    // Steel 118,130,141 - the starfield is structure and must never
+    // read brighter than a ship.
+    ctx.fillStyle = 'rgba(118,130,141,' + s[i].alpha + ')';
     ctx.fillRect(s[i].x | 0, s[i].y | 0, s[i].size, s[i].size);
   }
 
@@ -575,7 +617,7 @@ function arenaDraw(state) {
       ctx.fillRect(P.trail[t].x | 0, P.trail[t].y | 0, 2, 2);
     }
     ctx.globalAlpha = 1;
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = PAL.ink;
     ctx.fillRect((P.x | 0) - 1, (P.y | 0) - 1, 3, 3);
     ctx.fillStyle = P.color;
     ctx.fillRect((P.x | 0) - 2, (P.y | 0), 5, 1);
@@ -609,18 +651,26 @@ function arenaDraw(state) {
     var tx = Math.round(ship.drawX - SHIP_DISPLAY/2 + sx);
     var ty = Math.round(ship.drawY - SHIP_DISPLAY/2 + sy);
     ship.el.style.transform = 'translate3d(' + tx + 'px,' + ty + 'px,0)';
-    // sprite frame: crop the sheet via background-position
+    // High-resolution cutouts use contain; legacy sheets are frame-cropped.
     if (ship.sprite && ship.sprite.ready && ship.spriteEl) {
       if (!ship.spriteSrc) {
         var img = ship.sprite.image;
         var sheetW = img.width || (SHIP_FRAME * (ship.sprite.frames || 12));
         ship.spriteSrc = (img instanceof HTMLCanvasElement) ? img.toDataURL() : img.src;
         ship.spriteEl.style.backgroundImage = 'url(' + ship.spriteSrc + ')';
-        ship.spriteEl.style.backgroundSize  = (sheetW * SHIP_SCALE) + 'px ' + (SHIP_FRAME * SHIP_SCALE) + 'px';
+        if (ship.sprite.isCutout) {
+          ship.spriteEl.classList.add('ship-cutout');
+          ship.spriteEl.style.backgroundSize = 'contain';
+          ship.spriteEl.style.backgroundPosition = 'center';
+        } else {
+          ship.spriteEl.style.backgroundSize = (sheetW * SHIP_SCALE) + 'px ' + (SHIP_FRAME * SHIP_SCALE) + 'px';
+        }
       }
-      var maxFrame = (ship.sprite.frames || 12) - 1;
-      var fr = Math.min(ship.frame, maxFrame);
-      ship.spriteEl.style.backgroundPosition = '-' + (fr * SHIP_DISPLAY) + 'px 0';
+      if (!ship.sprite.isCutout) {
+        var maxFrame = (ship.sprite.frames || 12) - 1;
+        var fr = Math.min(ship.frame, maxFrame);
+        ship.spriteEl.style.backgroundPosition = '-' + (fr * SHIP_DISPLAY) + 'px 0';
+      }
     }
     // hit-flash class
     if (ship.mode === 'hit') ship.el.classList.add('hit');

@@ -1,4 +1,22 @@
-# Ship Sprite Sheets
+# Ship Artwork
+
+The active Spacefight roster uses smooth, high-resolution transparent PNG
+cutouts. Each ship faces right and is mirrored automatically for the defender.
+
+## Active high-resolution ships
+
+| Ship class | File |
+|---|---|
+| `VALKYRIE` | `valkyrie.png` |
+| `BASTION` | `bastion.png` |
+| `WRAITH` | `wraith.png` |
+| `RAPTOR` | `raptor.png` |
+
+Use a transparent background, generous padding and a clean right-facing side
+profile. Raster artwork is rendered smoothly; do not use pixel art for active
+ships.
+
+## Legacy sprite-sheet support
 
 Drop PNG sprite sheets here to give each Spacefight ship class its own pixel-art look. **No code changes are needed** — the overlay loads each sheet by matching the ship name (lowercased, non-alphanumeric → `-`).
 

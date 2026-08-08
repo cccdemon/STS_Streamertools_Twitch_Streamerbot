@@ -111,11 +111,19 @@ to Streamerbot directly. Only `first_chatter` still uses `ch:alerts`.
 - `services/alerts/public/overlay.html` — **The** alert renderer (inline JS/CSS)
 - `services/alerts/public/chat.js` — HUD chat overlay logic
 - `services/stats/server.js` — Read-only stats REST (no Redis, no WS)
-- `services/admin/server.js` — Aggregated health + static admin pages
+- `services/admin/server.js` — Aggregated health + static admin pages. Ends in a
+  `app.get('*')` SPA catch-all → `index.html`, so a typo'd admin path renders the
+  dashboard instead of 404ing. `GET /health` fans out to the five service
+  `/health` endpoints with a 3 s timeout each and returns 503 `degraded` if any
+  fails
 - `services/admin/public/admin-shared.js` — Canonical shared lib: `CC.validate`, nav bar, debug console
 - `services/admin/public/rdoc-brand.css` — **Generated** brand tokens; never hand-edit
 - `services/admin/public/rdoc-admin.css` — Admin page styles; maps brand tokens to app names
-- `services/alerts/public/rdoc-overlay.css` — HUD chat + spacefight overlay styles
+- `services/alerts/public/rdoc-overlay.css` — **The overlay design system.** HUD
+  primitives (`.ov-signet`, `.ov-panel`, `.ov-tick`, `.ov-eyebrow`, `.ov-state`,
+  `.ov-ident`) plus the HUD-chat and spacefight-arena styles. The rules it
+  encodes are written at the top of the file — read that header before
+  touching any overlay
 - `caddy/Caddyfile` — Reverse proxy config
 - `postgres/init.sql` — Schema; runs **only** on a fresh volume
 - `streamerbot/SETUP.md` — Action import + queue setup
@@ -130,9 +138,13 @@ over the rest:
 | Files | Canonical | Verify |
 |---|---|---|
 | `{admin,spacefight,stats}/public/*-shared.js` | `admin/public/admin-shared.js` | `md5sum services/*/public/*-shared.js` |
-| `{admin,spacefight,stats,alerts}/public/rdoc-brand.css` | RDOC-Brandkit `digital/web/brand.css` | `md5sum services/*/public/rdoc-brand.css` |
+| `{admin,spacefight,stats,alerts,gamescenes}/public/rdoc-brand.css` | RDOC-Brandkit `digital/web/brand.css` | `md5sum services/*/public/rdoc-brand.css` |
 | `{alerts,spacefight}/public/rdoc-overlay.css` | `alerts/public/rdoc-overlay.css` | `md5sum services/*/public/rdoc-overlay.css` |
 | `{admin,spacefight,stats,alerts}/public/favicon.{svg,ico}` | RDOC-Brandkit `digital/web/` | – |
+
+`rdoc-brand.css` has **five** copies — `gamescenes` is easy to miss because it
+has no other brand file. `gamescenes/public/favicon.svg` is **not** the kit
+favicon (different hash) and is intentionally left out of the refresh loop.
 
 The shared lib has **three** copies, not four: the alerts service ships only
 OBS overlays now, and overlays never load it.
@@ -165,8 +177,11 @@ class. The exception is `rgba()` literals in the overlay files: `rgba()` cannot
 take a CSS variable as a component, and OBS ships an older CEF than a desktop
 browser, which is also why `color-mix()` is used only in the admin CSS.
 
-`overlay.html` and `haul.html` are standalone by design (inline JS/CSS); they
-link `rdoc-brand.css` for the tokens but keep their own `<style>`.
+`overlay.html`, `haul.html` and `sc-bodycam.html` are standalone by design
+(inline JS/CSS); they link `rdoc-brand.css` for the tokens but keep their own
+`<style>`, and they each restate the HUD primitives locally. `chat.html` and
+`spacefight.html` are not standalone — they get everything from
+`rdoc-overlay.css`.
 
 ### Colour roles
 | Token | App name | Used for |
@@ -185,14 +200,61 @@ link `rdoc-brand.css` for the tokens but keep their own `<style>`.
   glows and multi-stop hairlines were removed for this.
 - Michroma (`--rdoc-font-display`) has **exactly one cut (400)** and runs at
   `letter-spacing: 0`. Emphasis via size or colour, never `font-weight`.
-- The dock ring appears exactly once per lockup. Never rebuild the wordmark as
-  text — embed `rdoc-logo.svg`.
+- The dock ring appears exactly once per lockup **and once per overlay view**.
+  Never rebuild the wordmark as text — embed `rdoc-logo.svg`.
 - Ring minimum size: 32 px regular, 24–32 px for the micro cut. The nav ring in
   `admin-shared.js` is the micro cut at 24 px; its path is a verbatim copy of
   `digital/icon/rdoc_signet_micro_copper.svg` with `fill="currentColor"`.
   Re-copy it from the kit rather than retyping coordinates.
 - Overlay eyebrow labels use `0.3em` tracking instead of the token `0.07em` —
   they are read across a room at 1920 px. Only intentional type deviation.
+
+### How an overlay spends colour
+Every OBS source follows the same budget. It is the thing most likely to drift,
+because inline styles in the standalone overlays make it easy to add "just one
+more" accent:
+
+| Slot | Colour | Notes |
+|---|---|---|
+| Signet | Copper | Once per view, ≥32 px, **never animated** |
+| The one event / primary action | Copper | Event label, jackpot tag, rank 1 |
+| Frame, corner ticks, rules, panel edges, table heads, section markers, avatar edge, one data series | Patina | Structure is never the accent |
+| Username, message, stat number | Off White | A name is body voice — Plex Sans, not Michroma |
+| Secondary lines, stat labels, starfield | Steel | |
+| Win/loss, difficulty, low HP, link state, explosion | functional | Always beside its own word |
+
+Consequences that are easy to get wrong:
+
+- **The username is not an accent.** It used to change colour per event type,
+  which put three or four accents on one alert and made the event legible only
+  to someone who had learnt the code. The event is named in words instead.
+- **Copper is never a border and never a frame.** `cc-frame-gold` survives as a
+  class name because `buildAlert()` writes it, but it pulses Patina.
+- **Body copy is never Copper.** The `H()` helper in `overlay.html` wraps
+  emphasis in `.cc-em` (Plex Sans Semibold, a real cut), not in the accent.
+- **A state colour is never decoration.** Warning yellow on an achievement chip
+  or in a confetti burst spends a state on ornament.
+- The two arena series are Copper (attacker) and Patina (defender) — the only
+  pairing in the palette that separates at 640×200 over live video. One lookup,
+  `sideColor()`, feeds the projectile, the spark and the sprite so they cannot
+  drift apart.
+- The spacefight placeholder sprite sheet hashes the ship name to a **hull from
+  the neutrals**, not to a free hue. An unshipped class can no longer introduce
+  an off-brand colour.
+
+### Where each overlay spends its signet
+| Overlay | Placement |
+|---|---|
+| `overlay.html` | Alert label row, shoutout panel, resub fullscreen — three views that never co-exist (shoutout and resub cover the alert with a backdrop) |
+| `overlay.html` — `!id` dossier, compact corner alert | **No signet.** Both can be on screen while a centre alert is showing |
+| `chat.html` | `.ov-ident` bar under the message column |
+| `spacefight.html` | `#sf-ident`, bottom-left, opposite the Bestenliste |
+| `haul.html` | `#ident`, bottom-left under the lane |
+| `sc-bodycam.html` | `#ident`, bottom-right |
+
+The SVG is a verbatim copy of `digital/icon/rdoc_signet_copper.svg` with `fill`
+switched to `currentColor`. It is pasted per file because overlays share no
+build context — re-copy it from the kit, never retype the coordinates.
 
 ### Light mode
 `rdoc-brand.css` ships a complete measured light palette, but the app layer is
@@ -203,8 +265,10 @@ tokens mid-stream.
 ### Refreshing the assets after a Brand Kit change
 ```bash
 BK=../RDOC-Brandkit/brandkit
-for s in admin spacefight stats alerts; do
+for s in admin spacefight stats alerts gamescenes; do
   cp $BK/digital/web/brand.css   services/$s/public/rdoc-brand.css
+done
+for s in admin spacefight stats alerts; do
   cp $BK/digital/web/favicon.svg services/$s/public/favicon.svg
   cp $BK/digital/web/favicon.ico services/$s/public/favicon.ico
 done
@@ -455,6 +519,25 @@ numbered idempotent files in `postgres/migrations/` and applied by hand:
 docker exec -i cc-postgres psql -U chaoscrew -d chaoscrew < postgres/migrations/00X_name.sql
 ```
 
+The three files currently in `postgres/migrations/` (`002_debug_log`,
+`003_giveaway_draws`, `004_giveaway_draws_prize`) are all giveaway-era and apply
+to **no** table in the current `init.sql`. There is no `001`. Do not treat them
+as a schema baseline — the next migration is `005`.
+
+## Files in the repo that are NOT the stack
+
+Do not take these as current — several predate the giveaway removal and still
+describe `services/giveaway`, `gw_cmd` or giveaway overlays:
+
+| Path | Status |
+|---|---|
+| `services/giveaway/` | Untracked leftover — only `node_modules/` + `package-lock.json`, no `server.js`, no compose entry. Safe to delete; it exists because git does not remove ignored dirs |
+| `bugreport.md` | Old review. Its P0 (spacefight `public/` using root `/api/...` behind Caddy) **is already fixed** — all frontend fetches are relative now |
+| `plan-fixes.md` | Fix plan for the same review; sections about `services/giveaway/server.js` are moot |
+| `future-idea.md` | Public-deploy plan; carries its own "veraltet" banner about the giveaway split |
+| `Overlay-Redesign mit Animationen/` | Design handoff dump (`Overlay Redesign.dc.html`, assets, a duplicate copy of the alert sounds). Not built, not served |
+| `README.md` / `Installation.md` | German user-facing setup docs. Accurate on setup, but overlap this file — when they and CLAUDE.md disagree about architecture, the code wins, then CLAUDE.md |
+
 ## Known Issues
 
 ### Security — no auth on admin surfaces
@@ -515,6 +598,14 @@ docker compose ps                 # health status
 
 Frontend-only changes still need a rebuild of that service: `public/` is baked
 into the image, not bind-mounted.
+
+**Caddy is the exception.** The root `Dockerfile` (the only file at repo root
+that is a Dockerfile) builds the `web` service from `caddy:2-alpine` and `COPY`s
+`caddy/Caddyfile` in — but compose then bind-mounts
+`./caddy/${CADDY_CONFIG}:/etc/caddy/Caddyfile:ro` over it, so the mount wins and
+the `COPY` is dead weight. Routing changes need only `docker compose restart
+web`, never `--build`. Node services are all `node:20-alpine`, so `fetch` and
+`AbortSignal.timeout` (used in the admin health fan-out) are available.
 
 ### Backup
 `cc-backup` dumps PostgreSQL daily at 03:00 to `/backups/postgres/`, retention
