@@ -25,13 +25,15 @@
 
      How colour is spent on ONE haul
      -------------------------------
-       - Signet    Copper, once, in the station ident. With the
-                   jackpot tag this is the only Copper on screen.
-       - Jackpot   Copper. It IS the primary event of the view, and
-                   it is the one case where a Copper fill is allowed
-                   (a surface made entirely of the primary action).
-       - Lane, streak tag, card rule
-                   Patina. Structure.
+       - Signet    Copper, once, in the station ident.
+       - Jackpot   Copper, and the only other Copper on the view. It
+                   IS the primary event, and it is the one case where
+                   a Copper FILL is allowed (a surface made entirely
+                   of the primary action).
+       - Card rule, corner ticks, lane, streak tag, outcome eyebrow
+                   Patina. Structure. The card's leading rule used to
+                   be Copper by default, which spent the accent on a
+                   border and put a second one next to the signet.
        - Win / loss / difficulty tier
                    Functional colours, each next to its own word:
                    LEICHT Success, MITTEL Info, SCHWER Warning,
@@ -41,6 +43,11 @@
                    is not a state.
        - Everything else
                    Off White on Space, Steel for secondary.
+
+     The outcome is a STATE, so it carries a word. It used to be a
+     coloured number and nothing else - a green +240 or a red -540 -
+     which is exactly the "colour alone" the kit rules out. The card
+     now leads with AUFTRAG ERFÜLLT / AUFTRAG GESCHEITERT.
 
      Gone already: every gradient (card, lane, tag fills), every
      box-shadow and text-shadow, every border-radius, the backdrop
@@ -71,29 +78,56 @@
     --steel:#76828D;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  /* Layout in 1080p-Koordinaten gebaut, per zoom auf 1440p (2560×1440) skaliert.
-     OBS Browser-Source-Größe = 2560 × 1440 setzen. */
-  html,body{width:2560px;height:1440px;overflow:hidden;background:transparent;
-    font-family:var(--rdoc-font-text);color:var(--ink)}
-  /* Canvas füllt die echte Auflösung (innerWidth/innerHeight) – kein Scaling. */
-  #fx{position:fixed;inset:0;z-index:1;pointer-events:none}
-  /* UI in 1080p-Koordinaten gebaut, per transform:scale auf 1440p skaliert. */
-  #stage{position:fixed;top:0;left:0;width:1920px;height:1080px;z-index:2;
-    pointer-events:none;transform:scale(1.3333);transform-origin:top left}
 
-  /* ── Auftrags-Karte (Lower Third) ── */
+  /* The page is the source; #stage is a 1920x1080 design space scaled
+     onto it by --hl-fit (innerWidth / 1920, updated on resize).
+
+     It used to be html,body{width:2560px;height:1440px} with a
+     hardcoded scale(1.3333), so the overlay only fitted a 2560x1440
+     source - at 1920x1080 it rendered a third too large and clipped.
+     The particle canvas was worse: it was sized to the REAL viewport
+     while the card was positioned in 1080p coordinates, so the two
+     only lined up at 1440p by coincidence. Canvas and card now share
+     one coordinate system, which is the design space. */
+  html,body{width:100%;height:100%;overflow:hidden;background:transparent;
+    font-family:var(--rdoc-font-text);color:var(--ink)}
+  #stage{position:fixed;top:0;left:0;width:1920px;height:1080px;
+    pointer-events:none;transform:scale(var(--hl-fit,1));transform-origin:top left}
+  /* Same 1920x1080 space as everything else in the stage. */
+  #fx{position:absolute;top:0;left:0;width:1920px;height:1080px;z-index:1;pointer-events:none}
+
+  /* ── Auftrags-Karte (Lower Third) ──
+     The same panel language as every other overlay: flat Space, a
+     Graphite hairline, one rule on the leading edge and corner ticks.
+     The leading rule was Copper by default, which spent the accent on
+     structure and collided with the signet in the ident. Structure is
+     Patina; only the OUTCOME moves it to a functional colour. */
   #card{
     position:absolute;left:50%;bottom:140px;transform:translate(-50%,160%);
     z-index:2;width:980px;min-height:150px;opacity:0;
     background:var(--panel);
-    border:1px solid var(--line);border-left:3px solid var(--copper);
-    padding:22px 30px;
+    border:1px solid var(--line);border-left:2px solid var(--patina);
+    padding:20px 30px 22px;
     transition:transform .55s cubic-bezier(.16,1,.3,1),opacity .4s ease;
   }
   #card.show{transform:translate(-50%,0);opacity:1}
-  /* Outcome reads on the left rule plus the result word - never colour alone. */
   #card.win{border-left-color:var(--ok)}
   #card.lose{border-left-color:var(--err)}
+
+  /* Corner ticks: structure, so Patina, and only the two that read at
+     this size. */
+  .tick{position:absolute;width:14px;height:14px;border-color:rgba(79,181,181,.55);
+    border-style:solid;border-width:0}
+  .tick.tr{top:0;right:0;border-top-width:1px;border-right-width:1px}
+  .tick.br{bottom:0;right:0;border-bottom-width:1px;border-right-width:1px}
+
+  /* The outcome eyebrow. The result used to be a coloured number and
+     nothing else - green +240 or red -540 - which is a state carried by
+     colour alone. It now says which it is. */
+  .outcome{font-family:var(--rdoc-font-mono);font-size:12px;line-height:1.3;
+    letter-spacing:.3em;text-transform:uppercase;margin-bottom:14px;color:var(--patina)}
+  #card.win .outcome{color:var(--ok)}
+  #card.lose .outcome{color:var(--err)}
 
   .top{display:flex;align-items:center;gap:16px}
   .jobEmoji{font-size:56px;line-height:1}
@@ -133,7 +167,8 @@
   .tag.ambush{color:var(--err)}
   .tag.streak{color:var(--patina)}
   .bal{font-family:var(--rdoc-font-mono);font-weight:400;color:var(--ink)}
-  .bal small{font-family:var(--rdoc-font-mono);color:var(--steel);text-transform:uppercase;letter-spacing:.07em}
+  .bal small{font-family:var(--rdoc-font-mono);font-size:12px;color:var(--steel);
+    text-transform:uppercase;letter-spacing:.3em;margin-right:8px}
 
   /* ── Quantum-Lane + Frachtschiff (im #stage, 1080p-Koordinaten) ── */
   /* Flat 2px Patina rule - the lane was a five-stop gradient with a glow. */
@@ -173,6 +208,9 @@
     </div>
 
     <div id="card">
+      <span class="tick tr"></span>
+      <span class="tick br"></span>
+      <div class="outcome" id="outcome">Auftrag</div>
       <div class="top">
         <div class="jobEmoji" id="jobEmoji">📦</div>
         <div class="meta">
@@ -197,10 +235,17 @@
   const $ = id => document.getElementById(id);
   const card = $('card'), truck = $('truck'), road = $('road');
 
+  // ── Fit the 1920x1080 design space to the real OBS source ──
+  // 1080p and 1440p then read identically instead of the overlay only
+  // fitting a 2560x1440 source.
+  function fit(){ document.documentElement.style.setProperty('--hl-fit', innerWidth / 1920); }
+  fit(); addEventListener('resize', fit);
+
   // ── Canvas particles ──
+  // Backing store is the DESIGN space, not the viewport, so particle
+  // coordinates and card coordinates are the same numbers.
   const cv = $('fx'), ctx = cv.getContext('2d');
-  function resize(){ cv.width = innerWidth; cv.height = innerHeight; }
-  resize(); addEventListener('resize', resize);
+  cv.width = 1920; cv.height = 1080;
 
   let parts = [];
   function spawn(x, y, n, opts){
@@ -216,7 +261,7 @@
     }
   }
   function tick(){
-    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.clearRect(0,0,1920,1080);
     for (let i=parts.length-1;i>=0;i--){
       const p = parts[i];
       p.vy += p.g; p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.rot += p.vr;
@@ -258,6 +303,8 @@
       const r = $('result'); const amt = Number(d.amount)||0;
       r.textContent = (amt>=0?'+':'−')+Math.abs(amt);
       r.className = 'result '+(win?'win':'lose');
+      // The state carries a word, not just a colour.
+      $('outcome').textContent = win ? 'Auftrag erfüllt' : 'Auftrag gescheitert';
       $('bal').innerHTML = `<small>Konto</small> ${Number(d.balance)||0}`;
 
       // tags
@@ -278,8 +325,9 @@
         truck.style.left = '2120px';   // Stage-Breite (1920) + Rand
       });
 
-      // FX at card center-top
-      const cx = innerWidth/2, cy = innerHeight - 300;
+      // FX at card centre-top, in design-space coordinates - the card
+      // sits at left:50% bottom:140 in the same space.
+      const cx = 960, cy = 1080 - 300;
       if (win){
         const coins = d.jackpot?80:(d.crit?55:32);
         spawn(cx, cy, coins, {sp:9, up:6, size:26, g:0.18, color:C.gold, text:'🪙'});
@@ -305,7 +353,7 @@
     const cols=[C.gold,C.cyan,C.green,C.ink,C.steel];
     for(let k=0;k<3;k++) setTimeout(()=>{
       for(let i=0;i<60;i++)
-        spawn(Math.random()*innerWidth, -20, 1,
+        spawn(Math.random()*1920, -20, 1,
           {sp:3, up:-2, size:7, g:0.15, color:cols[i%cols.length]});
     }, k*250);
   }

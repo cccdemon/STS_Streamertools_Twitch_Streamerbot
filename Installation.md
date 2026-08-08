@@ -23,7 +23,7 @@ Basis-URL: `http://192.168.178.34` (LXC Host mit Caddy auf Port 80)
 | Alerts (Follow/Sub/Bits/Raid/Shoutout/`!id` — **alles**) | `http://192.168.178.34/alerts/overlay.html` | 2560×1440 | ALLE Szenen |
 | Spacefight | `http://192.168.178.34/spacefight/spacefight.html` | 1920×1080 oder 2560×1440 | Main / Gaming |
 | HUD Chat | `http://192.168.178.34/alerts/chat.html?channel=justcallmedeimos` | 450×1080 (rechte Seite) | Main / Gaming |
-| Hauling | `http://192.168.178.34/alerts/haul.html` | 2560×1440 | Main / Gaming |
+| Hauling | `http://192.168.178.34/alerts/haul.html` | 1920×1080 oder 2560×1440 | Main / Gaming |
 | Bodycam-Szene | `http://192.168.178.34/gamescenes/sc-bodycam.html?player=Name` | 1920×1080 | Szenenwechsel |
 
 > **`alerts.html`, `raid-info.html` und `shoutout-info.html` gibt es nicht mehr.**
