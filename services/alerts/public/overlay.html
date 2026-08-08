@@ -1324,7 +1324,7 @@ class CCOverlay {
     const game = data.game || data.lastGame || '';
     // Hold time before the exit runs. CC_Shoutout.cs sends no duration,
     // so this default is what actually ships.
-    const dur = parseInt(data.duration || 10000, 10);
+    const dur = parseInt(data.duration || 8000, 10);
     const U = user.toUpperCase();
 
     E.soAmbient.textContent = U;
