@@ -20,24 +20,48 @@ Basis-URL: `http://192.168.178.34` (LXC Host mit Caddy auf Port 80)
 
 | Overlay | URL | Empf. Größe | Szene |
 |---|---|---|---|
-| Spacefight | `http://192.168.178.34/spacefight/spacefight.html` | 1920×1080 | Main / Gaming |
+| Alerts (Follow/Sub/Bits/Raid/Shoutout/`!id` — **alles**) | `http://192.168.178.34/alerts/overlay.html` | 2560×1440 | ALLE Szenen |
+| Spacefight | `http://192.168.178.34/spacefight/spacefight.html` | 1920×1080 oder 2560×1440 | Main / Gaming |
 | HUD Chat | `http://192.168.178.34/alerts/chat.html?channel=justcallmedeimos` | 450×1080 (rechte Seite) | Main / Gaming |
-| Alert Bar (Follow/Sub/Bits/Raid…) | `http://192.168.178.34/alerts/alerts.html` | 1920×200 (unten) | ALLE Szenen |
-| Raid-Info Panel | `http://192.168.178.34/alerts/raid-info.html` | 600×1080 (rechts) | Main |
-| Shoutout Panel | `http://192.168.178.34/alerts/shoutout-info.html` | 600×1080 (rechts) | Main |
+| Hauling | `http://192.168.178.34/alerts/haul.html` | 2560×1440 | Main / Gaming |
+| Bodycam-Szene | `http://192.168.178.34/gamescenes/sc-bodycam.html?player=Name` | 1920×1080 | Szenenwechsel |
+
+> **`alerts.html`, `raid-info.html` und `shoutout-info.html` gibt es nicht mehr.**
+> Sie liefern 404. Alle Alert-Typen rendert heute `overlay.html` — eine einzige
+> Browserquelle statt drei. Wer die alten URLs noch in einer Szene hat, sieht
+> dort dauerhaft nichts, egal was deployt wird.
+
+> **Spacefight-Quelle:** Position 0/0, Größe = volle Leinwand. Die Seite baut in
+> einem 1920×1080-Designraum und skaliert sich selbst auf die Quelle, der Kampf
+> sitzt mittig, die Bestenliste am Bildrand. Eine 640×200-Quelle ist der alte
+> Stand und schneidet heute ab.
 
 ### Testmodus
 
-Für Einrichtung ohne Live-Event Quelle duplizieren und zusätzlichen Parameter anhängen:
+Für Einrichtung ohne Live-Event Quelle duplizieren und Parameter anhängen:
 
-- `spacefight.html?test=1`
-- `raid-info.html?test=raid&user=TestRaider&viewers=42`
-- `shoutout-info.html?test=shoutout&user=TestStreamer&game=Star+Citizen`
+- `spacefight.html?test=1` — lokaler Testkampf
+- `spacefight.html?scale=2` — Duell doppelt so groß
+- `spacefight.html?wof=left` — Bestenliste an den linken Rand
+- `overlay.html?demo=1` — Demo-Panel mit Knöpfen für jeden Alert-Typ
+- `haul.html?demo=1` — Beispiel-Hauls im Loop
+
+Alerts lassen sich auch aus dem Admin testen: `/admin/alerts-test.html`.
 
 ### Hinweise
 
-- Alert Bar immer **ganz oben** in der Szenen-Reihenfolge legen, damit sie andere Overlays überdeckt.
-- Optional: `?wshost=` und `?wsport=` setzen, falls die API über einen anderen Host erreichbar ist.
+- Alert-Overlay immer **ganz oben** in der Szenen-Reihenfolge, damit es die anderen überdeckt.
+- Streamerbot-Host im Alert-Overlay ist fest eingebaut; pro Quelle überschreibbar mit `?sb=ws://host:port`.
+
+### Nach einem Deploy: Quelle wirklich neu laden
+
+Caddy schickt `Cache-Control: no-cache`, aber der Browser in OBS hält die Seite
+trotzdem im eigenen Cache. Ein Szenenwechsel oder Quelle aus/an reicht nicht.
+
+1. Quelle → **Eigenschaften** → **Cache der aktuellen Seite aktualisieren**
+2. Bleibt es alt: die URL im normalen Browser auf dem Stream-PC öffnen. Sieht es
+   dort neu aus, war es der OBS-Cache. Sieht es dort auch alt aus, zeigt die
+   Quelle auf eine andere Adresse als den Server.
 
 ---
 
