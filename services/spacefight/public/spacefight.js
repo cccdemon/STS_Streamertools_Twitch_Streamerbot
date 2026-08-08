@@ -166,6 +166,17 @@ function loadPlayerRank(username, cb) {
 }
 
 // ── Wall of Fame anzeigen ─────────────────────────────────
+// The station ident is shown only while the overlay actually has
+// something on screen: a duel in progress, or the Bestenliste. The
+// arena is transparent the rest of the time, and a permanently visible
+// signet is the mark sitting in the stream around the clock.
+function syncIdent() {
+  var el = document.getElementById('sf-ident');
+  if (!el) return;
+  var on = !!arenaState || wofVisible;
+  el.classList.toggle('sf-ident-on', on);
+}
+
 function showWoF(highlightUser) {
   var wof = document.getElementById('wof');
   if (!wof) return;
@@ -174,6 +185,7 @@ function showWoF(highlightUser) {
   wofTimer = setTimeout(hideWoF, WOF_SHOW_SECS * 1000);
 
   wofVisible = true;
+  syncIdent();
   document.getElementById('wof-list').innerHTML = '<div class="wof-empty">Lade...</div>';
   var rankEl = document.getElementById('wof-player-rank');
   if (rankEl) rankEl.style.display = 'none';
@@ -219,6 +231,7 @@ function hideWoF() {
   var wof = document.getElementById('wof');
   if (!wof) return;
   wofVisible = false;
+  syncIdent();
   wof.classList.remove('wof-in');
   wof.classList.add('wof-out');
   if (wofTimer) { clearTimeout(wofTimer); wofTimer = null; }
@@ -733,6 +746,7 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
 
   // arena state shared
   arenaState = state;
+  syncIdent();
   startArenaLoop(state);
 
   // schedule round events
@@ -759,6 +773,7 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
     if (fade.parentNode) fade.parentNode.removeChild(fade);
     state.ctx.clearRect(0, 0, ARENA_W, ARENA_H);
     arenaState = null;
+    syncIdent();
     if (typeof onDone === 'function') onDone();
     setTimeout(function() { showWoF(winner); }, 500);
     nextFight();

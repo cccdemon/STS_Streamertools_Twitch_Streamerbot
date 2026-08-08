@@ -374,6 +374,11 @@ body {
 /* ── Arena station ident ──────────────────────────────────────
    Where the arena spends its signet. Bottom-left, clear of the
    two ships and of the Wall of Fame at top-right. */
+/* Hidden by default. The arena is transparent between fights, so a
+   static ident would leave the signet burnt into the stream around the
+   clock - the mark belongs on screen while the overlay has something
+   to say, not permanently. syncIdent() in spacefight.js turns it on
+   while a duel is running or the Bestenliste is up. */
 #sf-ident {
   position: absolute;
   left: 8px;
@@ -382,8 +387,10 @@ body {
   align-items: center;
   gap: 7px;
   pointer-events: none;
-  opacity: 0.9;
+  opacity: 0;
+  transition: opacity 0.35s ease;
 }
+#sf-ident.sf-ident-on { opacity: 0.9; }
 #sf-ident .ov-eyebrow { font-size: 9px; }
 
 /* ── Ship (DOM, GPU-translated) ───────────────────────────── */
