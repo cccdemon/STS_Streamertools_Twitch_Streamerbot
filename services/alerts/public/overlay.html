@@ -143,14 +143,28 @@
      things moving in lockstep is what broke the pairing. */
   @keyframes ccSoTextTuck {
     0%   { transform:translateX(0); }
-    100% { transform:translateX(520px); }
+    100% { transform:translateX(420px); }
   }
+  /* The text has to CLEAR the 1920px stage, not fade out while standing
+     on it. The block is centred in the 1320px left area, so its left
+     edge sits around x=400 at the widest; +1900px puts it past 2300 and
+     the frame ends at 1920. The old 1180px left roughly a third of the
+     text on screen when opacity reached 0, which is why it read as a
+     dissolve rather than an exit. Opacity now only closes over the last
+     15%, as a tail so nothing lingers for a frame - the travel does the
+     work. */
   @keyframes ccSoTextOut {
-    0%   { transform:translateX(520px); opacity:1; }
-    100% { transform:translateX(1180px); opacity:0; }
+    0%   { transform:translateX(420px);  opacity:1; }
+    85%  { opacity:1; }
+    100% { transform:translateX(1900px); opacity:0; }
   }
+  /* 104% of the panel's own 600px is 624px, so its left edge goes from
+     1320 to 1944 and clears 1920 on translation alone. It no longer
+     dissolves on the way out either: a panel that fades while it is
+     still moving reads as two exits happening at once. */
   @keyframes ccSoPanelOut {
     0%   { transform:translateX(0); opacity:1; }
+    85%  { opacity:1; }
     100% { transform:translateX(104%); opacity:0; }
   }
   @keyframes ccSoRing   { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
@@ -1308,7 +1322,9 @@ class CCOverlay {
     const user = data.user || data.userName || '???';
     const avatar = data.avatar || data.profileImageUrl || '';
     const game = data.game || data.lastGame || '';
-    const dur = parseInt(data.duration || 12000, 10);
+    // Hold time before the exit runs. CC_Shoutout.cs sends no duration,
+    // so this default is what actually ships.
+    const dur = parseInt(data.duration || 10000, 10);
     const U = user.toUpperCase();
 
     E.soAmbient.textContent = U;
@@ -1369,7 +1385,7 @@ class CCOverlay {
   // duration so they read as one object.
   hideShoutout() {
     const E = this.els;
-    const TUCK = 420, OUT = 500;
+    const TUCK = 380, OUT = 560;   // OUT carries a longer travel now
     const EASE_OUT = 'cubic-bezier(0.4,0,1,1)';
 
     // Beat 1 - tuck right. The lines keep their opacity: they are
