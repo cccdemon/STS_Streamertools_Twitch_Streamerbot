@@ -210,6 +210,11 @@ body {
   white-space: nowrap;
   text-align: center;
   line-height: 1;
+  /* The ships sit SHIP_SEPARATION apart (200px centre to centre), so a
+     label may not grow past that or the two names collide mid-arena. */
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ship.attacker .ship-label { color: var(--ov-copper); }
@@ -217,6 +222,8 @@ body {
 
 .ship-class {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin-top: 2px;
   font-family: var(--rdoc-font-mono);
   font-size: 9px;

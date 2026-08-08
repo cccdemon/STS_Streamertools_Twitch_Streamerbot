@@ -244,6 +244,10 @@ function toggleWoF() {
 
 var ARENA_W = 640, ARENA_H = 200;
 var SHIP_FRAME = 32, SHIP_SCALE = 2, SHIP_DISPLAY = SHIP_FRAME * SHIP_SCALE; // 64
+// Centre-to-centre distance between the two combatants. Their home
+// positions are derived from the arena centre below, so the fight stays
+// centred by construction - tune the duel's width here, nothing else.
+var SHIP_SEPARATION = 200;
 var FRAMES_IDLE   = [0,1,2,3];
 var FRAMES_THRUST = [4,5,6];
 var FRAME_HIT     = 7;
@@ -654,8 +658,8 @@ function showFight(aName, dName, shipA, shipD, rounds, winner, loser, onDone) {
   var state = {
     ctx: canvas.getContext('2d'),
     stars: initStarfield(),
-    shipA: newShipState('attacker', aName, shipA.name, 140, 100),
-    shipD: newShipState('defender', dName, shipD.name, 500, 100),
+    shipA: newShipState('attacker', aName, shipA.name, (ARENA_W - SHIP_SEPARATION) / 2, ARENA_H / 2),
+    shipD: newShipState('defender', dName, shipD.name, (ARENA_W + SHIP_SEPARATION) / 2, ARENA_H / 2),
     projectiles: [],
     flashes: [],
     sparks: [],
