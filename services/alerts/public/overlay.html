@@ -141,22 +141,20 @@
      that happen to end at the same time. The panel keyframe therefore
      has no anticipation bounce any more - a 9px kick on one of two
      things moving in lockstep is what broke the pairing. */
-  @keyframes ccSoTextTuck {
-    0%   { transform:translateX(0); }
-    100% { transform:translateX(420px); }
-  }
-  /* The text has to CLEAR the 1920px stage, not fade out while standing
-     on it. The block is centred in the 1320px left area, so its left
-     edge sits around x=400 at the widest; +1900px puts it past 2300 and
-     the frame ends at 1920. The old 1180px left roughly a third of the
-     text on screen when opacity reached 0, which is why it read as a
-     dissolve rather than an exit. Opacity now only closes over the last
-     15%, as a tail so nothing lingers for a frame - the travel does the
-     work. */
-  @keyframes ccSoTextOut {
-    0%   { transform:translateX(420px);  opacity:1; }
-    85%  { opacity:1; }
-    100% { transform:translateX(1900px); opacity:0; }
+  /* The left block says its piece and then gets out of the way: it
+     slides right and comes to rest BEHIND the panel, so the second half
+     of the shoutout has the frame to itself. It does not leave the
+     frame - it is covered.
+
+     900px is what it takes to be fully covered. The block is centred in
+     the 1320px left area and runs about 300px wide, so it spans roughly
+     510-810; +900 puts it at 1410-1710, inside the panel's 1320-1920.
+     Opacity still closes at the end: the panel is rgba(...,0.97), and
+     3% of a 44px headline is visible if you look for it. */
+  @keyframes ccSoTextPark {
+    0%   { transform:translateX(0);     opacity:1; }
+    88%  { opacity:1; }
+    100% { transform:translateX(900px); opacity:0; }
   }
   /* 104% of the panel's own 600px is 624px, so its left edge goes from
      1320 to 1944 and clears 1920 on translation alone. It no longer
@@ -1336,9 +1334,12 @@ class CCOverlay {
     const user = data.user || data.userName || '???';
     const avatar = data.avatar || data.profileImageUrl || '';
     const game = data.game || data.lastGame || '';
-    // Hold time before the exit runs. CC_Shoutout.cs sends no duration,
-    // so this default is what actually ships.
-    const dur = parseInt(data.duration || 8000, 10);
+    // Two clocks. The left block is a greeting and is done long before
+    // the panel is - the panel carries the name, the game and the
+    // recommendation, which is what actually needs reading time.
+    // CC_Shoutout.cs sends neither, so these defaults are what ship.
+    const dur      = parseInt(data.duration || 10000, 10);  // panel
+    const textHold = parseInt(data.textHold || 4000, 10);   // left block
     const U = user.toUpperCase();
 
     E.soAmbient.textContent = U;
@@ -1356,6 +1357,7 @@ class CCOverlay {
     E.soHdr.style.opacity = '0';
     E.soPanel.style.animation = 'none'; E.soPanel.style.transform = 'translateX(104%)';
     E.soText.style.animation = 'none'; E.soText.style.transform = 'translateX(0)'; E.soText.style.opacity = '1';
+    this.soTextParked = false;
     E.soAmbient.style.transition = 'none'; E.soAmbient.style.opacity = '1';
     E.soAv.classList.remove('cc-decrypt');
     E.so.style.opacity = '1';
@@ -1381,6 +1383,9 @@ class CCOverlay {
     setTimeout(() => this.typeIn(E.soName, U, 70, () => {
       setTimeout(() => { E.soCursor.style.display = 'none'; }, 600);
     }), 1250);
+
+    if (this.soTextTimer) clearTimeout(this.soTextTimer);
+    this.soTextTimer = setTimeout(() => this.parkShoutoutText(), textHold);
 
     if (this.soTimer) clearTimeout(this.soTimer);
     this.soTimer = setTimeout(() => this.hideShoutout(), dur);
@@ -1420,25 +1425,38 @@ class CCOverlay {
     el.textContent = '';                   // typeIn refills it
   }
 
+  // Beat 1, at textHold: the greeting slides right and comes to rest
+  // behind the panel. It does not leave the frame - it is covered.
+  parkShoutoutText() {
+    this.els.soText.style.animation = 'ccSoTextPark 0.6s cubic-bezier(0.4,0,0.6,1) forwards';
+    this.soTextParked = true;
+  }
+
+  // Beat 2, at duration: the panel leaves to the right, taking the
+  // backdrop and the ambient word with it.
+  //
+  // The panel clears the frame on translation alone - 104% of its own
+  // 600px moves its left edge from 1320 to 1944 - so opacity only closes
+  // as a tail over the last 15% rather than dissolving it mid-travel.
   hideShoutout() {
     const E = this.els;
-    const TUCK = 380, OUT = 560;   // OUT carries a longer travel now
-    const EASE_OUT = 'cubic-bezier(0.4,0,1,1)';
+    const OUT = 560;
 
-    // Beat 1 - tuck right. The lines keep their opacity: they are
-    // moving, not disappearing.
-    E.soText.style.animation = `ccSoTextTuck ${TUCK}ms cubic-bezier(0.4,0,0.6,1) forwards`;
+    // If duration was set below textHold the greeting is still standing
+    // there. Park it instantly, or the panel slides away and uncovers it.
+    if (!this.soTextParked) {
+      E.soText.style.animation = 'none';
+      E.soText.style.transform = 'translateX(900px)';
+      E.soText.style.opacity = '0';
+      this.soTextParked = true;
+    }
 
-    // Beat 2 - both leave right, with the backdrop and the ambient word.
-    setTimeout(() => {
-      E.soText.style.animation = `ccSoTextOut ${OUT}ms ${EASE_OUT} forwards`;
-      E.soPanel.style.animation = `ccSoPanelOut ${OUT}ms ${EASE_OUT} forwards`;
-      E.soAmbient.style.transition = `opacity ${OUT}ms ease-in`;
-      E.soAmbient.style.opacity = '0';
-      E.soBg.style.background = 'rgba(18,20,22,0)';
-    }, TUCK);
+    E.soPanel.style.animation = `ccSoPanelOut ${OUT}ms cubic-bezier(0.4,0,1,1) forwards`;
+    E.soAmbient.style.transition = `opacity ${OUT}ms ease-in`;
+    E.soAmbient.style.opacity = '0';
+    E.soBg.style.background = 'rgba(18,20,22,0)';
 
-    // Park everything off-stage for the next shoutout.
+    // Reset for the next shoutout.
     setTimeout(() => {
       E.so.style.opacity = '0';
       E.soText.style.animation = 'none';
@@ -1448,7 +1466,8 @@ class CCOverlay {
       E.soPanel.style.transform = 'translateX(104%)';
       E.soAmbient.style.transition = 'none';
       E.soAmbient.style.opacity = '1';
-    }, TUCK + OUT + 60);
+      this.soTextParked = false;
+    }, OUT + 60);
   }
 
   // Setzt den Shoutout-Text sicher (textContent → Sonderzeichen/Umlaute korrekt)
