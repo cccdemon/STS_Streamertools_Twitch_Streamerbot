@@ -1126,8 +1126,42 @@ class CCOverlay {
       'zieh mütze aus': { label: 'CREW-BEFEHL',
         msg: `${H(user)} besteht auf Kopffreiheit.<br>${H('Mütze ab. Respekt zeigen.')}`,
         sound: 'snd-redeem', frame: 'cyan' },
+      'ab aufs walkpad': { label: 'CREW-BEFEHL',
+        msg: `${H(user)} schickt Deimos aufs Walkpad.<br>${H('20 Minuten. Kein Widerspruch.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'all eyes on: antje': { label: 'ALL EYES ON',
+        msg: `${H(user)} will Antje sehen.<br>Bühne frei für ${H('Antjes Gamescene.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'all eyes on: marco': { label: 'ALL EYES ON',
+        msg: `${H(user)} will Jazzz sehen.<br>Bühne frei für ${H('Jazzz\' Gamescene.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'all eyes on: mario': { label: 'ALL EYES ON',
+        msg: `${H(user)} will Jericho sehen.<br>Bühne frei für ${H('Jerichos Gamescene.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'all eyes on: thomas': { label: 'ALL EYES ON',
+        msg: `${H(user)} will Headwig sehen.<br>Bühne frei für ${H('Headwigs Gamescene.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'antje erzähl was über dich': { label: 'CREW-NACHFRAGE',
+        msg: `${H(user)} will eine Geschichte hören.<br>Antje – ${H('erzähl uns was aus deinem Leben.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'headwig sag was nettes': { label: 'CREW-NACHFRAGE',
+        msg: `${H(user)} braucht Aufmunterung.<br>Headwig – ${H('sag was Nettes.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'jazzz - entschärf hier mal die situation': { label: 'DEESKALATION',
+        msg: `${H(user)} ruft zur Ordnung.<br>Jazzz – ${H('bring uns wieder auf nett.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'jericho sag was negatives über star citizen': { label: 'KRITIK ANGEFORDERT',
+        msg: `${H(user)} will Ehrlichkeit.<br>Jericho – ${H('was nervt dich an Star Citizen?')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
+      'jericho: steh dazu ;-)': { label: 'CREW-BEFEHL',
+        msg: `${H(user)} will Haltung sehen.<br>Jericho – ${H('Schreibtisch hoch.')}`,
+        sound: 'snd-redeem', frame: 'cyan' },
     };
-    const cfg = REWARDS[reward];
+    // Match ignores case, whitespace and punctuation: Twitch titles carry
+    // "!", ":" or ";-)" that are easy to drop when typing a key here.
+    const norm = s => String(s).toLowerCase().replace(/[^a-z0-9äöüß]+/g, '');
+    const key = Object.keys(REWARDS).find(k => norm(k) === norm(reward));
+    const cfg = key && REWARDS[key];
     if (!cfg) {
       return { label: 'CHANNEL REWARD', user,
         msg: `${H(user)} hat einen Reward eingelöst:<br>${H(data.reward || data.rewardName || '???')}`,
