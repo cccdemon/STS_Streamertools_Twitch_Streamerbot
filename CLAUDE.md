@@ -480,7 +480,7 @@ events never double-fire. `/admin/alerts-test.html` sends
 Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as a URL param.
 
 ### Chat commands without Streamerbot (`services/alerts/twitch/`)
-`!wow`, `!followage`, `!ziele` (active sub goals from the Twitch creator
+`!wow`, `!becher`, `!followage`, `!ziele` (active sub goals from the Twitch creator
 dashboard, Helix `GET /goals`) and `!kraken` (yearly net profit from
 `financial.raumdock.org`, target `KRAKEN_TARGET`) are answered by the alerts
 service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
@@ -499,8 +499,11 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   `ssh -N -L 80:localhost:80 root@$SSH_HOST`, then open
   `http://localhost/alerts/auth/login?key=…`. A mismatch shows up as
   `redirect_mismatch` in the URL Twitch sends you back to.
-- Fixed texts: `chatReplies` table in `twitch/config.js`, overridable per env
-  (`WOW_TEXT`), empty text disables. Logic commands: `twitch/commands.js`.
+- Fixed texts (`!wow`, `!becher`): `chatReplies` table in `twitch/config.js`,
+  overridable per env (`WOW_TEXT`, `BECHER_TEXT`, passed through compose). An
+  empty env value means the default — compose always sets the var, so empty
+  cannot mean "off"; remove the entry to disable. Logic commands:
+  `twitch/commands.js`.
   30 s cooldown per command, per viewer for `!followage`.
 - `/health` reports `twitch.eventsub` (`verbunden`, `kein-token`, `kein-kanal`,
   `kanal-fehler`, …) but never fails on it.

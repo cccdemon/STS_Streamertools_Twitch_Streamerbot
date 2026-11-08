@@ -144,6 +144,8 @@ services:
       TWITCH_REDIRECT_URI:  ${TWITCH_REDIRECT_URI:-http://localhost}
       ADMIN_TOKEN:          ${ADMIN_TOKEN:-}
       KRAKEN_TARGET:        ${KRAKEN_TARGET:-100000}
+      WOW_TEXT:             ${WOW_TEXT:-}
+      BECHER_TEXT:          ${BECHER_TEXT:-}
       TZ: Europe/Berlin
     depends_on:
       redis:
