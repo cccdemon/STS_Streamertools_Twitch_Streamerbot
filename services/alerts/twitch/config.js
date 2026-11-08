@@ -9,7 +9,7 @@ const num = (v, fallback) => {
 };
 
 const WOW_DEFAULT = 'Unsere Gilde - Sturmhammer Garde, RP-PVE. Mehr unter https://wow.raumdock.org';
-const BECHER_DEFAULT = 'Der RDOC Becher! Hier gibt es ihn: https://shop.raumdock.org/en-eur/products/rdoc-workers-mug';
+const BECHER_DEFAULT = 'Der RDOC Becher, die Tasse die sich als Becher identifiziert! https://shop.raumdock.org/en-eur/products/rdoc-workers-mug';
 
 const config = {
   clientId: process.env.TWITCH_CLIENT_ID || '',
