@@ -47,6 +47,7 @@ const CFG = {
 };
 
 const { buildProfile } = require('./profile.js');
+const twitchChat = require('./twitch/index.js');
 
 const redis    = new Redis(CFG.redis);
 const redisSub = new Redis(CFG.redis);
@@ -326,10 +327,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Twitch-Chatbefehle (!wow, !followage, !ziele, !kraken) ohne Streamerbot.
+twitchChat.mount(app);
+
 app.get('/health', async (req, res) => {
   try {
     await redis.ping();
-    res.json({ status: 'ok', service: 'alerts', redis: 'ok', claude: !!ANTHROPIC_KEY });
+    // twitch.* informativ: ein fehlender Login darf den Healthcheck nicht kippen.
+    res.json({ status: 'ok', service: 'alerts', redis: 'ok', claude: !!ANTHROPIC_KEY, twitch: twitchChat.status() });
   } catch(e) {
     res.status(503).json({ status: 'error', error: e.message });
   }
@@ -469,6 +474,7 @@ app.use(express.static('public'));
 async function main() {
   await redisReady();
   subscribeToAlerts();
+  twitchChat.start(redis).catch(err => logErr('Twitch', 'start:', err.message));
   server.listen(CFG.port, () => {
     log('Alerts', `Service on port ${CFG.port}`);
     log('Claude', ANTHROPIC_KEY ? 'API key configured' : 'WARNING: ANTHROPIC_KEY not set');

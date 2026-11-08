@@ -1,0 +1,49 @@
+'use strict';
+
+// Konfiguration der Twitch-Chatbefehle. Uebernommen aus dem DerDeimos-Overlay
+// (src/config.js), auf den Alerts-Service zugeschnitten.
+
+const num = (v, fallback) => {
+  const n = Number.parseInt(v ?? '', 10);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const WOW_DEFAULT = 'Unsere Gilde - Sturmhammer Garde, RP-PVE. Mehr unter https://wow.raumdock.org';
+
+const config = {
+  clientId: process.env.TWITCH_CLIENT_ID || '',
+  clientSecret: process.env.TWITCH_CLIENT_SECRET || '',
+  channel: (process.env.TWITCH_CHANNEL || '').toLowerCase(),
+
+  // Basis-URL, unter der der Browser den Alerts-Service erreicht, inklusive
+  // Caddy-Praefix. Twitch akzeptiert als Redirect nur HTTPS oder
+  // http://localhost — ohne Domain laeuft der Login ueber einen SSH-Tunnel auf
+  // Caddy (Port 80 des Servers → localhost:8080).
+  publicBaseUrl: (process.env.PUBLIC_BASE_URL || 'http://localhost:8080/alerts').replace(/\/+$/, ''),
+
+  adminToken: process.env.ADMIN_TOKEN || '',
+
+  krakenTarget: num(process.env.KRAKEN_TARGET, 100000),
+
+  // Feste Textantworten im Chat. Leerer Text schaltet den Befehl ab.
+  chatReplies: [
+    {
+      commands: ['!wow'],
+      message: process.env.WOW_TEXT ?? WOW_DEFAULT,
+    },
+  ],
+};
+
+function redirectUri() {
+  return `${config.publicBaseUrl}/auth/callback`;
+}
+
+// Scopes, die die Chatbefehle brauchen.
+const TWITCH_SCOPES = [
+  'user:read:chat',           // channel.chat.message lesen
+  'user:write:chat',          // Antworten in den Chat schreiben
+  'moderator:read:followers', // !followage
+  'channel:read:goals',       // !ziele
+];
+
+module.exports = { config, redirectUri, TWITCH_SCOPES };

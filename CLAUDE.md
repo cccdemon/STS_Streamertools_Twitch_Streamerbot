@@ -87,7 +87,7 @@ Streamerbot (WS :9090)
 
 Bridge is a pure router: it holds no state and owns the `ROUTES` map
 (`services/bridge/server.js`). An inbound event whose name is not a `ROUTES`
-key is dropped silently — adding a new Streamerbot event means adding it to
+key is dropped (logged only as `← <event> (unrouted)`) — adding a new Streamerbot event means adding it to
 `ROUTES` **and** to `ALLOWED_EVENTS` in the shared frontend lib.
 
 ### Redis Pub/Sub Channels (Bridge `ROUTES`)
@@ -96,7 +96,9 @@ key is dropped silently — adding a new Streamerbot event means adding it to
 | `chat_msg` (HUD), `clip_created`, `ad_break_start`, `ad_break_end` | `ch:chat` |
 | `fight_cmd`, `spacefight_challenge`, `spacefight_result`, `spacefight_rejected`, `stream_online`, `stream_offline` | `ch:spacefight` |
 | `follow`, `cheer`, `raid`, `shoutout`, `first_chatter` | `ch:alerts` |
-| `chat_reply` (outbound) | `ch:chat_reply` |
+
+`ch:chat_reply` is the reverse direction and **not** a `ROUTES` key: Bridge
+subscribes to it and forwards each message to Streamerbot (`CC_ChatReply.cs`).
 
 Note the split: live alerts do **not** travel this path — `overlay.html` talks
 to Streamerbot directly. Only `first_chatter` still uses `ch:alerts`.
@@ -387,7 +389,9 @@ Consequences:
   mounts it on the opposite edge, which also flips the slide-in direction, the
   Patina leading rule and the corner tick.
 - `#sf-ident` stays inside the stage: it labels the field, so it travels with
-  it.
+  it. It is shown only while a duel runs (`syncIdent()` toggles `.sf-ident-on`
+  on `arenaState`) — the arena is transparent between fights, and a static
+  signet would sit in the stream around the clock.
 
 The ship box is a second value that must not be duplicated: `spacefight.js`
 publishes `SHIP_DISPLAY` (`SHIP_FRAME * SHIP_SCALE`) to the `--ov-ship` CSS
@@ -416,10 +420,10 @@ Per-ship PNGs live in `services/spacefight/public/assets/ships/<slug>.png`. Slug
 is the lowercased ship class with non-alphanumerics → `-` (e.g. `ORIGIN 300I` →
 `origin-300i.png`); `shipSlug()` implements this and is unit-tested in the
 browser suite. Sheet format: 12 frames × 32×32 px, horizontal strip — idle 0–3,
-thrust 4–6, hit 7, explosion 8–11. Sheets render at 2× scale with
+thrust 4–6, hit 7, explosion 8–11. Sheets render at `SHIP_SCALE` (3.5×) with
 `image-rendering: pixelated`. Missing or failed-to-load sheets fall back to a
-procedural placeholder coloured from the class-name hash, so the overlay never
-breaks. Full contract: `services/spacefight/public/assets/ships/README.md`.
+procedural placeholder whose neutral hull is picked from the class-name hash, so
+the overlay never breaks. Full contract: `services/spacefight/public/assets/ships/README.md`.
 
 Defender ships are mirrored at render time via `transform: scaleX(-1)` — ship
 the right-facing variant only.
@@ -474,6 +478,31 @@ events never double-fire. `/admin/alerts-test.html` sends
 `ALLOWED_EVENTS`.
 
 Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as a URL param.
+
+### Chat commands without Streamerbot (`services/alerts/twitch/`)
+`!wow`, `!followage`, `!ziele` (active sub goals from the Twitch creator
+dashboard, Helix `GET /goals`) and `!kraken` (yearly net profit from
+`financial.raumdock.org`, target `KRAKEN_TARGET`) are answered by the alerts
+service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
+`../DerDeimos-Overlay/src/twitch/` (ESM → CommonJS); keep them in step.
+
+- **Read:** EventSub WS `channel.chat.message` with the broadcaster's own user
+  token. **Write:** Helix `POST /chat/messages` as the broadcaster.
+- **Token:** Redis key `twitch:tokens`, refreshed 5 min before expiry. Login
+  once at `/alerts/auth/login?key=$ADMIN_TOKEN`; scopes in `twitch/config.js`
+  (`TWITCH_SCOPES`) — adding a scope means logging in again.
+- **Redirect:** Twitch accepts only HTTPS or `http://localhost`. Without a
+  domain, `PUBLIC_BASE_URL` stays empty (= `http://localhost:8080/alerts`) and
+  the login runs through a tunnel onto Caddy:
+  `ssh -N -L 8080:localhost:80 root@$SSH_HOST`, then open
+  `http://localhost:8080/alerts/auth/login?key=…`. The Twitch app needs
+  `http://localhost:8080/alerts/auth/callback` as OAuth Redirect URL.
+- Fixed texts: `chatReplies` table in `twitch/config.js`, overridable per env
+  (`WOW_TEXT`), empty text disables. Logic commands: `twitch/commands.js`.
+  30 s cooldown per command, per viewer for `!followage`.
+- `/health` reports `twitch.eventsub` (`verbunden`, `kein-token`, `kein-kanal`,
+  `kanal-fehler`, …) but never fails on it.
+- A Streamerbot command with the same name would answer as well.
 
 ### Sound files
 Two locations, both checked in:
@@ -590,11 +619,12 @@ describe `services/giveaway`, `gw_cmd` or giveaway overlays:
 `?sb=ws://host:port`, or edit the constant.
 
 ## Environment
-Copy `.env.example` → `.env`. Note that `.env.example` is **incomplete**: the
-alerts service also reads `ANTHROPIC_KEY`, `TWITCH_CLIENT_ID` and
-`TWITCH_CLIENT_SECRET`, which are not listed there. Without them
-`/alerts/api/claude/summary` returns 503 and `/alerts/api/twitch/user/:login`
-returns 503.
+Copy `.env.example` → `.env`. Without `ANTHROPIC_KEY`
+`/alerts/api/claude/summary` returns 503; without `TWITCH_CLIENT_ID` /
+`TWITCH_CLIENT_SECRET` `/alerts/api/twitch/user/:login` returns 503 and the
+chat commands cannot log in. A new env var for a service must also be passed
+through in that service's `environment:` block in `docker-compose.yml` — `.env`
+alone does not reach the container.
 
 `.env` also carries the deploy target (`SSH_HOST`, `SSH_PORT`, `SSH_USER`,
 `SSH_PASSWORD`, `SSH_DEPLOY_PATH`) and `CADDY_CONFIG` (`Caddyfile` or
@@ -617,7 +647,9 @@ that do exist:
 
 - **alerts**: `services/alerts/tests/profile.test.js`, real `node:test`. Run it
   as `node --test tests/profile.test.js` from `services/alerts/` — pointing
-  `node --test` at the directory fails on this Node version.
+  `node --test` at the directory fails on this Node version. Single test:
+  `node --test --test-name-pattern="formatFollowage" tests/profile.test.js`.
+  Chat commands: `node --test tests/twitch.test.js`.
 - **browser**: open `/admin/tests/test-runner.html`; suite in
   `services/admin/public/tests/test-suite.js`. Covers `CC.validate`, the nav
   bar and `shipSlug`.

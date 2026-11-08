@@ -138,6 +138,11 @@ services:
       TWITCH_CLIENT_ID:     ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       ANTHROPIC_KEY:        ${ANTHROPIC_KEY:-}
+      # Twitch-Chatbefehle ohne Streamerbot (services/alerts/twitch/)
+      TWITCH_CHANNEL:       ${TWITCH_CHANNEL:-}
+      PUBLIC_BASE_URL:      ${PUBLIC_BASE_URL:-}
+      ADMIN_TOKEN:          ${ADMIN_TOKEN:-}
+      KRAKEN_TARGET:        ${KRAKEN_TARGET:-100000}
       TZ: Europe/Berlin
     depends_on:
       redis:
