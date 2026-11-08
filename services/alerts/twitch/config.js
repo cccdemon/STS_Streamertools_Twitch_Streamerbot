@@ -34,8 +34,11 @@ const config = {
   ],
 };
 
+// TWITCH_REDIRECT_URI ueberschreibt die abgeleitete URL — noetig, weil die
+// Twitch-App der Suite nur "http://localhost" eingetragen hat. Caddy leitet
+// /?state=.. dann an /alerts/auth/callback weiter (siehe caddy/Caddyfile).
 function redirectUri() {
-  return `${config.publicBaseUrl}/auth/callback`;
+  return process.env.TWITCH_REDIRECT_URI || `${config.publicBaseUrl}/auth/callback`;
 }
 
 // Scopes, die die Chatbefehle brauchen.

@@ -69,8 +69,24 @@
     # 302 so the browser actually navigates to /admin/ — otherwise
     # relative asset paths (chaos-crew-admin.css etc.) resolve to /
     # which has no handler and the page renders unstyled.
-    @root path /
+    @root {
+        path /
+        not query state=*
+    }
     redir @root /admin/ 302
+
+    # ── Twitch-OAuth-Rueckleitung ─────────────────────────
+    # Die Twitch-App der Suite hat "http://localhost" als Redirect URL.
+    # Twitch kommt mit /?code=..&state=.. zurueck (Login ueber SSH-Tunnel
+    # localhost:80 -> Server:80) — an den Callback des Alerts-Service geben.
+    @oauth {
+        path /
+        query state=*
+    }
+    handle @oauth {
+        rewrite * /auth/callback?{query}
+        reverse_proxy alerts:3003
+    }
 
     header {
         Access-Control-Allow-Origin *

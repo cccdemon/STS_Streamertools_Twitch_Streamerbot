@@ -141,6 +141,7 @@ services:
       # Twitch-Chatbefehle ohne Streamerbot (services/alerts/twitch/)
       TWITCH_CHANNEL:       ${TWITCH_CHANNEL:-}
       PUBLIC_BASE_URL:      ${PUBLIC_BASE_URL:-}
+      TWITCH_REDIRECT_URI:  ${TWITCH_REDIRECT_URI:-http://localhost}
       ADMIN_TOKEN:          ${ADMIN_TOKEN:-}
       KRAKEN_TARGET:        ${KRAKEN_TARGET:-100000}
       TZ: Europe/Berlin
