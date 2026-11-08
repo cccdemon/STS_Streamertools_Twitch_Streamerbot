@@ -491,12 +491,14 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
 - **Token:** Redis key `twitch:tokens`, refreshed 5 min before expiry. Login
   once at `/alerts/auth/login?key=$ADMIN_TOKEN`; scopes in `twitch/config.js`
   (`TWITCH_SCOPES`) — adding a scope means logging in again.
-- **Redirect:** Twitch accepts only HTTPS or `http://localhost`. Without a
-  domain, `PUBLIC_BASE_URL` stays empty (= `http://localhost:8080/alerts`) and
-  the login runs through a tunnel onto Caddy:
-  `ssh -N -L 8080:localhost:80 root@$SSH_HOST`, then open
-  `http://localhost:8080/alerts/auth/login?key=…`. The Twitch app needs
-  `http://localhost:8080/alerts/auth/callback` as OAuth Redirect URL.
+- **Redirect:** the suite's Twitch app (`TWITCH_CLIENT_ID`) lists only
+  `http://localhost`, so `TWITCH_REDIRECT_URI` defaults to exactly that. Twitch
+  returns to `/?code=…&state=…`; Caddy's `@oauth` matcher (both Caddyfiles)
+  rewrites that to the alerts `/auth/callback`, and the root `/admin/` redirect
+  skips requests carrying `state`. Login runs through a tunnel onto Caddy:
+  `ssh -N -L 80:localhost:80 root@$SSH_HOST`, then open
+  `http://localhost/alerts/auth/login?key=…`. A mismatch shows up as
+  `redirect_mismatch` in the URL Twitch sends you back to.
 - Fixed texts: `chatReplies` table in `twitch/config.js`, overridable per env
   (`WOW_TEXT`), empty text disables. Logic commands: `twitch/commands.js`.
   30 s cooldown per command, per viewer for `!followage`.
