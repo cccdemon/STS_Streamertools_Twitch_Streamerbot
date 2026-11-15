@@ -502,14 +502,17 @@ Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as a URL param.
 The whole stream look is HTML, not PNG frames. Cams, feeds and the game picture stay real OBS sources (audio, visibility and the remote agent keep working per source); a transparent frame page draws edges, name plates, panels and the signet on top.
 
 ```bash
-node tools/obs/build-collection.js          # writes %APPDATA%obs-studioasic{scenesRDOC.json,profilesRDOC}
+node tools/obs/build-collection.js          # writes \Mywall-eobsobs-studioasic{scenesRDOC.json,profilesRDOC}
 node tools/obs/build-collection.js --dry    # check + list only
 node tools/obs/build-collection.js --out <basic dir> --force
+node tools/obs/build-collection.js --only-profile --force   # leave the collection alone
 ```
 
-Run it from **PowerShell** when `--out` is a UNC path — Git Bash rewrites `\hostshare` and the output lands in a local folder. It refuses while OBS runs (OBS rewrites the file on exit) and never overwrites without `--force`: positions adjusted inside OBS are lost on regeneration, so change `rdoc-layout.js` instead of dragging sources.
+**The target is the streaming PC (`MyWall-E`, AMD Radeon), not the machine the script runs on.** Its OBS folder is the share `\Mywall-eobs`. Devices, encoder and paths therefore come from that PC's own old collection and old profile — never from the local OBS. An earlier version read camera, monitor and encoder from the dev PC and produced a collection for the wrong hardware (NVIDIA, other capture devices).
 
-Nothing machine- or person-specific is in the repo. The generator adopts sources from existing OBS files: guest cams (VDO.Ninja) and player feeds from the old collection (`--old`), camera / monitor / Spotify / global audio from this PC's collection (`--local`), channel login + stream key from the old profile, encoder + paths from this PC's profile.
+Pass a UNC `--out` from **PowerShell** — Git Bash rewrites `\hostshare` and the output lands in a local folder (the default target needs no argument and is safe in either shell). The script never overwrites without `--force`: positions adjusted inside OBS are lost on regeneration, so change `rdoc-layout.js` instead of dragging sources.
+
+Nothing machine- or person-specific is in the repo. The generator adopts from the old collection (`--old`, also the default for `--devices`): guest cams (VDO.Ninja), player feeds, `Camera` → `Kamera`, the capture card `Videoaufnahmegerät` → `Spielbild`, Spotify and every global audio device with its filters. The profile is the old profile with a new name and without the stale vertical-canvas reference; `streamEncoder.json` / `recordEncoder.json` are copied verbatim (AMF, 8000 kbit/s, recording CQP 16). `--local-profile` and `--encoder` exist only for running the collection on different hardware.
 
 **18 program scenes:** Start, Pause, Ende, Talk solo, Talk, Gaming, Desktop, Cam ×4, Spiel ×4, Multi 3/4/5. Canvas 2560×1440.
 

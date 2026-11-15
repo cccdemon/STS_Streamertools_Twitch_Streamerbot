@@ -4,7 +4,7 @@
 /*
  * Baut die OBS-Szenensammlung "RDOC" und das OBS-Profil "RDOC".
  *
- *   node tools/obs/build-collection.js                 nach %APPDATA%\obs-studio\basic
+ *   node tools/obs/build-collection.js                 in den basic-Ordner der alten Sammlung (Streaming-PC)
  *   node tools/obs/build-collection.js --out <ordner>  in einen anderen basic-Ordner
  *   node tools/obs/build-collection.js --dry           nur pruefen und auflisten
  *
@@ -14,11 +14,22 @@
  *   --base <url>         Adresse der StreamSuite (Standard http://192.168.178.34)
  *   --channel <login>    Twitch-Kanal fuer den Chat (Standard justcallmedeimos)
  *   --old <json>         alte Sammlung: liefert Gast-Cams und Spieler-Feeds
- *   --local <json>       Sammlung dieses PCs: liefert Kamera, Bildschirm, Ton
+ *   --devices <json>     Sammlung, die Kamera, Spielbild, Spotify und Mikrofone
+ *                        liefert (Standard: dieselbe wie --old, also der Streaming-PC)
  *   --old-profile <dir>  altes Profil: liefert Kanal-Login und Stream-Key
- *   --local-profile <dir> Profil dieses PCs: liefert Encoder und Pfade
+ *   --local-profile <dir> nur wenn OBS auf einem ANDEREN PC als dem des alten Profils
+ *                        laufen soll: liefert dessen Aufnahmepfade und Abhoergeraet
  *   --force              vorhandene Sammlung/Profil gleichen Namens ersetzen
+ *   --encoder <id>       Encoder-ID fuer Stream und Aufnahme ersetzen, Werte bleiben.
+ *                        Noetig, wenn das alte Profil einen Encoder nennt, den
+ *                        dieser PC nicht hat (AMF auf einer NVIDIA-Karte):
+ *                        --encoder obs_nvenc_h264_tex
+ *   --only-profile       nur das Profil schreiben, die Sammlung bleibt wie sie ist
  *   --ignore-running     auch schreiben, wenn OBS laeuft
+ *
+ * Ziel ist der Streaming-PC. Geraete, Encoder und Pfade kommen deshalb aus
+ * dessen alter Sammlung und dessen altem Profil, nie von dem PC, auf dem
+ * dieses Skript zufaellig laeuft.
  *
  * Grundsaetze:
  *   · Koordinaten stehen NUR in services/gamescenes/public/rdoc-layout.js.
@@ -40,20 +51,22 @@ const flag = (n) => argv.includes(`--${n}`);
 const opt = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 
 const APPDATA_BASIC = path.join(process.env.APPDATA || '.', 'obs-studio', 'basic');
-const OUT = path.resolve(opt('out', APPDATA_BASIC));
 const NAME = opt('name', 'RDOC');
 const BASE = opt('base', 'http://192.168.178.34').replace(/\/+$/, '');
 const CHANNEL = opt('channel', 'justcallmedeimos');
 const OLD = opt('old', '\\\\Mywall-e\\obs\\obs-studio\\basic\\scenes\\Experimentaldeimos.json');
-const LOCAL = opt('local', path.join(APPDATA_BASIC, 'scenes', 'DerDeimos.json'));
+const DEVICES = opt('devices', OLD);
 const OLD_PROFILE = opt('old-profile', '\\\\Mywall-e\\obs\\obs-studio\\basic\\profiles\\Experimental-deimos_profile');
-const LOCAL_PROFILE = opt('local-profile', path.join(APPDATA_BASIC, 'profiles', 'DerDeimos'));
+// Standardziel: der basic-Ordner, aus dem die alte Sammlung stammt.
+const OUT = path.resolve(opt('out', path.dirname(path.dirname(OLD))));
+const LOCAL_PROFILE = opt('local-profile', null);
 const DRY = flag('dry');
 const FORCE = flag('force');
+const ONLY_PROFILE = flag('only-profile'); // Sammlung nicht anfassen (in OBS angepasste Positionen bleiben)
 
+let PREV_VER = 536936450; // OBS 32.x, wird unten aus der Geraete-Sammlung uebernommen
 const W = L.W;
 const H = L.H;
-const PREV_VER = 553648129; // OBS 33.0.1
 const MIX_ALL = 255;
 const warnings = [];
 const warn = (m) => warnings.push(m);
@@ -84,7 +97,8 @@ function source({ name, id, versioned_id, settings, mixers = 0, extra = {} }) {
 // Quelle aus einer vorhandenen Sammlung uebernehmen: Einstellungen, Filter,
 // Lautstaerke und Spurbelegung bleiben, Name und UUIDs werden neu vergeben.
 function adopt(coll, fromName, name, patch) {
-  const src = coll && (coll.sources || []).find((s) => s.name === fromName);
+  const names = [].concat(fromName);
+  const src = coll && names.map((n) => (coll.sources || []).find((s) => s.name === n)).find(Boolean);
   if (!src) return null;
   const s = clone(src);
   s.name = name;
@@ -162,9 +176,12 @@ function cover(name, r, src = { w: W, h: H }, more = {}) {
 
 /* ── Vorhandene OBS-Dateien ────────────────────────────────── */
 const oldColl = readJson(OLD);
-const localColl = readJson(LOCAL);
+const devColl = DEVICES === OLD ? oldColl : readJson(DEVICES);
+// Versionsstempel der Quellen: der des OBS, das die Geraete-Sammlung zuletzt
+// gespeichert hat. Ein neuerer Stempel als das dortige OBS waere gelogen.
+PREV_VER = (devColl && devColl.sources && devColl.sources[0] && devColl.sources[0].prev_ver) || PREV_VER;
 if (!oldColl) warn(`Alte Sammlung nicht lesbar (${OLD}): Gast-Cams und Feeds sind Platzhalter, Links in OBS eintragen.`);
-if (!localColl) warn(`Lokale Sammlung nicht lesbar (${LOCAL}): Kamera, Bildschirm und Mikrofon in OBS neu waehlen.`);
+if (!devColl) warn(`Geraete-Sammlung nicht lesbar (${DEVICES}): Kamera, Spielbild und Mikrofon in OBS neu waehlen.`);
 
 const P = L.PEOPLE;
 const GUESTS = L.ORDER.filter((k) => k !== 'deimos');
@@ -172,11 +189,13 @@ const OLD_CAM = { headwig: 'Headwig_SINGLE', jericho: 'Jericho_SINGLE', polder: 
 const OLD_FEED = { headwig: 'rtc_headwig', jericho: 'rtc_jericho', polder: 'srt_polder', jazzz: 'rtc_jazzz' };
 
 /* ── Geraete und Ton ───────────────────────────────────────── */
-adopt(localColl, 'Kamera', 'Kamera')
+// Namen je nach Herkunft: die alte Sammlung des Streaming-PCs nennt die
+// Kamera "Camera" und die Capture-Karte mit dem Spielbild "Videoaufnahmegerät".
+adopt(devColl, ['Camera', 'Kamera'], 'Kamera')
   || source({ name: 'Kamera', id: 'dshow_input', settings: { resolution: '1920x1080', res_type: 0 }, mixers: MIX_ALL });
-adopt(localColl, 'Bildschirm', 'Bildschirm')
-  || source({ name: 'Bildschirm', id: 'monitor_capture', settings: { method: 2 } });
-adopt(localColl, 'Spotify', 'Spotify')
+adopt(devColl, ['Videoaufnahmegerät', 'Bildschirm'], 'Spielbild')
+  || source({ name: 'Spielbild', id: 'monitor_capture', settings: { method: 2 } });
+adopt(devColl, 'Spotify', 'Spotify')
   || source({ name: 'Spotify', id: 'wasapi_process_output_capture', settings: { window: 'Spotify Premium:Chrome_WidgetWin_1:Spotify.exe', priority: 2 }, mixers: 193 });
 // Discord-Ton als Anwendungsaufnahme. Die alte Sammlung hat dafuer ein
 // Fenster aufgenommen und auf 0,3 % verkleinert, nur um an den Ton zu kommen.
@@ -247,7 +266,7 @@ scene('SRC_Alerts', [{ name: 'Alerts' }, { name: 'Hauling' }]);
 // Cam und Feed je Person, immer in Leinwandgroesse: alles darueber rechnet
 // nur noch mit 2560x1440 und muss die Quellgroesse nicht kennen.
 scene('SRC_Cam_Deimos', [{ name: 'Kamera', fill: FULL }]);
-scene('SRC_Feed_Deimos', [{ name: 'Bildschirm', fill: FULL }]);
+scene('SRC_Feed_Deimos', [{ name: 'Spielbild', fill: FULL }]);
 for (const k of GUESTS) {
   scene(`SRC_Cam_${P[k].scene}`, [cover(`VDO ${P[k].scene}`, { x: 0, y: 0, ...FULL }, camSize[k])]);
   scene(`SRC_Feed_${P[k].scene}`, [cover(`Feed ${P[k].scene}`, { x: 0, y: 0, ...FULL }, feedSize[k])]);
@@ -315,28 +334,28 @@ for (const [key, title] of [['multi3', 'Multi 3'], ['multi4', 'Multi 4'], ['mult
   ]);
 }
 
-/* ── Globale Audiogeraete (von diesem PC) ──────────────────── */
-function globalAudio(key, fallback) {
-  const src = localColl && localColl[key];
-  if (!src) {
-    const { extra = {}, ...base } = fallback;
-    return { prev_ver: PREV_VER, uuid: uuid(), ...base, ...audioDefaults, ...extra };
-  }
-  const s = clone(src);
-  s.uuid = uuid();
-  for (const f of s.filters || []) f.uuid = uuid();
-  return s;
+/* ── Globale Audiogeraete ──────────────────────────────────── */
+// Alle, die die Geraete-Sammlung kennt (Mikrofon, PC-Sound, ...), samt
+// Filtern, Verzoegerung und Spurbelegung.
+const AUDIO_KEYS = ['DesktopAudioDevice1', 'DesktopAudioDevice2', 'AuxAudioDevice1', 'AuxAudioDevice2', 'AuxAudioDevice3', 'AuxAudioDevice4'];
+const globalAudio = {};
+for (const key of AUDIO_KEYS) {
+  if (!devColl || !devColl[key]) continue;
+  const g = clone(devColl[key]);
+  g.uuid = uuid();
+  for (const f of g.filters || []) f.uuid = uuid();
+  globalAudio[key] = g;
 }
-const desktopAudio = globalAudio('DesktopAudioDevice1', { name: 'Desktop-Audio', id: 'wasapi_output_capture', versioned_id: 'wasapi_output_capture', settings: { device_id: 'default' }, mixers: 195, extra: { volume: 0, muted: true } });
-const micAudio = globalAudio('AuxAudioDevice1', { name: 'Mikrofon-/AUX-Audio', id: 'wasapi_input_capture', versioned_id: 'wasapi_input_capture', settings: { device_id: 'default' }, mixers: 195 });
+if (!Object.keys(globalAudio).length) {
+  globalAudio.AuxAudioDevice1 = { prev_ver: PREV_VER, name: 'Mikrofon-/AUX-Audio', uuid: uuid(), id: 'wasapi_input_capture', versioned_id: 'wasapi_input_capture', settings: { device_id: 'default' }, mixers: 195, ...audioDefaults };
+}
 
 /* ── Sammlung ──────────────────────────────────────────────── */
 const all = [...registry.values()];
 const subScenes = all.filter((s) => s.id === 'scene' && !program.includes(s));
 const collection = {
   name: NAME,
-  DesktopAudioDevice1: desktopAudio,
-  AuxAudioDevice1: micAudio,
+  ...globalAudio,
   sources: all,
   groups: [],
   scene_order: [...program, ...subScenes].map((s) => ({ name: s.name })),
@@ -406,7 +425,7 @@ function parseIni(text) {
 
 function buildProfile() {
   const haveOld = fs.existsSync(path.join(OLD_PROFILE, 'basic.ini'));
-  const haveLocal = fs.existsSync(path.join(LOCAL_PROFILE, 'basic.ini'));
+  const haveLocal = !!LOCAL_PROFILE && fs.existsSync(path.join(LOCAL_PROFILE, 'basic.ini'));
   const baseDir = haveOld ? OLD_PROFILE : haveLocal ? LOCAL_PROFILE : null;
   if (!baseDir) { warn('Kein Profil als Vorlage gefunden: Profil nicht gebaut, in OBS neu anlegen (2560x1440, 60 fps).'); return null; }
   if (!haveOld) warn(`Altes Profil fehlt (${OLD_PROFILE}): Profil von diesem PC kopiert. ACHTUNG, Stream-Key gehoert dann zu dessen Kanal – in OBS pruefen.`);
@@ -417,27 +436,30 @@ function buildProfile() {
   // Verweist auf die Hochformat-Leinwand der alten Sammlung, die es hier nicht gibt.
   ini.remove('Stream1', 'MultitrackExtraCanvas');
 
-  // Maschinenabhaengiges vom Profil dieses PCs: Encoder, Pfade, Abhoergeraet.
+  // Vom Profil dieses PCs nur Pfade und Abhoergeraet. Die Encoder-
+  // Einstellungen bleiben die des alten Profils (ausdruecklich so gewollt):
+  // Encoder-Wahl in basic.ini plus streamEncoder.json / recordEncoder.json.
   if (haveOld && haveLocal) {
     const loc = parseIni(fs.readFileSync(path.join(LOCAL_PROFILE, 'basic.ini'), 'utf8'));
     for (const [sec, key] of [
-      ['AdvOut', 'Encoder'], ['AdvOut', 'RecEncoder'], ['AdvOut', 'RecFilePath'], ['AdvOut', 'FFFilePath'],
-      ['SimpleOutput', 'StreamEncoder'], ['SimpleOutput', 'RecEncoder'], ['SimpleOutput', 'FilePath'],
+      ['AdvOut', 'RecFilePath'], ['AdvOut', 'FFFilePath'], ['SimpleOutput', 'FilePath'],
       ['Audio', 'MonitoringDeviceId'], ['Audio', 'MonitoringDeviceName'],
     ]) {
       const v = loc.get(sec, key);
       if (v != null) ini.set(sec, key, v);
     }
-  } else if (haveOld) {
-    warn('Profil dieses PCs fehlt: Encoder und Aufnahmepfad stammen vom alten PC, in OBS pruefen.');
   }
+
+  const enc = opt('encoder', null);
+  if (enc) { ini.set('AdvOut', 'Encoder', enc); ini.set('AdvOut', 'RecEncoder', enc); }
 
   const files = { 'basic.ini': ini.toString() };
   const service = path.join(baseDir, 'service.json');
   if (fs.existsSync(service)) files['service.json'] = fs.readFileSync(service, 'utf8');
-  // Nur Werte, die jeder Encoder versteht. Die alten AMF-Schalter wuerden
-  // einen anderen Encoder nicht stoeren, aber auch nichts bewirken.
-  files['streamEncoder.json'] = JSON.stringify({ bitrate: 8000, keyint_sec: 2 });
+  for (const f of ['streamEncoder.json', 'recordEncoder.json']) {
+    const p = path.join(baseDir, f);
+    if (fs.existsSync(p)) files[f] = fs.readFileSync(p, 'utf8');
+  }
   return { files, encoder: ini.get('AdvOut', 'Encoder'), channel: ini.get('Twitch', 'Name') };
 }
 const profile = buildProfile();
@@ -471,7 +493,7 @@ if (!DRY) {
     console.error('OBS laeuft – es wuerde die Datei beim Beenden ueberschreiben. OBS schliessen und erneut ausfuehren.');
     process.exit(2);
   }
-  if (!FORCE && fs.existsSync(sceneFile)) {
+  if (!ONLY_PROFILE && !FORCE && fs.existsSync(sceneFile)) {
     console.error(`Vorhanden: ${sceneFile}\nIn OBS gemachte Anpassungen gingen verloren. Mit --force trotzdem ersetzen.`);
     process.exit(3);
   }
@@ -479,9 +501,11 @@ if (!DRY) {
     console.error(`Vorhanden: ${profileDir}\nMit --force trotzdem ersetzen.`);
     process.exit(3);
   }
-  fs.mkdirSync(path.dirname(sceneFile), { recursive: true });
-  fs.writeFileSync(sceneFile, JSON.stringify(collection, null, 4));
-  console.log(`  geschrieben: ${sceneFile}`);
+  if (!ONLY_PROFILE) {
+    fs.mkdirSync(path.dirname(sceneFile), { recursive: true });
+    fs.writeFileSync(sceneFile, JSON.stringify(collection, null, 4));
+    console.log(`  geschrieben: ${sceneFile}`);
+  }
   if (profile) {
     fs.mkdirSync(profileDir, { recursive: true });
     for (const [f, text] of Object.entries(profile.files)) fs.writeFileSync(path.join(profileDir, f), text);
