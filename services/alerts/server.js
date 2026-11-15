@@ -47,6 +47,7 @@ const CFG = {
 };
 
 const { buildProfile } = require('./profile.js');
+const sessionLog = require('./session.js');
 const twitchChat = require('./twitch/index.js');
 
 const redis    = new Redis(CFG.redis);
@@ -458,6 +459,45 @@ app.post('/api/profile', async (req, res) => {
     });
     res.json(payload);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Session-Log + Ziele (fuer die Szenen-Rahmen in gamescenes) ──
+// overlay.html meldet jedes echte Ereignis; scene.html liest die Zusammen-
+// fassung fuer "Zuletzt" und die Credits. Logik in session.js (getestet).
+const SESSION_KEY = 'session:events';
+
+app.post('/api/session/event', async (req, res) => {
+  try {
+    // Stream-Start leert das Log: Credits zeigen nur den laufenden Stream.
+    if (String(req.body?.type || '').toLowerCase() === 'streamstart') {
+      await redis.del(SESSION_KEY);
+      return res.json({ status: 'reset' });
+    }
+    const ev = sessionLog.normalizeEvent(req.body);
+    if (!ev) return res.status(400).json({ error: 'type/user ungueltig' });
+    await redis.rpush(SESSION_KEY, JSON.stringify(ev));
+    await redis.ltrim(SESSION_KEY, -sessionLog.MAX_EVENTS, -1);
+    await redis.expire(SESSION_KEY, 24 * 3600);
+    res.json({ status: 'ok' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/session', async (req, res) => {
+  try {
+    const raw = await redis.lrange(SESSION_KEY, 0, -1);
+    const events = raw.map((r) => { try { return JSON.parse(r); } catch (e) { return null; } });
+    res.json(sessionLog.summarize(events));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Aktive Twitch-Ziele. Ohne Twitch-Login leer statt Fehler: der Rahmen
+// zeigt dann "Kein Ziel aktiv".
+app.get('/api/goals', async (req, res) => {
+  try {
+    res.json({ goals: await twitchChat.goals() });
+  } catch (e) {
+    res.json({ goals: [], error: e.message });
+  }
 });
 
 app.post('/api/chat/send', (req, res) => {

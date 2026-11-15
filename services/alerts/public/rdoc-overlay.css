@@ -287,6 +287,14 @@ body {
 #status.disconnected { color: var(--rdoc-warning); }
 #status.hidden       { opacity: 0; }
 
+/* ── Scene-collection switches (chat.js: ?ident=0, ?glass=1) ──
+   no-ident: the scene frame carries the signet, so the chat must not.
+   glass: the chat lies over the game picture; 0.6 instead of 0.86 lets
+   the game read through while Off White text stays legible. */
+body.no-ident #chat-ident { display: none; }
+body.no-ident #chat-container { max-height: 100vh; }
+body.glass .msg { background: rgba(18, 20, 22, 0.6); border-bottom-color: transparent; }
+
 /* ════════════════════════════════════════════════════════════════
    SPACEFIGHT ARENA  (spacefight.html + spacefight.js)
 

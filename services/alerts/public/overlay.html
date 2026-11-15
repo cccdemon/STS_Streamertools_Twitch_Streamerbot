@@ -618,6 +618,7 @@ class CCOverlay {
     // Demo panel + preview backdrop + teaser only with ?demo=1.
     const demo = p.get('demo') === '1';
     this.demoMode = demo;
+    this.latestOff = p.get('latest') === '0';
     this.muted = demo; // im Demo/Review stumm; im Live-Betrieb hörbar
 
     this.ctx = this.els.canvas.getContext('2d');
@@ -1180,6 +1181,7 @@ class CCOverlay {
 
     // feed the persistent "latest" widget
     this.updateLatest(type, data);
+    this.reportSession(type, data);
 
     if (type === 'shoutout') { this.showShoutout(data); return; }
     if (type === 'resub') {
@@ -1797,6 +1799,9 @@ class CCOverlay {
   }
 
   showLatestSession() {
+    // ?latest=0: Widget aus. In den RDOC-Szenen sitzt oben rechts der
+    // Cam-Block, und "Zuletzt" steht in der Fussleiste (gamescenes/scene.html).
+    if (this.latestOff) return;
     if (this.latestRunning) return;
     if (this.cShowing) { // don't clash with a compact alert; retry soon
       this.latestRetry = setTimeout(() => this.showLatestSession(), 8000);
@@ -1820,6 +1825,26 @@ class CCOverlay {
     if (this.latestStep) { clearTimeout(this.latestStep); this.latestStep = null; }
     this.els.latest.style.opacity = '0';
     this.latestRunning = false;
+  }
+
+  // Meldet echte Ereignisse an den Server (POST api/session/event), damit die
+  // Szenen-Rahmen in gamescenes "Zuletzt" und die Credits zeigen koennen.
+  // Der Server sieht Live-Alerts sonst nie: sie kommen direkt von Streamerbot.
+  // Demo- und Admin-Testalerts (_test) bleiben draussen.
+  reportSession(type, data) {
+    if (this.demoMode || !data || data._test) return;
+    const TYPES = ['follow', 'cheer', 'sub', 'resub', 'subgift', 'subbomb', 'raid', 'streamstart'];
+    if (TYPES.indexOf(type) < 0) return;
+    const body = {
+      type,
+      user: data.user || data.userName || data.displayName || '',
+      amount: parseInt(data.amount || data.bits || data.viewers || 0, 10) || 0,
+    };
+    try {
+      fetch('api/session/event', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }).catch(() => {});
+    } catch (e) {}
   }
 
   updateLatest(type, data) {

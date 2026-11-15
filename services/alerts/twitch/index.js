@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const { config } = require('./config.js');
 const store = require('./store.js');
-const { authorizeUrl, exchangeCode } = require('./auth.js');
+const { authorizeUrl, exchangeCode, helix } = require('./auth.js');
 const { sendChat } = require('./chat.js');
 const { EventSubClient } = require('./eventsub.js');
 const { ChatReplies } = require('./replies.js');
@@ -90,4 +90,34 @@ function status() {
   };
 }
 
-module.exports = { mount, start, status };
+// Aktive Ziele fuer GET /api/goals (Szenen-Rahmen). 60 s Cache: mehrere
+// Rahmen fragen im Minutentakt, Helix soll davon nur eine Anfrage sehen.
+const GOAL_LABELS = {
+  follower: 'Follower-Ziel',
+  subscription: 'Abo-Ziel',
+  subscription_count: 'Abo-Ziel',
+  new_subscription: 'Neue-Abos-Ziel',
+  new_subscription_count: 'Neue-Abos-Ziel',
+};
+let goalsCache = { at: 0, list: [] };
+
+function normalizeGoals(data) {
+  return (data || []).filter((g) => GOAL_LABELS[g?.type]).map((g) => ({
+    type: g.type,
+    label: GOAL_LABELS[g.type],
+    description: String(g.description || '').trim().slice(0, 80),
+    current: Number(g.current_amount) || 0,
+    target: Number(g.target_amount) || 0,
+  }));
+}
+
+async function goals() {
+  if (Date.now() - goalsCache.at < 60_000) return goalsCache.list;
+  const b = eventsub.broadcaster;
+  if (!b?.id) return [];
+  const res = await helix('/goals', { query: { broadcaster_id: b.id } });
+  goalsCache = { at: Date.now(), list: normalizeGoals(res?.data) };
+  return goalsCache.list;
+}
+
+module.exports = { mount, start, status, goals, normalizeGoals };

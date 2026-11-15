@@ -12,6 +12,13 @@ function getParam(key) {
   return new URLSearchParams(window.location.search).get(key);
 }
 
+// Layout switches for the RDOC scene collection (tools/obs):
+//   ?ident=0  hides the station ident. The scene frame already spends the
+//             view's one signet, a second one here would break the rule.
+//   ?glass=1  60 % message cards, for chat laid over the game picture.
+if (getParam('ident') === '0') document.body.classList.add('no-ident');
+if (getParam('glass') === '1') document.body.classList.add('glass');
+
 // Fallback only - Twitch's own colour wins when the chatter set one.
 // Restricted to the RDOC palette: the two accents plus the two
 // neutrals, so an unset chatter can never introduce an off-brand hue.

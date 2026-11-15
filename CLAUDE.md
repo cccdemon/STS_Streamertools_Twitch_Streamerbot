@@ -30,7 +30,7 @@ The UI runs on the **RDOC Brand Kit** — see "Brand layer" below.
 | `alerts` | cc-alerts | 3003 | Alert overlay, HUD chat, hauling, `!id` profile, Claude AI, WS |
 | `stats` | cc-stats | 3004 | Read-only spacefight stats from PostgreSQL, no WS |
 | `admin` | cc-admin | 3005 | Shared admin pages, aggregated health check, no WS |
-| `gamescenes` | cc-gamescenes | 3006 | Static OBS scene overlays, no WS |
+| `gamescenes` | cc-gamescenes | 3006 | Static OBS scene frames (`scene.html`) + bodycam overlay, no WS |
 | Caddy | cc-web | 80/443 | Reverse proxy, path-based routing to services |
 | Redis | cc-redis | 6379 | Ephemeral state (DB 0 = prod, DB 1 = tests) |
 | PostgreSQL | cc-postgres | 5432 | Persistent data |
@@ -127,6 +127,10 @@ to Streamerbot directly. Only `first_chatter` still uses `ch:alerts`.
   encodes are written at the top of the file — read that header before
   touching any overlay
 - `caddy/Caddyfile` — Reverse proxy config
+- `services/gamescenes/public/rdoc-layout.js` — **Every scene coordinate.** UMD: read by `scene.js` in the browser and by the OBS generator in Node. Never hardcode a coordinate in either
+- `services/gamescenes/public/scene.html` / `scene.js` / `rdoc-scenes.css` — One frame page for every OBS scene (`?s=`)
+- `tools/obs/build-collection.js` — Generates the OBS scene collection + profile `RDOC`
+- `services/alerts/session.js` — Pure session-log logic (`Zuletzt`, credits), unit-tested
 - `postgres/init.sql` — Schema; runs **only** on a fresh volume
 - `streamerbot/SETUP.md` — Action import + queue setup
 
@@ -253,6 +257,7 @@ Consequences that are easy to get wrong:
 | `spacefight.html` | `#sf-ident`, bottom-left, opposite the Bestenliste |
 | `haul.html` | `#ident`, bottom-left under the lane |
 | `sc-bodycam.html` | `#ident`, bottom-right |
+| `scene.html` | One `.ident` per frame. In Gaming / Spiel scenes the frame itself has none — the signet sits in the separate footer source (`?s=footer`), so hiding the footer hides it. Chat sources run with `?ident=0` for the same reason |
 
 The SVG is a verbatim copy of `digital/icon/rdoc_signet_copper.svg` with `fill`
 switched to `currentColor`. It is pasted per file because overlays share no
@@ -298,6 +303,9 @@ Known roles: `spacefight-admin`, `spacefight-overlay`.
 | Hauling | `/alerts/haul.html` |
 | Spacefight | `/spacefight/spacefight.html` — source **1920×1080 or 2560×1440** (`?test=1` local test fights, `?scale=N` bigger duel, `?wof=left` leaderboard on the left) |
 | Bodycam scene | `/gamescenes/sc-bodycam.html?player=Name` |
+| Scene frames | `/gamescenes/scene.html?s=…` — set up by the generator, see "OBS scene collection" |
+
+URL switches added for the scene collection: `overlay.html?latest=0` (Latest widget off — the cam block sits top-right and `Zuletzt` lives in the footer), `chat.html?ident=0&glass=1` (no second signet; 60 % message cards over the game picture).
 
 ## REST API Endpoints
 Paths below are as seen **through Caddy**; server code omits the prefix.
@@ -322,6 +330,16 @@ Paths below are as seen **through Caddy**; server code omits the prefix.
 Same three read paths as spacefight, but served straight from PostgreSQL with no
 Redis and no WS. Duplicated on purpose so stats pages never touch the game
 service.
+
+Session log + goals, read by the scene frames:
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/alerts/api/session/event` | `overlay.html` reports every real alert (`type`, `user`, `amount`). `streamstart` clears the log. `_test` and demo alerts are not reported |
+| GET | `/alerts/api/session` | `{ latest, credits }` built by `session.js` |
+| GET | `/alerts/api/goals` | Active Twitch goals (Helix, 60 s cache). Empty list without a Twitch login, never an error |
+
+Why the detour: live alerts go Streamerbot → `overlay.html` directly, the server never sees them. The overlay is the only place that knows, so it reports.
 
 ### Health
 | Method | Path | Purpose |
@@ -479,6 +497,42 @@ events never double-fire. `/admin/alerts-test.html` sends
 
 Claude API key in `.env` as `ANTHROPIC_KEY` — never pass it as a URL param.
 
+## OBS scene collection (`tools/obs/`, `services/gamescenes/`)
+
+The whole stream look is HTML, not PNG frames. Cams, feeds and the game picture stay real OBS sources (audio, visibility and the remote agent keep working per source); a transparent frame page draws edges, name plates, panels and the signet on top.
+
+```bash
+node tools/obs/build-collection.js          # writes %APPDATA%obs-studioasic{scenesRDOC.json,profilesRDOC}
+node tools/obs/build-collection.js --dry    # check + list only
+node tools/obs/build-collection.js --out <basic dir> --force
+```
+
+Run it from **PowerShell** when `--out` is a UNC path — Git Bash rewrites `\hostshare` and the output lands in a local folder. It refuses while OBS runs (OBS rewrites the file on exit) and never overwrites without `--force`: positions adjusted inside OBS are lost on regeneration, so change `rdoc-layout.js` instead of dragging sources.
+
+Nothing machine- or person-specific is in the repo. The generator adopts sources from existing OBS files: guest cams (VDO.Ninja) and player feeds from the old collection (`--old`), camera / monitor / Spotify / global audio from this PC's collection (`--local`), channel login + stream key from the old profile, encoder + paths from this PC's profile.
+
+**18 program scenes:** Start, Pause, Ende, Talk solo, Talk, Gaming, Desktop, Cam ×4, Spiel ×4, Multi 3/4/5. Canvas 2560×1440.
+
+**Building blocks (`SRC_*`)**, all canvas-sized so nothing above them needs to know a source size:
+
+| Scene | Content |
+|---|---|
+| `SRC_Cam_<P>` / `SRC_Feed_<P>` | One person's camera / game picture, filled to 2560×1440 |
+| `SRC_Camblock_<P>` | 1440×1080, all five cams, `<P>` large. Scaled per scene (Talk 1:1, Gaming 0.25) |
+| `SRC_Spiel_<P>` | Feed + that player's cam inset + tile frame. The cam is part of the tile and travels with it into Multi scenes |
+| `SRC_Fussleiste` | Footer page + Spacefight cropped to its 640×200 arena. One eye toggles the whole footer |
+| `SRC_Alerts`, `SRC_Audio` | Alerts + Hauling; Spotify + Discord |
+
+**The cam block is exactly 4:3** — the hard requirement behind the layout. A vertical clip places cam picture and game picture independently, so all five cams must sit closed in one 4:3 rectangle. Solved as a 3×2 grid of 8:9 cells: the large cam takes two cells (= 16:9), the other four one each (cropped to 8:9, face centred). `tests/layout.test.js` pins this.
+
+**Gaming / Spiel:** game picture full-bleed, cam block top-right opaque, chat column and footer at 60 % over the game.
+
+**Multi 3/4/5:** every slot holds all five `SRC_Spiel_*` tiles stacked, one visible. Who sits where is switched by eye, not by regenerating.
+
+**Chat sources:** `chat.html` is built for 14 px type. Instead of zooming the page, each chat area gets its own small browser source that OBS scales by `k` (`CHATS` in `rdoc-layout.js`); `k` is the font size on screen. They carry `shutdown`, so only the visible scene holds a WS connection.
+
+The Spacefight crop removes the Bestenliste (`#wof`) from these scenes — it is anchored to the design-space corner, outside the arena field.
+
 ### Chat commands without Streamerbot (`services/alerts/twitch/`)
 `!wow`, `!becher`, `!followage`, `!ziele` (active sub goals from the Twitch creator
 dashboard, Helix `GET /goals`) and `!kraken` (yearly net profit from
@@ -572,6 +626,7 @@ Full setup/import guide: `streamerbot/SETUP.md`.
 | `sf:dedup:<winner>:<loser>` | string, `EX 12 NX` | spacefight — blocks duplicate result writes for 12s |
 | `cc_first_chatter_enabled` | `'true'`/`'false'` | alerts — first-chatter toggle |
 | Twitch user cache | string | alerts — `getCachedTwitchUser` |
+| `session:events` | list (max 500, `EX` 24 h) | alerts — session log for `Zuletzt` / credits |
 
 A fight only runs when **both** `sf_live` and `sf_game_active` are `'true'`.
 
@@ -655,6 +710,8 @@ that do exist:
   `node --test` at the directory fails on this Node version. Single test:
   `node --test --test-name-pattern="formatFollowage" tests/profile.test.js`.
   Chat commands: `node --test tests/twitch.test.js`.
+- **alerts session log**: `node --test tests/session.test.js`.
+- **gamescenes**: `node --test tests/layout.test.js` from `services/gamescenes/` — cam block is 4:3, nothing overlaps, everything is on the canvas.
 - **browser**: open `/admin/tests/test-runner.html`; suite in
   `services/admin/public/tests/test-suite.js`. Covers `CC.validate`, the nav
   bar and `shipSlug`.

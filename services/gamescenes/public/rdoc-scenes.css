@@ -1,0 +1,142 @@
+/*
+ * RDOC – Szenen-Rahmen (scene.html)
+ *
+ * Markenschicht: rdoc-brand.css, vorher verlinkt. Regeln wie in
+ * alerts/public/rdoc-overlay.css – dort stehen sie ausfuehrlich:
+ *   1. Kupfer einmal je Ansicht: Signet plus hoechstens EIN Ereignis
+ *      (der Countdown auf der Startseite).
+ *   2. Patina ist Struktur: Kanten, Eckmarken, Linien, Abschnittsmarken.
+ *   3. Zustand = Funktionsfarbe plus Wort.
+ *   4. Kein Verlauf, kein Leuchten, kein Schatten.
+ *   5. Michroma nur im Schnitt 400, Laufweite 0. Namen sind Plex Sans.
+ *
+ * Paletten-Hex steht nur innerhalb von rgba(): CSS-Variablen koennen
+ * keine rgba()-Komponenten sein, und das CEF in OBS ist aelter als ein
+ * Desktop-Browser. Jeder Wert stammt aus den Tokens des Brand Kits.
+ */
+
+:root {
+  --sc-panel:  rgba(18, 20, 22, 0.94);
+  --sc-glass:  rgba(18, 20, 22, 0.6);
+  --sc-line:   rgba(43, 49, 53, 0.9);
+  --sc-edge:   rgba(79, 181, 181, 0.55);
+  --sc-copper: var(--rdoc-copper);
+  --sc-patina: var(--rdoc-patina);
+  --sc-ink:    var(--rdoc-offwhite);
+  --sc-steel:  var(--rdoc-steel);
+  --sc-track:  0.3em; /* Overlay-Eyebrow, siehe rdoc-overlay.css "Deviations" */
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+
+/* 2560x1440-Entwurfsraum, auf die echte Quelle skaliert (--sc-fit). */
+#root {
+  position: fixed; left: 0; top: 0;
+  width: 2560px; height: 1440px;
+  transform: scale(var(--sc-fit, 1)); transform-origin: top left;
+  font-family: var(--rdoc-font-text); color: var(--sc-ink);
+  overflow: hidden;
+}
+#root > *, .abs { position: absolute; }
+#root.opaque { background: var(--rdoc-space); }
+
+/* ── Kanten, Eckmarken, Linien ─────────────────────────────── */
+.edge { border: 1px solid var(--sc-edge); }
+.tick { width: 26px; height: 26px; border: 0 solid rgba(79, 181, 181, 0.7); }
+.rule { height: 2px; background: var(--sc-patina); }
+.star { background: var(--sc-steel); border-radius: 50%; }
+
+/* ── Namensschild auf einer Cam ────────────────────────────── */
+.plate {
+  background: var(--sc-panel);
+  border-left: 0.14em solid var(--sc-patina);
+  padding: 0.3em 0.7em 0.35em 0.6em;
+  line-height: 1.15; white-space: nowrap;
+}
+.plate b { font-weight: 600; display: block; }
+.plate i {
+  font-style: normal; display: block;
+  font-family: var(--rdoc-font-mono); font-size: 0.62em;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--sc-steel);
+}
+
+/* ── Panel ─────────────────────────────────────────────────── */
+.panel {
+  background: var(--sc-panel);
+  border: 1px solid var(--sc-line);
+  border-left: 3px solid var(--sc-patina);
+  padding: 22px 26px; overflow: hidden;
+}
+.panel.glass { background: var(--sc-glass); border-color: transparent; border-left-color: var(--sc-patina); }
+.panel.compact { padding: 14px 20px; }
+.eyb {
+  font-family: var(--rdoc-font-mono); font-size: 19px;
+  letter-spacing: var(--sc-track); text-transform: uppercase;
+  color: var(--sc-patina); margin-bottom: 16px; white-space: nowrap;
+}
+.compact .eyb { font-size: 17px; margin-bottom: 8px; }
+.eyb.tag { background: var(--sc-glass); padding: 4px 10px; margin: 0; }
+.kv { display: flex; justify-content: space-between; gap: 20px; font-size: 26px; line-height: 1.6; white-space: nowrap; }
+.kv span { overflow: hidden; text-overflow: ellipsis; }
+.kv i {
+  font-style: normal; font-family: var(--rdoc-font-mono); font-size: 18px;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--sc-steel);
+}
+.compact .kv { font-size: 22px; line-height: 1.45; }
+.compact .kv i { font-size: 15px; }
+.bar { height: 14px; background: var(--rdoc-graphite); margin-top: 14px; }
+.compact .bar { margin-top: 8px; }
+.bar div { height: 100%; background: var(--sc-patina); }
+.name-xl { font-size: 54px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
+
+/* ── Stationskennung: hier steht das eine Signet der Ansicht ── */
+.ident {
+  display: flex; align-items: center; gap: 18px;
+  font-family: var(--rdoc-font-mono); font-size: 22px;
+  letter-spacing: var(--sc-track); text-transform: uppercase;
+  color: var(--sc-steel); white-space: nowrap;
+}
+.ident.glass { background: var(--sc-glass); color: var(--sc-ink); padding: 0 20px 0 10px; width: auto !important; }
+.ident.solid { background: var(--sc-panel); padding: 0 12px; }
+.signet { color: var(--sc-copper); flex: none; display: block; }
+.signet svg { display: block; width: 100%; height: 100%; }
+
+/* ── Standbilder (Start, Pause, Ende) ──────────────────────── */
+.big { font-family: var(--rdoc-font-display); font-weight: 400; font-size: 120px; line-height: 1.1; white-space: nowrap; }
+.sub {
+  font-family: var(--rdoc-font-mono); font-size: 28px;
+  letter-spacing: var(--sc-track); text-transform: uppercase;
+  color: var(--sc-steel); white-space: nowrap;
+}
+.count { font-family: var(--rdoc-font-mono); font-size: 190px; line-height: 1; color: var(--sc-copper); white-space: nowrap; }
+.state { font-family: var(--rdoc-font-mono); font-size: 20px; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap; }
+.state.ok { color: var(--rdoc-success); }
+.state.warn { color: var(--rdoc-warning); }
+
+/* Credits rollen als ein Block durch das Panel. */
+.cred-view { position: absolute; left: 26px; right: 26px; top: 74px; bottom: 22px; overflow: hidden; }
+.cred { font-size: 30px; line-height: 1.7; }
+.cred h4 {
+  font-family: var(--rdoc-font-mono); font-weight: 400; font-size: 19px;
+  letter-spacing: var(--sc-track); text-transform: uppercase;
+  color: var(--sc-patina); margin-top: 26px;
+}
+.cred.roll { animation: scRoll var(--sc-roll, 40s) linear infinite; }
+@keyframes scRoll { from { transform: translateY(var(--sc-from, 100%)); } to { transform: translateY(-100%); } }
+
+/* ── Fussleiste: weich nach unten weg, wenn OBS sie ausblendet,
+      uebernimmt OBS die Blende selbst (show/hide transition). ── */
+
+/* ── Demo-Platzhalter (?demo=1), nur zur Kontrolle im Browser ── */
+.demo {
+  background: var(--rdoc-graphite);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--rdoc-font-mono); font-size: 22px;
+  letter-spacing: var(--sc-track); text-transform: uppercase; color: var(--sc-steel);
+}
+.demo.dark { background: var(--rdoc-space); border: 1px dashed var(--rdoc-graphite); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cred.roll { animation: none; }
+}
