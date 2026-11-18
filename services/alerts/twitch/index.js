@@ -9,6 +9,7 @@ const { EventSubClient } = require('./eventsub.js');
 const { ChatReplies } = require('./replies.js');
 const { ChatCommands } = require('./commands.js');
 const { SongRequests } = require('./songrequest.js');
+const { WishPlayer } = require('./wishplayer.js');
 const spotifyApi = require('./spotify.js');
 const { log, logErr } = require('./log.js');
 
@@ -32,7 +33,20 @@ const commands = new ChatCommands({
   say,
   krakenTarget: config.krakenTarget,
 });
-const songs = new SongRequests({ getBroadcaster: () => eventsub.broadcaster, say });
+const wishes = new WishPlayer({
+  api: {
+    player: spotifyApi.player,
+    queue: spotifyApi.rawQueue,
+    playUris: spotifyApi.playUris,
+    playContext: spotifyApi.playContext,
+  },
+  load: store.getWishes,
+  save: store.setWishes,
+  log: (m) => log('Wunsch', m),
+  logErr: (m) => logErr('Wunsch', m),
+});
+const songs = new SongRequests({ getBroadcaster: () => eventsub.broadcaster, say, wishes });
+const WISH_TICK_MS = 1500;
 
 function handleChat(e) {
   const text = e?.message?.text;
@@ -115,6 +129,8 @@ async function start(redis) {
   await store.init(redis);
   log('Twitch', `Chatbefehle: ${[...replies.names(), ...commands.names(), ...songs.names()].join(', ')}`);
   await eventsub.start().catch((err) => logErr('EventSub', 'start:', err.message));
+  // Fragt Spotify nur, solange Wuensche offen sind.
+  setInterval(() => wishes.tick(), WISH_TICK_MS).unref();
 }
 
 function status() {
@@ -124,6 +140,7 @@ function status() {
     connected: Boolean(store.getTokens()?.accessToken),
     spotify: !spotifyApi.spotifyConfigured() ? 'nicht-konfiguriert'
       : spotifyApi.spotifyConnected() ? 'verbunden' : 'nicht-verbunden',
+    wishes: wishes.state().pending.length,
   };
 }
 

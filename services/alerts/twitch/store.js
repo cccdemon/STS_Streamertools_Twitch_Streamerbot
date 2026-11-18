@@ -12,11 +12,22 @@ const KEY_TOKENS = 'twitch:tokens';
 const KEY_KRAKEN = 'kraken:last';
 const KEY_SPOTIFY = 'spotify:tokens';
 const KEY_SONGS = 'sr:state';
+const KEY_WISHES = 'sr:wishes'; // { pending[], active, resume } des WishPlayer
 
 let redis = null;
 let tokens = null; // Spiegel im Speicher, damit nicht jede Helix-Anfrage Redis fragt
 let spotifyTokens = null;
 let songState = null;
+let wishes = null;
+
+function getWishes() {
+  return wishes;
+}
+
+async function setWishes(next) {
+  wishes = next;
+  if (redis) await redis.set(KEY_WISHES, JSON.stringify(next));
+}
 
 async function readJson(key) {
   try {
@@ -32,6 +43,7 @@ async function init(client) {
   tokens = await readJson(KEY_TOKENS);
   spotifyTokens = await readJson(KEY_SPOTIFY);
   songState = await readJson(KEY_SONGS);
+  wishes = await readJson(KEY_WISHES);
 }
 
 function getSpotifyTokens() {
@@ -74,5 +86,5 @@ async function setKrakenLast(value) {
 
 module.exports = {
   init, getTokens, setTokens, getKrakenLast, setKrakenLast,
-  getSpotifyTokens, setSpotifyTokens, getSongState, setSongState,
+  getSpotifyTokens, setSpotifyTokens, getSongState, setSongState, getWishes, setWishes,
 };

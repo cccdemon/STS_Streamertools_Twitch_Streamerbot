@@ -161,7 +161,20 @@ async function findTrack(parsed, allowExplicit) {
   return pickTrack(res?.tracks?.items, allowExplicit);
 }
 
-const queueTrack = (uri) => api('/me/player/queue', { method: 'POST', query: { uri } });
+/** Laufende Wiedergabe (Titel, Fortschritt, Playlist) oder null ohne aktives Geraet. */
+const player = () => api('/me/player');
+
+/** Nackte Warteschlange von Spotify, nur zum Nachsehen. */
+const rawQueue = () => api('/me/player/queue');
+
+/** Startet genau diese Titel sofort — unabhaengig von der Warteschlange. */
+const playUris = (uris) => api('/me/player/play', { method: 'PUT', json: { uris } });
+
+/** Spielt eine Playlist/ein Album weiter, optional ab einem bestimmten Titel. */
+const playContext = (contextUri, offsetUri) => api('/me/player/play', {
+  method: 'PUT',
+  json: offsetUri ? { context_uri: contextUri, offset: { uri: offsetUri } } : { context_uri: contextUri },
+});
 
 /** Was gerade laeuft und was als Naechstes kommt. */
 async function playerQueue() {
@@ -236,6 +249,7 @@ function addToPlaylist(playlistId, uri) {
 
 module.exports = {
   spotify, SpotifyError, sanitizeStr, spotifyConfigured, spotifyConnected, authorizeUrl, exchangeCode,
-  parseTrackQuery, pickTrack, describeTrack, findTrack, queueTrack, playerQueue,
+  parseTrackQuery, pickTrack, describeTrack, findTrack, playerQueue,
+  player, rawQueue, playUris, playContext,
   computeEta, formatEta, queueEta, hasPlaylistScope, createPlaylist, addToPlaylist,
 };

@@ -3,7 +3,7 @@
 const { firstWord, sanitizeName } = require('./replies.js');
 const store = require('./store.js');
 const {
-  parseTrackQuery, findTrack, queueTrack, describeTrack, playerQueue, queueEta, formatEta,
+  parseTrackQuery, findTrack, describeTrack, playerQueue, formatEta, player,
   createPlaylist, addToPlaylist, hasPlaylistScope, spotifyConfigured, spotifyConnected, SpotifyError, sanitizeStr,
 } = require('./spotify.js');
 const { helix } = require('./auth.js');
@@ -11,11 +11,13 @@ const { log, logErr } = require('./log.js');
 
 // Songwuensche aus dem Chat. Uebernommen aus dem DerDeimos-Overlay
 // (src/songrequest.js):
-//   !sr <Titel | Spotify-Link>   reiht den Song in Spotify ein (alle Zuschauer)
+//   !sr <Titel | Spotify-Link>   setzt den Song auf die Wunschliste (alle Zuschauer)
 //   !song                        was gerade laeuft
 // Je Zuschauer SR_LIMIT Wuensche in SR_WINDOW_MS (Standard 3 in 2 Minuten).
-// Explizite Songs nur mit SR_ALLOW_EXPLICIT=1. Kein Overlay — Spotify selbst
-// zeigt die Warteschlange.
+// Explizite Songs nur mit SR_ALLOW_EXPLICIT=1. Kein Overlay.
+// Abweichung vom DerDeimos-Overlay: die Wuensche gehen NICHT in Spotifys
+// Warteschlange (dort verschwinden sie), sondern in die eigene Liste des
+// WishPlayer (wishplayer.js), der sie am Titelende selbst startet.
 
 const num = (v, d) => {
   const n = Number.parseInt(v ?? '', 10);
@@ -26,7 +28,6 @@ const WINDOW_MS = num(process.env.SR_WINDOW_MS, 120_000);
 const ALLOW_EXPLICIT = process.env.SR_ALLOW_EXPLICIT === '1';
 const HISTORY = 20;
 const SONG_COOLDOWN_MS = 15_000;
-const ETA_SETTLE_MS = 800;
 
 const berlinDate = (d) => d.toLocaleDateString('de-DE', { timeZone: 'Europe/Berlin', day: '2-digit', month: '2-digit', year: 'numeric' });
 
@@ -84,10 +85,12 @@ class SongRequests {
    * @param {object} deps
    * @param {() => ({ id: string, login: string } | null)} deps.getBroadcaster
    * @param {(message: string) => Promise<void>} deps.say
+   * @param {import('./wishplayer.js').WishPlayer} deps.wishes
    */
-  constructor({ getBroadcaster, say }) {
+  constructor({ getBroadcaster, say, wishes }) {
     this.getBroadcaster = getBroadcaster;
     this.say = say;
+    this.wishes = wishes;
     this.limit = new WindowLimit(LIMIT, WINDOW_MS);
     this.songAt = 0;
     // Playlist-Zugriffe nacheinander, sonst legen zwei Wuensche zu Stream-
@@ -145,17 +148,22 @@ class SongRequests {
         await this.say(`@${name} dazu habe ich nichts gefunden${ALLOW_EXPLICIT ? '' : ' (explizite Songs sind gesperrt)'}.`);
         return;
       }
-      await queueTrack(track.uri);
+      // Ohne laufende Musik gibt es kein Titelende, an dem der Wunsch starten koennte.
+      const now = await player();
+      if (!now?.item || !now.is_playing) throw new SpotifyError(404, 'NO_ACTIVE_DEVICE');
       const desc = describeTrack(track);
-      log('Chat', `!sr ${name}: ${desc}`);
       const entry = {
         user: name,
         title: sanitizeStr(track.name ?? '', 80),
         artists: sanitizeStr((track.artists || []).map((a) => a.name).join(', '), 80),
         at: new Date().toISOString(),
       };
+      const position = await this.wishes.add({
+        uri: track.uri, title: entry.title, artists: entry.artists, user: name, durationMs: track.duration_ms || 0,
+      });
+      log('Chat', `!sr ${name}: ${desc} (Platz ${position})`);
       await store.setSongState({ ...s, history: [entry, ...s.history].slice(0, HISTORY) });
-      await this.say(`@${name} ${desc} ist in der Warteschlange${await this.etaText(track.uri)}.`);
+      await this.say(`@${name} ${desc} steht auf der Wunschliste, Platz ${position}, läuft ${formatEta(this.wishes.etaMs(now, position))}.`);
       this.playlistChain = this.playlistChain.then(() => this.addToStreamPlaylist(track.uri));
       await this.playlistChain;
     } catch (err) {
@@ -166,21 +174,6 @@ class SongRequests {
       }
       logErr('Chat.sr', err.message);
       await this.say(`@${name} das hat nicht geklappt.`);
-    }
-  }
-
-  // ", Platz 3, läuft in etwa 7 Minuten" — oder leer, wenn Spotify die
-  // Warteschlange noch nicht zeigt oder nicht antwortet. Kurz warten: direkt
-  // nach dem Einreihen fehlt der Titel dort manchmal noch.
-  async etaText(uri) {
-    try {
-      await new Promise((r) => setTimeout(r, ETA_SETTLE_MS));
-      const eta = await queueEta(uri);
-      if (!eta) return '';
-      return `, Platz ${eta.position}, läuft ${formatEta(eta.etaMs)}`;
-    } catch (err) {
-      logErr('Chat.sr', 'eta:', err.message);
-      return '';
     }
   }
 

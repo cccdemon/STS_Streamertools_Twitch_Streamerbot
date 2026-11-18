@@ -568,11 +568,24 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
 
 **Song requests (`!sr` / `!songrequest`, `!song`)** — `twitch/songrequest.js` +
 `twitch/spotify.js`, ported from `../DerDeimos-Overlay/src/{songrequest,spotify}.js`.
-`!sr <title | Spotify link>` queues the track on the streamer's Spotify (Premium,
-app must be playing — a 404 from Spotify means "nothing is playing") and also
-appends it to a per-stream playlist `<stream title>_<date>`. `SR_LIMIT` requests
-per viewer in `SR_WINDOW_MS` (3 in 2 min); explicit tracks only with
-`SR_ALLOW_EXPLICIT=1`. No overlay.
+`!sr <title | Spotify link>` puts the track on the suite's own wish list
+(Premium, Spotify must be playing) and also appends it to a per-stream playlist
+`<stream title>_<date>`. `SR_LIMIT` requests per viewer in `SR_WINDOW_MS` (3 in
+2 min); explicit tracks only with `SR_ALLOW_EXPLICIT=1`. No overlay.
+
+- **Spotify's own queue is not used — deliberately, and unlike DerDeimos-Overlay.**
+  `POST /me/player/queue` answers 200 and the track shows up, then vanishes
+  without being played: during a Jam at every track change, without a Jam even
+  mid-track (measured live, 2026-11-18). `twitch/wishplayer.js` therefore keeps
+  the list in Redis (`sr:wishes`: `pending`, `active`, `resume`) and starts the
+  next wish itself with `PUT /me/player/play` 3.5 s before the running track
+  ends. It never starts anything while Spotify is paused, keeps a wish pending
+  if the start fails, and after the last wish returns to the playlist that was
+  running (next track), if there was one. It polls Spotify every 1.5 s only
+  while wishes are open. `/health` → `twitch.wishes` is the open count. Pure
+  logic, tests: `node --test tests/wishplayer.test.js`.
+- Consequence: wishes do not appear in the Spotify app's queue view. The chat
+  reply carries position and wait time from the suite's own list.
 
 - **Same Spotify app and same URLs as DerDeimos-Overlay:** redirect
   `http://127.0.0.1:3200/auth/spotify/callback` (Spotify allows http only on
