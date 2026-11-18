@@ -88,6 +88,14 @@
         reverse_proxy alerts:3003
     }
 
+    # ── Spotify-OAuth (Songwuensche !sr) ──────────────────
+    # Gleiche URLs wie im DerDeimos-Overlay: die Spotify-App kennt
+    # http://127.0.0.1:3200/auth/spotify/callback. Login ueber SSH-Tunnel
+    # 127.0.0.1:3200 -> Server:80, deshalb ohne /alerts-Praefix.
+    handle /auth/spotify/* {
+        reverse_proxy alerts:3003
+    }
+
     header {
         Access-Control-Allow-Origin *
         Access-Control-Allow-Methods "GET, POST, OPTIONS"

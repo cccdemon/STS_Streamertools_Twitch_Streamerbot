@@ -146,6 +146,12 @@ services:
       KRAKEN_TARGET:        ${KRAKEN_TARGET:-100000}
       WOW_TEXT:             ${WOW_TEXT:-}
       BECHER_TEXT:          ${BECHER_TEXT:-}
+      SPOTIFY_CLIENT_ID:     ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      SPOTIFY_REDIRECT_URI:  ${SPOTIFY_REDIRECT_URI:-http://127.0.0.1:3200/auth/spotify/callback}
+      SR_LIMIT:              ${SR_LIMIT:-3}
+      SR_WINDOW_MS:          ${SR_WINDOW_MS:-120000}
+      SR_ALLOW_EXPLICIT:     ${SR_ALLOW_EXPLICIT:-0}
       TZ: Europe/Berlin
     depends_on:
       redis:

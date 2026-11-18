@@ -566,6 +566,27 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   `kanal-fehler`, …) but never fails on it.
 - A Streamerbot command with the same name would answer as well.
 
+**Song requests (`!sr` / `!songrequest`, `!song`)** — `twitch/songrequest.js` +
+`twitch/spotify.js`, ported from `../DerDeimos-Overlay/src/{songrequest,spotify}.js`.
+`!sr <title | Spotify link>` queues the track on the streamer's Spotify (Premium,
+app must be playing — a 404 from Spotify means "nothing is playing") and also
+appends it to a per-stream playlist `<stream title>_<date>`. `SR_LIMIT` requests
+per viewer in `SR_WINDOW_MS` (3 in 2 min); explicit tracks only with
+`SR_ALLOW_EXPLICIT=1`. No overlay.
+
+- **Same Spotify app and same URLs as DerDeimos-Overlay:** redirect
+  `http://127.0.0.1:3200/auth/spotify/callback` (Spotify allows http only on
+  loopback IPs, not `localhost`). Caddy passes `/auth/spotify/*` to the alerts
+  service **without** the `/alerts` prefix (both Caddyfiles) so that URL lands
+  here. Connect once: `ssh -N -L 3200:127.0.0.1:80 root@$SSH_HOST`, then open
+  `http://127.0.0.1:3200/auth/spotify/login?key=$ADMIN_TOKEN`. Local port 3200
+  points at Caddy, not at the DerDeimos service — close any DerDeimos tunnel
+  first.
+- Tokens: Redis `spotify:tokens`; request history + current playlist: `sr:state`.
+- `/health` → `twitch.spotify`: `verbunden` / `nicht-verbunden` /
+  `nicht-konfiguriert`, never fails on it.
+- Tests: `node --test tests/songrequest.test.js`.
+
 ### Sound files
 Two locations, both checked in:
 - `services/alerts/public/sounds/` — used by `overlay.html`

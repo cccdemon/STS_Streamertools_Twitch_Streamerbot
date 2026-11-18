@@ -8,6 +8,8 @@ const { sendChat } = require('./chat.js');
 const { EventSubClient } = require('./eventsub.js');
 const { ChatReplies } = require('./replies.js');
 const { ChatCommands } = require('./commands.js');
+const { SongRequests } = require('./songrequest.js');
+const spotifyApi = require('./spotify.js');
 const { log, logErr } = require('./log.js');
 
 // Twitch-Chatbefehle ohne Streamerbot: eigener Broadcaster-Login, Chat ueber
@@ -16,6 +18,10 @@ const { log, logErr } = require('./log.js');
 // Routen (durch Caddy unter /alerts/...):
 //   GET /auth/login?key=ADMIN_TOKEN   Twitch-Login starten
 //   GET /auth/callback                Redirect-Ziel von Twitch
+//   GET /auth/spotify/login?key=...   Spotify fuer !sr verbinden
+//   GET /auth/spotify/callback        Redirect-Ziel von Spotify
+// Die beiden Spotify-Routen reicht Caddy zusaetzlich ohne /alerts-Praefix
+// durch — gleiche URLs wie im DerDeimos-Overlay.
 
 const eventsub = new EventSubClient(handleChat);
 const say = (message) => sendChat(eventsub.broadcaster, message);
@@ -26,12 +32,14 @@ const commands = new ChatCommands({
   say,
   krakenTarget: config.krakenTarget,
 });
+const songs = new SongRequests({ getBroadcaster: () => eventsub.broadcaster, say });
 
 function handleChat(e) {
   const text = e?.message?.text;
   const user = e?.chatter_user_name || e?.chatter_user_login || '';
   if (replies.handle(text, { source: `chat:${e?.chatter_user_login}`, user })) return;
-  commands.handle(e);
+  if (commands.handle(e)) return;
+  songs.handle(e);
 }
 
 function requireAdmin(req, res, next) {
@@ -74,11 +82,38 @@ function mount(app) {
       res.status(500).send('Token-Tausch fehlgeschlagen — Server-Log pruefen.');
     }
   });
+
+  // ── Spotify (Songwuensche) ──
+  app.get('/auth/spotify/login', requireAdmin, (_req, res) => {
+    if (!spotifyApi.spotifyConfigured()) {
+      return res.status(500).send('SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET fehlen in .env');
+    }
+    const state = crypto.randomBytes(16).toString('hex');
+    pendingStates.add(state);
+    setTimeout(() => pendingStates.delete(state), 10 * 60_000);
+    res.redirect(spotifyApi.authorizeUrl(state));
+  });
+
+  app.get('/auth/spotify/callback', async (req, res) => {
+    const { code, state, error } = req.query;
+    if (error) return res.status(400).send(`Spotify-Fehler: ${escapeHtml(error)}`);
+    if (!state || !pendingStates.delete(String(state))) {
+      return res.status(400).send('Ungueltiger oder abgelaufener state-Parameter. Login neu starten.');
+    }
+    try {
+      await spotifyApi.exchangeCode(String(code));
+      res.send('<!doctype html><meta charset="utf-8"><title>Spotify verbunden</title>'
+        + '<h1>Spotify verbunden</h1><p>Fenster kann geschlossen werden.</p>');
+    } catch (err) {
+      logErr('Spotify', 'callback:', err.message);
+      res.status(500).send('Spotify-Token-Tausch fehlgeschlagen — Server-Log pruefen.');
+    }
+  });
 }
 
 async function start(redis) {
   await store.init(redis);
-  log('Twitch', `Chatbefehle: ${[...replies.names(), ...commands.names()].join(', ')}`);
+  log('Twitch', `Chatbefehle: ${[...replies.names(), ...commands.names(), ...songs.names()].join(', ')}`);
   await eventsub.start().catch((err) => logErr('EventSub', 'start:', err.message));
 }
 
@@ -87,6 +122,8 @@ function status() {
     eventsub: eventsub.status,
     channel: config.channel || null,
     connected: Boolean(store.getTokens()?.accessToken),
+    spotify: !spotifyApi.spotifyConfigured() ? 'nicht-konfiguriert'
+      : spotifyApi.spotifyConnected() ? 'verbunden' : 'nicht-verbunden',
   };
 }
 
