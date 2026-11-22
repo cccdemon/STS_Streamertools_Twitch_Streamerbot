@@ -546,7 +546,7 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
 - **Read:** EventSub WS `channel.chat.message` with the broadcaster's own user
   token. **Write:** Helix `POST /chat/messages` as the broadcaster.
 - **Token:** Redis key `twitch:tokens`, refreshed 5 min before expiry. Login
-  once at `/alerts/auth/login?key=$ADMIN_TOKEN`; scopes in `twitch/config.js`
+  once at `/alerts/auth/login` (no key); scopes in `twitch/config.js`
   (`TWITCH_SCOPES`) — adding a scope means logging in again.
 - **Redirect:** the suite's Twitch app (`TWITCH_CLIENT_ID`) lists only
   `http://localhost`, so `TWITCH_REDIRECT_URI` defaults to exactly that. Twitch
@@ -554,7 +554,7 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   rewrites that to the alerts `/auth/callback`, and the root `/admin/` redirect
   skips requests carrying `state`. Login runs through a tunnel onto Caddy:
   `ssh -N -L 80:localhost:80 root@$SSH_HOST`, then open
-  `http://localhost/alerts/auth/login?key=…`. A mismatch shows up as
+  `http://localhost/alerts/auth/login`. A mismatch shows up as
   `redirect_mismatch` in the URL Twitch sends you back to.
 - Fixed texts (`!wow`, `!becher`): `chatReplies` table in `twitch/config.js`,
   overridable per env (`WOW_TEXT`, `BECHER_TEXT`, passed through compose). An
@@ -596,7 +596,7 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   loopback IPs, not `localhost`). Caddy passes `/auth/spotify/*` to the alerts
   service **without** the `/alerts` prefix (both Caddyfiles) so that URL lands
   here. Connect once: `ssh -N -L 3200:127.0.0.1:80 root@$SSH_HOST`, then open
-  `http://127.0.0.1:3200/auth/spotify/login?key=$ADMIN_TOKEN`. Local port 3200
+  `http://127.0.0.1:3200/auth/spotify/login`. Local port 3200
   points at Caddy, not at the DerDeimos service — close any DerDeimos tunnel
   first.
 - **Regie** — `/admin/regie.html` (`admin/public/regie.{html,js}`): running track,
@@ -604,10 +604,8 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   Twitch state with connect links, stream playlist link. It polls
   `GET /alerts/api/regie/state` every 4 s; writes are
   `POST /alerts/api/regie/songs/enabled` and `POST /alerts/api/regie/wishes/{remove,front}`
-  (`{index, uri}` — 409 when the entry is no longer at that index). All of
-  `/api/regie/*` requires `x-admin-token`; the page keeps the token in
-  `localStorage` (`rdoc_admin_token`). First admin surface in this stack that
-  is actually authenticated — the others under "Known Issues" still are not.
+  (`{index, uri}` — 409 when the entry is no longer at that index). No
+  authentication, like every other admin surface here — see "Known Issues".
 - Tokens: Redis `spotify:tokens`; request history + current playlist: `sr:state`.
 - `/health` → `twitch.spotify`: `verbunden` / `nicht-verbunden` /
   `nicht-konfiguriert`, never fails on it.
@@ -715,14 +713,22 @@ describe `services/giveaway`, `gw_cmd` or giveaway overlays:
 
 ## Known Issues
 
-### Security — no auth on admin surfaces
+### Security — no auth on admin surfaces (by decision)
+The streamer decided on 2026-11-22: the stack is reachable only inside the home
+LAN and gets **no** authentication. Do not add token checks, login prompts or
+`requireAdmin` guards — a token gate on the Regie page and the OAuth login
+routes was built and removed again the same day. `ADMIN_TOKEN` is still passed
+into the alerts container but nothing reads it. This changes only if the stack
+is ever exposed beyond the LAN (see `future-idea.md`).
+
+What that means concretely:
 - WS admin commands (`sf_cmd`) are accepted from any client reaching
   `/spacefight/ws`. No authentication exists.
 - `POST /alerts/api/chat/send`, `/alerts/api/claude/summary` and
   `/alerts/api/profile` are public through Caddy — no token required.
-- **Planned fix**: `ADMIN_TOKEN` env var; WS `{ event: 'cc_auth', token }`
-  handshake before `handleSfCmd`; `x-admin-token` header on mutation REST
-  endpoints.
+- `/alerts/api/regie/*` (wish list, song requests on/off) and the OAuth login
+  routes `/alerts/auth/login`, `/auth/spotify/login` are open as well — anyone
+  in the LAN can re-link the Twitch or Spotify account.
 
 ### Streamerbot host is hardcoded
 `overlay.html` embeds the Streamerbot WS address. Override per OBS source with

@@ -1,16 +1,13 @@
 // Regie: Wunschliste, laufender Titel, Songwuensche an/aus, Verbindungen.
-// Spricht mit dem Alerts-Service (/alerts/api/regie/*), jede Anfrage traegt
-// das Admin-Token. Relativer Pfad, damit es hinter Caddy unter jedem Host geht.
+// Spricht mit dem Alerts-Service (/alerts/api/regie/*). Keine Anmeldung: der
+// Stack haengt nur im LAN. Relativer Pfad, damit es hinter Caddy unter jedem Host geht.
 (function () {
   'use strict';
 
   var API = '../alerts/api/regie/';
-  var TOKEN_KEY = 'rdoc_admin_token';
   var POLL_MS = 4000;
 
   var $ = function (id) { return document.getElementById(id); };
-  var token = '';
-  try { token = localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { /* kein Speicher */ }
   var state = null;
   var fetchedAt = 0;
 
@@ -42,13 +39,11 @@
   }
 
   function call(path, body) {
-    if (!token) return Promise.reject(new Error('kein Token'));
     return fetch(API + path, {
       method: body ? 'POST' : 'GET',
-      headers: body ? { 'content-type': 'application/json', 'x-admin-token': token } : { 'x-admin-token': token },
+      headers: body ? { 'content-type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
     }).then(function (res) {
-      if (res.status === 401) throw new Error('Token falsch');
       // 409: der Eintrag stand nicht mehr an der Stelle — der frische Stand kommt trotzdem mit.
       if (!res.ok && res.status !== 409) throw new Error('HTTP ' + res.status);
       return res.json();
@@ -63,7 +58,7 @@
   }
 
   function fail(err) {
-    badge($('link'), false, 'REGIE: ' + (token ? String(err.message).toUpperCase() : 'TOKEN FEHLT'));
+    badge($('link'), false, 'REGIE: GETRENNT (' + String(err.message).toUpperCase() + ')');
     $('sr-toggle').disabled = true;
   }
 
@@ -139,8 +134,6 @@
       'SPOTIFY: ' + (!sp.configured ? 'NICHT EINGERICHTET' : !sp.connected ? 'GETRENNT' : sp.needsReconnect ? 'NEU VERBINDEN' : 'VERBUNDEN'));
     var tw = state.twitch;
     badge($('twitch-state'), tw.eventsub === 'verbunden', 'TWITCH: ' + String(tw.eventsub || '–').toUpperCase());
-    $('spotify-connect').href = '/auth/spotify/login?key=' + encodeURIComponent(token);
-    $('twitch-connect').href = '/alerts/auth/login?key=' + encodeURIComponent(token);
 
     var pl = state.songs.playlist;
     $('playlist-name').textContent = pl ? pl.name : 'Noch keine Playlist in diesem Stream.';
@@ -165,19 +158,6 @@
 
   $('sr-toggle').addEventListener('click', function () {
     if (state) act('songs/enabled', { enabled: !state.songs.enabled });
-  });
-
-  $('token').value = token;
-  $('token-save').addEventListener('click', function () {
-    token = $('token').value.trim();
-    try { localStorage.setItem(TOKEN_KEY, token); } catch (e) { /* kein Speicher */ }
-    refresh();
-  });
-  $('token-clear').addEventListener('click', function () {
-    token = '';
-    $('token').value = '';
-    try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* kein Speicher */ }
-    fail(new Error('kein Token'));
   });
 
   refresh();

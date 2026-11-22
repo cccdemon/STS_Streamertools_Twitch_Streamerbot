@@ -41,7 +41,7 @@ class EventSubClient {
     const token = await validToken();
     if (!token) {
       this.status = 'kein-token';
-      log('EventSub', 'Kein Twitch-Token — /alerts/auth/login?key=ADMIN_TOKEN oeffnen und Kanal verbinden');
+      log('EventSub', 'Kein Twitch-Token — /alerts/auth/login oeffnen und Kanal verbinden');
       return;
     }
     try {

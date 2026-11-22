@@ -60,30 +60,15 @@
   <aside class="regie-side">
 
     <section class="test-section">
-      <div class="test-section-title">ZUGANG</div>
-      <div class="test-section-body">
-        <div class="test-row">
-          <span class="row-label">TOKEN</span>
-          <input type="password" id="token" class="regie-token" placeholder="ADMIN_TOKEN" autocomplete="off">
-        </div>
-        <div class="test-row">
-          <button id="token-save" class="btn btn-struct btn-sm">SPEICHERN</button>
-          <button id="token-clear" class="btn btn-danger btn-sm">VERGESSEN</button>
-        </div>
-        <div id="token-hint" class="hint">Das Token bleibt nur in diesem Browser.</div>
-      </div>
-    </section>
-
-    <section class="test-section">
       <div class="test-section-title">VERBINDUNGEN</div>
       <div class="test-section-body">
         <div class="test-row">
           <span id="spotify-state" class="badge off">SPOTIFY: –</span>
-          <a id="spotify-connect" class="btn btn-struct btn-sm" href="#">VERBINDEN</a>
+          <a id="spotify-connect" class="btn btn-struct btn-sm" href="/auth/spotify/login">VERBINDEN</a>
         </div>
         <div class="test-row">
           <span id="twitch-state" class="badge off">TWITCH: –</span>
-          <a id="twitch-connect" class="btn btn-struct btn-sm" href="#">VERBINDEN</a>
+          <a id="twitch-connect" class="btn btn-struct btn-sm" href="/alerts/auth/login">VERBINDEN</a>
         </div>
         <div class="hint">
           Verbinden geht nur über den SSH-Tunnel: Spotify unter <b>http://127.0.0.1:3200</b>,

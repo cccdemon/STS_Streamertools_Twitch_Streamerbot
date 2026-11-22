@@ -17,12 +17,13 @@ const { log, logErr } = require('./log.js');
 // EventSub lesen, ueber Helix antworten. Aufbau wie im DerDeimos-Overlay.
 //
 // Routen (durch Caddy unter /alerts/...):
-//   GET /auth/login?key=ADMIN_TOKEN   Twitch-Login starten
+//   GET /auth/login                   Twitch-Login starten
 //   GET /auth/callback                Redirect-Ziel von Twitch
-//   GET /auth/spotify/login?key=...   Spotify fuer !sr verbinden
+//   GET /auth/spotify/login           Spotify fuer !sr verbinden
 //   GET /auth/spotify/callback        Redirect-Ziel von Spotify
-//   /api/regie/*                      Regie-Seite (/admin/regie.html), nur mit
-//                                     x-admin-token: Wunschliste, An/Aus, Status
+//   /api/regie/*                      Regie-Seite (/admin/regie.html): Wunschliste,
+//                                     An/Aus, Status. Ohne Anmeldung — der Stack
+//                                     haengt nur im LAN (Entscheidung des Streamers).
 // Die beiden Spotify-Routen reicht Caddy zusaetzlich ohne /alerts-Praefix
 // durch — gleiche URLs wie im DerDeimos-Overlay.
 
@@ -58,20 +59,12 @@ function handleChat(e) {
   songs.handle(e);
 }
 
-function requireAdmin(req, res, next) {
-  const key = req.query.key || req.get('x-admin-token') || '';
-  if (!config.adminToken || key !== config.adminToken) {
-    return res.status(401).send('unauthorized — ADMIN_TOKEN in .env setzen und ?key= anhaengen');
-  }
-  next();
-}
-
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 function mount(app) {
   const pendingStates = new Set();
 
-  app.get('/auth/login', requireAdmin, (_req, res) => {
+  app.get('/auth/login', (_req, res) => {
     if (!config.clientId || !config.clientSecret) {
       return res.status(500).send('TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET fehlen in .env');
     }
@@ -100,7 +93,7 @@ function mount(app) {
   });
 
   // ── Spotify (Songwuensche) ──
-  app.get('/auth/spotify/login', requireAdmin, (_req, res) => {
+  app.get('/auth/spotify/login', (_req, res) => {
     if (!spotifyApi.spotifyConfigured()) {
       return res.status(500).send('SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET fehlen in .env');
     }
@@ -127,11 +120,11 @@ function mount(app) {
   });
 
   // ── Regie ──
-  app.get('/api/regie/state', requireAdmin, async (_req, res) => {
+  app.get('/api/regie/state', async (_req, res) => {
     res.json(await regieState());
   });
 
-  app.post('/api/regie/songs/enabled', requireAdmin, async (req, res) => {
+  app.post('/api/regie/songs/enabled', async (req, res) => {
     const enabled = req.body?.enabled === true;
     await store.setSongState({ ...songState(), enabled });
     log('Regie', `Songwuensche ${enabled ? 'an' : 'aus'}`);
@@ -140,7 +133,7 @@ function mount(app) {
 
   // action: 'remove' streicht, 'front' zieht nach vorn. 409, wenn der Eintrag
   // nicht mehr an der Stelle steht (Liste hat sich inzwischen bewegt).
-  app.post('/api/regie/wishes/:action', requireAdmin, async (req, res) => {
+  app.post('/api/regie/wishes/:action', async (req, res) => {
     const index = Number.parseInt(req.body?.index, 10);
     const uri = String(req.body?.uri || '');
     const run = { remove: () => wishes.removeAt(index, uri), front: () => wishes.moveToFront(index, uri) }[req.params.action];
