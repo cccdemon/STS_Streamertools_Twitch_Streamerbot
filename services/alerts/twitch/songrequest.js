@@ -12,6 +12,7 @@ const { log, logErr } = require('./log.js');
 // Songwuensche aus dem Chat. Uebernommen aus dem DerDeimos-Overlay
 // (src/songrequest.js):
 //   !sr <Titel | Spotify-Link>   setzt den Song auf die Wunschliste (alle Zuschauer)
+//   !songremove                  nimmt den eigenen letzten offenen Wunsch zurueck
 //   !song                        was gerade laeuft
 // Je Zuschauer SR_LIMIT Wuensche in SR_WINDOW_MS (Standard 3 in 2 Minuten).
 // Explizite Songs nur mit SR_ALLOW_EXPLICIT=1. Kein Overlay.
@@ -99,7 +100,7 @@ class SongRequests {
   }
 
   names() {
-    return ['!sr', '!song'];
+    return ['!sr', '!songremove', '!song'];
   }
 
   handle(event) {
@@ -109,6 +110,10 @@ class SongRequests {
       if (Date.now() - this.songAt < SONG_COOLDOWN_MS) return true;
       this.songAt = Date.now();
       this.song().catch((err) => logErr('Chat.song', err.message));
+      return true;
+    }
+    if (word === '!songremove' || word === '!srremove') {
+      this.remove(event).catch((err) => logErr('Chat.songremove', err.message));
       return true;
     }
     if (word !== '!sr' && word !== '!songrequest') return false;
@@ -159,7 +164,7 @@ class SongRequests {
         at: new Date().toISOString(),
       };
       const position = await this.wishes.add({
-        uri: track.uri, title: entry.title, artists: entry.artists, user: name, durationMs: track.duration_ms || 0,
+        uri: track.uri, title: entry.title, artists: entry.artists, user: name, userId: key, durationMs: track.duration_ms || 0,
       });
       log('Chat', `!sr ${name}: ${desc} (Platz ${position})`);
       await store.setSongState({ ...s, history: [entry, ...s.history].slice(0, HISTORY) });
@@ -175,6 +180,27 @@ class SongRequests {
       logErr('Chat.sr', err.message);
       await this.say(`@${name} das hat nicht geklappt.`);
     }
+  }
+
+  // Falscher Treffer: jeder nimmt nur den eigenen Wunsch zurueck, und zwar den
+  // zuletzt gewuenschten, der noch nicht laeuft. Der Versuch zaehlt dann nicht
+  // mehr gegen das Limit. In der Stream-Playlist bleibt der Titel stehen.
+  async remove(event) {
+    const name = sanitizeName(event.chatter_user_name || event.chatter_user_login);
+    const key = event.chatter_user_id || event.chatter_user_login;
+    const removed = await this.wishes.removeLast({ userId: key, user: name });
+    if (removed === 'active') {
+      await this.say(`@${name} dein Wunsch läuft schon, den kann ich nicht mehr zurücknehmen.`);
+      return;
+    }
+    if (!removed) {
+      await this.say(`@${name} von dir steht gerade kein Wunsch auf der Liste.`);
+      return;
+    }
+    this.limit.refund(key);
+    log('Chat', `!songremove ${name}: „${removed.title}“`);
+    const desc = removed.artists ? `„${removed.title}“ von ${removed.artists}` : `„${removed.title}“`;
+    await this.say(`@${name} ${desc} ist von der Wunschliste gestrichen.`);
   }
 
   // Jeder Wunsch landet zusaetzlich in der Playlist des laufenden Streams.

@@ -88,6 +88,7 @@ test('SongRequests.handle: nur !sr, !songrequest und !song', () => {
   assert.equal(sr.handle(chat('!sr Daft Punk')), true);
   assert.equal(sr.handle(chat('!SongRequest Daft Punk')), true);
   assert.equal(sr.handle(chat('!song')), true);
+  assert.equal(sr.handle(chat('!songremovex')), false);
 });
 
 test('!sr ohne Spotify-Verbindung antwortet statt zu schweigen', async () => {
@@ -95,4 +96,22 @@ test('!sr ohne Spotify-Verbindung antwortet statt zu schweigen', async () => {
   const sr = new SongRequests({ getBroadcaster: () => null, say: async (m) => { said.push(m); } });
   await sr.request(chat('!sr Daft Punk'), ' Daft Punk');
   assert.deepEqual(said, ['@Pilot Songwünsche sind gerade nicht verfügbar.']);
+});
+
+test('!songremove: streicht den eigenen Wunsch, sonst ehrliche Antwort', async () => {
+  const said = [];
+  const state = { pending: [{ uri: 'u', title: 'Falsch', artists: 'X', user: 'Pilot', userId: '1' }], active: null };
+  const wishes = {
+    removeLast: async ({ userId }) => {
+      const i = state.pending.findLastIndex((w) => w.userId === userId);
+      return i < 0 ? null : state.pending.splice(i, 1)[0];
+    },
+  };
+  const sr = new SongRequests({ getBroadcaster: () => null, say: async (m) => { said.push(m); }, wishes });
+  await sr.remove(chat('!songremove'));
+  await sr.remove(chat('!songremove'));
+  assert.deepEqual(said.slice(-2), [
+    '@Pilot „Falsch“ von X ist von der Wunschliste gestrichen.',
+    '@Pilot von dir steht gerade kein Wunsch auf der Liste.',
+  ]);
 });

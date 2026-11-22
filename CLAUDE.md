@@ -586,6 +586,10 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   logic, tests: `node --test tests/wishplayer.test.js`.
 - Consequence: wishes do not appear in the Spotify app's queue view. The chat
   reply carries position and wait time from the suite's own list.
+- `!songremove` (alias `!srremove`) takes back the caller's **own** most recent
+  wish that is not playing yet, matched by Twitch user id, and refunds that
+  attempt against `SR_LIMIT`. A wish that is already running stays. The track
+  is not removed from the per-stream playlist.
 
 - **Same Spotify app and same URLs as DerDeimos-Overlay:** redirect
   `http://127.0.0.1:3200/auth/spotify/callback` (Spotify allows http only on

@@ -140,3 +140,25 @@ test('etaMs: Rest des laufenden Titels plus die Wuensche davor', async () => {
   assert.equal(r.wp.etaMs(player, 1), 60_000);
   assert.equal(r.wp.etaMs(player, 2), 60_000 + 180_000);
 });
+
+test('removeLast: nur der eigene, zuletzt gewuenschte offene Titel', async () => {
+  const r = rig();
+  await r.wp.add({ ...wish('a', 'Anna'), userId: '1' });
+  await r.wp.add({ ...wish('b', 'Bert'), userId: '2' });
+  await r.wp.add({ ...wish('c', 'Anna'), userId: '1' });
+  assert.equal((await r.wp.removeLast({ userId: '1', user: 'Anna' })).title, 'c');
+  assert.deepEqual(r.state().pending.map((w) => w.title), ['a', 'b']);
+  assert.equal(await r.wp.removeLast({ userId: '3', user: 'Carl' }), null);
+  assert.deepEqual(r.state().pending.map((w) => w.title), ['a', 'b']);
+});
+
+test('removeLast: laufender Wunsch bleibt, alte Eintraege ohne userId gehen ueber den Namen', async () => {
+  const r = rig();
+  await r.wp.add({ ...wish('a', 'Anna'), userId: '1' });
+  r.sp.progress = 198_000;
+  await r.wp.tick(); // a laeuft
+  assert.equal(await r.wp.removeLast({ userId: '1', user: 'Anna' }), 'active');
+  assert.equal(r.state().active.title, 'a');
+  await r.wp.add(wish('alt', 'Bert'));
+  assert.equal((await r.wp.removeLast({ userId: '2', user: 'Bert' })).title, 'alt');
+});

@@ -47,6 +47,21 @@ class WishPlayer {
     return s.pending.length;
   }
 
+  /**
+   * Nimmt den zuletzt gewuenschten, noch offenen Titel dieses Zuschauers von
+   * der Liste. → der Wunsch, `'active'` wenn sein einziger gerade laeuft,
+   * sonst null. Aeltere Eintraege ohne userId werden am Namen erkannt.
+   */
+  async removeLast({ userId, user }) {
+    const s = this.state();
+    const mine = (w) => (w.userId ? w.userId === userId : w.user === user);
+    const i = s.pending.findLastIndex(mine);
+    if (i < 0) return s.active && mine(s.active) ? 'active' : null;
+    const [removed] = s.pending.splice(i, 1);
+    await this.save(s);
+    return removed;
+  }
+
   /** Wartezeit bis zum Wunsch auf `position`: Rest des laufenden Titels plus alle Wuensche davor. */
   etaMs(player, position) {
     const s = this.state();
@@ -105,7 +120,7 @@ class WishPlayer {
       const next = s.pending[0];
       await this.api.playUris([next.uri]); // wirft bei Fehler: Wunsch bleibt offen
       s.pending.shift();
-      s.active = { uri: next.uri, title: next.title, user: next.user, at: now };
+      s.active = { uri: next.uri, title: next.title, user: next.user, userId: next.userId, at: now };
       await this.save(s);
       this.log(`Wunsch gestartet: „${next.title}“ (${next.user}), noch ${s.pending.length} offen`);
       return;
