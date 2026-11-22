@@ -273,7 +273,8 @@ footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 1
 .regie-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
 .regie-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; font-weight: 400; color: var(--struct); text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
 .regie-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-.regie-table .num { font-family: var(--mono); font-size: 12px; color: var(--dim); white-space: nowrap; width: 1%; }
+.regie-table .num { white-space: nowrap; width: 1%; }
+.regie-table td.num { font-family: var(--mono); font-size: 12px; color: var(--dim); }
 .regie-table .ops { text-align: right; white-space: nowrap; width: 1%; }
 .regie-table .ops .btn { margin-left: 6px; }
 .regie-token { flex: 1; min-width: 100px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 9px; outline: none; }
