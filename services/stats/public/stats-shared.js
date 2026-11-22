@@ -185,6 +185,7 @@
     { href: '/spacefight/spacefight-admin.html', label: 'SF ADMIN', group: 'spacefight', color: 'accent' },
     { href: '/stats/stats.html',             label: 'STATISTIKEN',  group: 'spacefight' },
     { sep: true },
+    { href: '/admin/regie.html',             label: 'REGIE',        group: 'tools', color: 'accent' },
     { href: '/admin/alerts-test.html',       label: 'ALERT TEST',   group: 'tools', color: 'accent' },
     { href: '/admin/tests/test-runner.html', label: 'TEST SUITE',   group: 'tools' },
     { href: '/admin/streamerbot.html',       label: 'C# ACTIONS',   group: 'tools', color: 'accent' },

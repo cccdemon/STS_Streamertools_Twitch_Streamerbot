@@ -62,6 +62,26 @@ class WishPlayer {
     return removed;
   }
 
+  // Regie: Eintrag an `index` streichen bzw. nach vorn ziehen. Die uri muss
+  // mitkommen und passen — die Liste kann sich zwischen Anzeige und Klick
+  // verschoben haben, dann lieber nichts tun als den falschen Wunsch treffen.
+  async removeAt(index, uri) {
+    const s = this.state();
+    if (!s.pending[index] || s.pending[index].uri !== uri) return null;
+    const [removed] = s.pending.splice(index, 1);
+    await this.save(s);
+    return removed;
+  }
+
+  async moveToFront(index, uri) {
+    const s = this.state();
+    if (!s.pending[index] || s.pending[index].uri !== uri) return null;
+    const [w] = s.pending.splice(index, 1);
+    s.pending.unshift(w);
+    await this.save(s);
+    return w;
+  }
+
   /** Wartezeit bis zum Wunsch auf `position`: Rest des laufenden Titels plus alle Wuensche davor. */
   etaMs(player, position) {
     const s = this.state();

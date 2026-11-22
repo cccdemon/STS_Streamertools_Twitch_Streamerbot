@@ -259,3 +259,27 @@ footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 1
 /* back link for non-index pages */
 .back-link { font-family: var(--mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--struct); text-decoration: none; padding: 5px 10px; border: 1px solid color-mix(in srgb, var(--struct) 50%, transparent); transition: background 0.12s; }
 .back-link:hover { background: color-mix(in srgb, var(--struct) 12%, transparent); }
+
+/* ── Regie (regie.html) ─────────────────────────────────── */
+/* Wunschliste links, Zugang und Verbindungen rechts. Patina traegt die
+   Struktur (Tabellenkopf, Balken), Copper nur der eine Schalter im Kopf. */
+.regie-layout { display: grid; grid-template-columns: 1fr 360px; height: calc(100vh - var(--nav-h) - var(--head-h)); overflow: hidden; }
+.regie-main, .regie-side { overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.regie-side { border-left: 1px solid var(--border); }
+.regie-now-title { font-family: var(--sans); font-size: 20px; color: var(--text); line-height: 1.3; }
+.regie-bar { height: 4px; background: var(--bg3); }
+.regie-bar-fill { height: 100%; width: 0; background: var(--struct); }
+.regie-count { color: var(--text); margin-left: 6px; }
+.regie-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+.regie-table th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.07em; font-weight: 400; color: var(--struct); text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+.regie-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.regie-table .num { font-family: var(--mono); font-size: 12px; color: var(--dim); white-space: nowrap; width: 1%; }
+.regie-table .ops { text-align: right; white-space: nowrap; width: 1%; }
+.regie-table .ops .btn { margin-left: 6px; }
+.regie-token { flex: 1; min-width: 100px; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 9px; outline: none; }
+.regie-hidden { display: none; }
+a.btn { text-decoration: none; }
+@media (max-width: 900px) {
+  .regie-layout { grid-template-columns: 1fr; height: auto; overflow: visible; }
+  .regie-side { border-left: 0; border-top: 1px solid var(--border); }
+}

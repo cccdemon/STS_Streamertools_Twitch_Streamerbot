@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>RDOC – Regie</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="stylesheet" href="rdoc-brand.css">
+<link rel="stylesheet" href="rdoc-admin.css">
+</head>
+<body>
+<script src="admin-shared.js"></script>
+
+<div class="page-header">
+  <div class="page-title">RDOC<span> //</span> <em>Regie</em></div>
+  <div class="header-right">
+    <span id="link" class="badge off">REGIE: GETRENNT</span>
+    <span id="sr-state" class="badge off">WÜNSCHE: –</span>
+    <button id="sr-toggle" class="btn btn-accent btn-sm" disabled>–</button>
+  </div>
+</div>
+
+<div class="regie-layout">
+
+  <main class="regie-main">
+
+    <section class="test-section">
+      <div class="test-section-title">LÄUFT GERADE</div>
+      <div class="test-section-body">
+        <div id="now-title" class="regie-now-title">–</div>
+        <div id="now-sub" class="hint">–</div>
+        <div class="regie-bar"><div id="now-bar" class="regie-bar-fill"></div></div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <div class="test-section-title">WUNSCHLISTE <span id="wish-count" class="regie-count">0</span></div>
+      <div class="test-section-body">
+        <table class="regie-table">
+          <thead><tr><th class="num">#</th><th>TITEL</th><th>VON</th><th class="num">STARTET IN</th><th></th></tr></thead>
+          <tbody id="wishes"></tbody>
+        </table>
+        <div id="wish-empty" class="hint">Keine offenen Wünsche. Zuschauer wünschen mit <b>!sr Interpret Titel</b>.</div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <div class="test-section-title">ZULETZT GEWÜNSCHT</div>
+      <div class="test-section-body">
+        <table class="regie-table">
+          <thead><tr><th class="num">UHRZEIT</th><th>TITEL</th><th>VON</th></tr></thead>
+          <tbody id="history"></tbody>
+        </table>
+        <div id="history-empty" class="hint">Noch keine Wünsche.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <aside class="regie-side">
+
+    <section class="test-section">
+      <div class="test-section-title">ZUGANG</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <span class="row-label">TOKEN</span>
+          <input type="password" id="token" class="regie-token" placeholder="ADMIN_TOKEN" autocomplete="off">
+        </div>
+        <div class="test-row">
+          <button id="token-save" class="btn btn-struct btn-sm">SPEICHERN</button>
+          <button id="token-clear" class="btn btn-danger btn-sm">VERGESSEN</button>
+        </div>
+        <div id="token-hint" class="hint">Das Token bleibt nur in diesem Browser.</div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <div class="test-section-title">VERBINDUNGEN</div>
+      <div class="test-section-body">
+        <div class="test-row">
+          <span id="spotify-state" class="badge off">SPOTIFY: –</span>
+          <a id="spotify-connect" class="btn btn-struct btn-sm" href="#">VERBINDEN</a>
+        </div>
+        <div class="test-row">
+          <span id="twitch-state" class="badge off">TWITCH: –</span>
+          <a id="twitch-connect" class="btn btn-struct btn-sm" href="#">VERBINDEN</a>
+        </div>
+        <div class="hint">
+          Verbinden geht nur über den SSH-Tunnel: Spotify unter <b>http://127.0.0.1:3200</b>,
+          Twitch unter <b>http://localhost</b> – die Anbieter erlauben keine andere Rücksprungadresse.
+        </div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <div class="test-section-title">STREAM-PLAYLIST</div>
+      <div class="test-section-body">
+        <div id="playlist-name" class="hint">Noch keine Playlist in diesem Stream.</div>
+        <div class="test-row">
+          <a id="playlist-link" class="btn btn-struct btn-sm regie-hidden" href="#" target="_blank" rel="noopener">IN SPOTIFY ÖFFNEN</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="test-section">
+      <div class="test-section-title">REGELN</div>
+      <div class="test-section-body">
+        <div id="rules" class="hint">–</div>
+        <div class="hint">Ändern: <b>SR_LIMIT</b>, <b>SR_WINDOW_MS</b>, <b>SR_ALLOW_EXPLICIT</b> in der .env, dann Alerts-Dienst neu starten.</div>
+      </div>
+    </section>
+
+  </aside>
+
+</div>
+
+<script src="regie.js"></script>
+</body>
+</html>

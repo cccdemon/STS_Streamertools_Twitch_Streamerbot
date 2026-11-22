@@ -162,3 +162,16 @@ test('removeLast: laufender Wunsch bleibt, alte Eintraege ohne userId gehen uebe
   await r.wp.add(wish('alt', 'Bert'));
   assert.equal((await r.wp.removeLast({ userId: '2', user: 'Bert' })).title, 'alt');
 });
+
+test('Regie: streichen und nach vorn ziehen nur, wenn der Eintrag noch dort steht', async () => {
+  const r = rig();
+  await r.wp.add(wish('a'));
+  await r.wp.add(wish('b'));
+  await r.wp.add(wish('c'));
+  assert.equal(await r.wp.removeAt(0, 'spotify:track:b'), null); // Liste hat sich bewegt
+  assert.equal(await r.wp.moveToFront(5, 'spotify:track:c'), null);
+  assert.equal((await r.wp.moveToFront(2, 'spotify:track:c')).title, 'c');
+  assert.deepEqual(r.state().pending.map((w) => w.title), ['c', 'a', 'b']);
+  assert.equal((await r.wp.removeAt(1, 'spotify:track:a')).title, 'a');
+  assert.deepEqual(r.state().pending.map((w) => w.title), ['c', 'b']);
+});

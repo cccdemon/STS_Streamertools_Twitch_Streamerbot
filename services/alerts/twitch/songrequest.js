@@ -250,4 +250,6 @@ class SongRequests {
   }
 }
 
-module.exports = { SongRequests, WindowLimit, playlistName, streamSession, songState };
+const limits = { limit: LIMIT, windowMs: WINDOW_MS, allowExplicit: ALLOW_EXPLICIT };
+
+module.exports = { SongRequests, WindowLimit, playlistName, streamSession, songState, limits };

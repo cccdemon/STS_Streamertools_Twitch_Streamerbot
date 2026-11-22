@@ -599,6 +599,15 @@ service itself — no C# action, no Bridge, no Redis channel. Ported 1:1 from
   `http://127.0.0.1:3200/auth/spotify/login?key=$ADMIN_TOKEN`. Local port 3200
   points at Caddy, not at the DerDeimos service — close any DerDeimos tunnel
   first.
+- **Regie** — `/admin/regie.html` (`admin/public/regie.{html,js}`): running track,
+  wish list with *Streichen* / *Nach vorn*, song requests on/off, Spotify and
+  Twitch state with connect links, stream playlist link. It polls
+  `GET /alerts/api/regie/state` every 4 s; writes are
+  `POST /alerts/api/regie/songs/enabled` and `POST /alerts/api/regie/wishes/{remove,front}`
+  (`{index, uri}` — 409 when the entry is no longer at that index). All of
+  `/api/regie/*` requires `x-admin-token`; the page keeps the token in
+  `localStorage` (`rdoc_admin_token`). First admin surface in this stack that
+  is actually authenticated — the others under "Known Issues" still are not.
 - Tokens: Redis `spotify:tokens`; request history + current playlist: `sr:state`.
 - `/health` → `twitch.spotify`: `verbunden` / `nicht-verbunden` /
   `nicht-konfiguriert`, never fails on it.
